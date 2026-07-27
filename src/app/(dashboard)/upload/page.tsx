@@ -13,8 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useCreateDataset } from "@/lib/hooks/useDatasets";
+import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { UPLOAD_FIELD_TOOLTIPS } from "@/lib/constants/upload-tooltips";
@@ -36,6 +38,7 @@ export default function UploadDatasetPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const createMutation = useCreateDataset();
+  const { data: categoriesData } = useCategories();
   const [currentStep, setCurrentStep] = useState(1);
   const [uploading, setUploading] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
@@ -43,6 +46,7 @@ export default function UploadDatasetPage() {
   // PRE-FILLED TEST DATA - Change as needed
   const [title, setTitle] = useState("Test Health Dataset 2026");
   const [description, setDescription] = useState("This is a test dataset for Niger State health data. Contains sample information for testing the upload flow and data validation.");
+  const [categoryId, setCategoryId] = useState<string>("");
   const [tags, setTags] = useState<string[]>(["health", "test", "2026"]);
   const [tagInput, setTagInput] = useState("");
   const [selectedLGAs, setSelectedLGAs] = useState<string[]>(["Minna", "Suleja", "Bida"]);
@@ -153,6 +157,7 @@ export default function UploadDatasetPage() {
       const dataset = await createMutation.mutateAsync({
         title,
         description,
+        categoryId: categoryId || undefined,
         format: formatMap[fileFormat] || 'csv',
         visibility,
         status: isDraft ? 'draft' : 'pending',
@@ -256,6 +261,37 @@ export default function UploadDatasetPage() {
 
               <div>
                 <FieldLabelTooltip
+                  htmlFor="category"
+                  label="Programme Area / Category"
+                  tooltip="Select the health programme area this dataset belongs to (e.g., Disease Surveillance, Immunization, MNCH)"
+                />
+                <Select value={categoryId} onValueChange={(value) => setCategoryId(value || "")}>
+                  <SelectTrigger className="w-full h-10">
+                    <SelectValue placeholder="Select a category (optional)">
+                      {categoryId && categoriesData?.data ? (
+                        <>
+                          <span className="mr-2">{categoriesData.data.find(c => c.id === categoryId)?.icon}</span>
+                          {categoriesData.data.find(c => c.id === categoryId)?.name}
+                        </>
+                      ) : (
+                        "Select a category (optional)"
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoriesData?.data?.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        <span className="mr-2">{category.icon}</span>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormError message={stepErrors.category} />
+              </div>
+
+              <div>
+                <FieldLabelTooltip
                   htmlFor="tags"
                   label="Tags (Keywords)"
                   tooltip={UPLOAD_FIELD_TOOLTIPS.tags}
@@ -295,7 +331,24 @@ export default function UploadDatasetPage() {
               </div>
 
               <div>
-                <FieldLabelTooltip label="LGA Coverage" tooltip={UPLOAD_FIELD_TOOLTIPS.lgas} />
+                <div className="flex items-center justify-between mb-2">
+                  <FieldLabelTooltip label="LGA Coverage" tooltip={UPLOAD_FIELD_TOOLTIPS.lgas} />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (selectedLGAs.length === NIGER_STATE_LGAS.length) {
+                        setSelectedLGAs([]);
+                      } else {
+                        setSelectedLGAs([...NIGER_STATE_LGAS]);
+                      }
+                    }}
+                    className="text-xs h-8 font-medium"
+                  >
+                    {selectedLGAs.length === NIGER_STATE_LGAS.length ? "Clear All" : "Select All (25)"}
+                  </Button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-4 rounded-lg border">
                   {NIGER_STATE_LGAS.map((lga) => (
                     <label key={lga} className="flex items-center gap-2 text-sm">
@@ -315,6 +368,9 @@ export default function UploadDatasetPage() {
                     </label>
                   ))}
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedLGAs.length} of {NIGER_STATE_LGAS.length} LGAs selected
+                </p>
                 <FormError message={stepErrors.lgas} />
               </div>
 

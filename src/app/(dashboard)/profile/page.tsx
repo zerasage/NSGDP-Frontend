@@ -45,10 +45,10 @@ export default function ProfilePage() {
       <DashboardPageContent>
         <div className="max-w-4xl mx-auto">
           <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
-              <TabsTrigger value="preferences">Preferences</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 !h-auto p-2 bg-muted rounded-lg">
+              <TabsTrigger value="profile" className="data-[state=active]:bg-background data-[state=active]:shadow-sm !h-auto py-3 px-4 rounded-md">Profile</TabsTrigger>
+              <TabsTrigger value="security" className="data-[state=active]:bg-background data-[state=active]:shadow-sm !h-auto py-3 px-4 rounded-md">Security</TabsTrigger>
+              <TabsTrigger value="preferences" className="data-[state=active]:bg-background data-[state=active]:shadow-sm !h-auto py-3 px-4 rounded-md">Preferences</TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile" className="space-y-6">

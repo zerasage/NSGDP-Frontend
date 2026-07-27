@@ -254,17 +254,17 @@ export default function OrganisationManagementPage() {
 
       <DashboardPageContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid !h-auto p-2 bg-muted rounded-lg">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm !h-auto py-3 px-4 rounded-md">
               <Building2 className="h-4 w-4 mr-2" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="team">
+            <TabsTrigger value="team" className="data-[state=active]:bg-background data-[state=active]:shadow-sm !h-auto py-3 px-4 rounded-md">
               <Users className="h-4 w-4 mr-2" />
               Team Members
             </TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="invites">
+              <TabsTrigger value="invites" className="data-[state=active]:bg-background data-[state=active]:shadow-sm !h-auto py-3 px-4 rounded-md">
                 <Mail className="h-4 w-4 mr-2" />
                 Invitations ({pendingInvites.length})
               </TabsTrigger>
@@ -391,19 +391,30 @@ export default function OrganisationManagementPage() {
                 <div className="pt-4 border-t">
                   <h4 className="text-sm font-medium mb-3">Quick Stats</h4>
                   <div className="grid gap-4 md:grid-cols-3">
-                    <Card>
+                    <Card 
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setActiveTab("team")}
+                    >
                       <CardContent className="pt-6">
                         <div className="text-2xl font-bold">{activeMembers.length}</div>
                         <p className="text-sm text-muted-foreground">Active Members</p>
                       </CardContent>
                     </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">{pendingInvites.length}</div>
-                        <p className="text-sm text-muted-foreground">Pending Invites</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
+                    {isAdmin && (
+                      <Card 
+                        className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setActiveTab("invites")}
+                      >
+                        <CardContent className="pt-6">
+                          <div className="text-2xl font-bold">{pendingInvites.length}</div>
+                          <p className="text-sm text-muted-foreground">Pending Invites</p>
+                        </CardContent>
+                      </Card>
+                    )}
+                    <Card 
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => router.push("/datasets")}
+                    >
                       <CardContent className="pt-6">
                         <div className="text-2xl font-bold">0</div>
                         <p className="text-sm text-muted-foreground">Datasets</p>

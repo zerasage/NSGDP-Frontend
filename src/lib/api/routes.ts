@@ -92,6 +92,7 @@ export const API_ROUTES = {
   // Notification endpoints
   notifications: {
     list: '/notifications',
+    unreadCount: '/notifications/unread-count',
     markRead: (id: string) => `/notifications/${id}/read`,
     markAllRead: '/notifications/read-all',
   },

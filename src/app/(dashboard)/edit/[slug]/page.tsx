@@ -12,8 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useDataset, useUpdateDataset, useDatasetFiles } from "@/lib/hooks/useDatasets";
+import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { UPLOAD_FIELD_TOOLTIPS } from "@/lib/constants/upload-tooltips";
@@ -42,6 +44,7 @@ export default function EditDatasetPage({
   // Fetch dataset from API
   const { data: dataset, isLoading: loading, error } = useDataset(resolvedParams.slug);
   const { data: existingFiles } = useDatasetFiles(resolvedParams.slug);
+  const { data: categoriesData } = useCategories();
   const updateMutation = useUpdateDataset();
   
   const [currentStep, setCurrentStep] = useState(1);
@@ -50,6 +53,7 @@ export default function EditDatasetPage({
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [categoryId, setCategoryId] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [selectedLGAs, setSelectedLGAs] = useState<string[]>([]);
@@ -66,6 +70,7 @@ export default function EditDatasetPage({
     if (dataset) {
       setTitle(dataset.title);
       setDescription(dataset.description || "");
+      setCategoryId(dataset.category_id || "");
       setTags(dataset.tags || []);
       setSelectedLGAs(dataset.geographic_coverage || []);
       setVisibility(dataset.visibility);
@@ -143,6 +148,7 @@ export default function EditDatasetPage({
         data: {
           title,
           description,
+          categoryId: categoryId || undefined,
           tags,
           geographicCoverage: selectedLGAs.join(', '), // Convert array to comma-separated string
           visibility,
@@ -241,6 +247,37 @@ export default function EditDatasetPage({
 
               <div>
                 <FieldLabelTooltip
+                  htmlFor="category"
+                  label="Programme Area / Category"
+                  tooltip="Select the health programme area this dataset belongs to (e.g., Disease Surveillance, Immunization, MNCH)"
+                />
+                <Select value={categoryId} onValueChange={(value) => setCategoryId(value || "")}>
+                  <SelectTrigger className="w-full h-10">
+                    <SelectValue placeholder="Select a category (optional)">
+                      {categoryId && categoriesData?.data ? (
+                        <>
+                          <span className="mr-2">{categoriesData.data.find(c => c.id === categoryId)?.icon}</span>
+                          {categoriesData.data.find(c => c.id === categoryId)?.name}
+                        </>
+                      ) : (
+                        "Select a category (optional)"
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoriesData?.data?.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        <span className="mr-2">{category.icon}</span>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormError message={stepErrors.category} />
+              </div>
+
+              <div>
+                <FieldLabelTooltip
                   htmlFor="tags"
                   label="Tags (Keywords)"
                   tooltip={UPLOAD_FIELD_TOOLTIPS.tags}
@@ -280,7 +317,24 @@ export default function EditDatasetPage({
               </div>
 
               <div>
-                <FieldLabelTooltip label="LGA Coverage" tooltip={UPLOAD_FIELD_TOOLTIPS.lgas} />
+                <div className="flex items-center justify-between mb-2">
+                  <FieldLabelTooltip label="LGA Coverage" tooltip={UPLOAD_FIELD_TOOLTIPS.lgas} />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (selectedLGAs.length === NIGER_STATE_LGAS.length) {
+                        setSelectedLGAs([]);
+                      } else {
+                        setSelectedLGAs([...NIGER_STATE_LGAS]);
+                      }
+                    }}
+                    className="text-xs h-8 font-medium"
+                  >
+                    {selectedLGAs.length === NIGER_STATE_LGAS.length ? "Clear All" : "Select All (25)"}
+                  </Button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-4 rounded-lg border">
                   {NIGER_STATE_LGAS.map((lga) => (
                     <label key={lga} className="flex items-center gap-2 text-sm">
@@ -300,6 +354,9 @@ export default function EditDatasetPage({
                     </label>
                   ))}
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedLGAs.length} of {NIGER_STATE_LGAS.length} LGAs selected
+                </p>
                 <FormError message={stepErrors.lgas} />
               </div>
 

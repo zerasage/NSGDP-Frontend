@@ -89,6 +89,16 @@ export async function getNotifications(
 }
 
 /**
+ * Get count of unread notifications
+ */
+export async function getUnreadCount(): Promise<number> {
+  const response = await apiClient.get<ApiResponse<{ count: number }>>(
+    API_ROUTES.notifications.unreadCount
+  );
+  return response.data.data.count;
+}
+
+/**
  * Mark notification as read
  */
 export async function markNotificationAsRead(id: string): Promise<{ message: string }> {

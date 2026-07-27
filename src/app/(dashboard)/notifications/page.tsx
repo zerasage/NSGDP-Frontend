@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Bell, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/hooks/useNotifications";
+import { useNotifications, useUnreadNotificationCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/hooks/useNotifications";
 import { getDisplayType } from "@/lib/api/notifications";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -29,13 +29,15 @@ export default function NotificationsPage() {
   // Fetch notifications
   const { data, isLoading, error } = useNotifications(page, limit, showUnreadOnly);
   
+  // Fetch total unread count
+  const { data: unreadCount = 0 } = useUnreadNotificationCount();
+  
   // Mutation hooks
   const markAsReadMutation = useMarkNotificationAsRead();
   const markAllAsReadMutation = useMarkAllNotificationsAsRead();
 
   const notifications = data?.data || [];
   const meta = data?.meta;
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const handleMarkAllRead = () => {
     markAllAsReadMutation.mutate(undefined, {

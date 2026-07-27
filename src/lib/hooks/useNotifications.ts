@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../api/notifications';
+import { getNotifications, getUnreadCount, markNotificationAsRead, markAllNotificationsAsRead } from '../api/notifications';
 
 /**
  * Hook to fetch notifications with pagination
@@ -8,6 +8,17 @@ export function useNotifications(page = 1, limit = 20, unreadOnly = false) {
   return useQuery({
     queryKey: ['notifications', page, limit, unreadOnly],
     queryFn: () => getNotifications(page, limit, unreadOnly),
+  });
+}
+
+/**
+ * Hook to fetch total unread notification count
+ */
+export function useUnreadNotificationCount() {
+  return useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => getUnreadCount(),
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
 }
 

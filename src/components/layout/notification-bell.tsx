@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck } from "lucide-react";
-import { useNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/hooks/useNotifications";
+import { useNotifications, useUnreadNotificationCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/hooks/useNotifications";
 import { getDisplayType } from "@/lib/api/notifications";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -18,13 +18,16 @@ const TYPE_COLORS: Record<string, string> = {
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   
-  // Fetch latest 6 notifications
+  // Fetch latest 6 notifications for the dropdown
   const { data, isLoading } = useNotifications(1, 6, false);
+  
+  // Fetch total unread count
+  const { data: unreadCount = 0 } = useUnreadNotificationCount();
+  
   const markAsReadMutation = useMarkNotificationAsRead();
   const markAllAsReadMutation = useMarkAllNotificationsAsRead();
 
   const notifications = data?.data || [];
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const handleMarkAllRead = () => {
     markAllAsReadMutation.mutate();
