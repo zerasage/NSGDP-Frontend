@@ -60,7 +60,7 @@ export default function MyDatasetsPage() {
   // collapsed to 0 the moment you selected one, since that list only ever
   // contained rows matching the currently-selected status.
   const { data: countsData } = useOrganizationDatasets(
-    { page: 1, limit: 1000 },
+    { page: 1, limit: 100 }, // backend caps limit at 100 (PaginationDto)
     { enabled: !!user?.id }
   );
   const allDatasetsForCounts = countsData?.data || [];
