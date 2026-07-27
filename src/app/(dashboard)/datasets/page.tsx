@@ -54,6 +54,17 @@ export default function MyDatasetsPage() {
     { enabled: !!user?.id } // Only fetch when user is authenticated
   );
 
+  // Separate, always-unfiltered fetch used only to compute the tab counts —
+  // decoupled from `data` above (which is scoped to the active status tab).
+  // Deriving counts from the filtered list meant every other tab's count
+  // collapsed to 0 the moment you selected one, since that list only ever
+  // contained rows matching the currently-selected status.
+  const { data: countsData } = useOrganizationDatasets(
+    { page: 1, limit: 1000 },
+    { enabled: !!user?.id }
+  );
+  const allDatasetsForCounts = countsData?.data || [];
+
   const deleteDatasetMutation = useDeleteDataset();
   const submitDatasetMutation = useSubmitDatasetForReview();
 
@@ -153,15 +164,15 @@ export default function MyDatasetsPage() {
     return false;
   };
 
-  // Count by status from API data
+  // Count by status from the unfiltered fetch, not the active tab's list
   const statusCounts: Record<DatasetStatus | "all", number> = {
-    all: meta?.total || 0,
-    approved: datasets.filter((d) => d.status === "approved").length,
-    pending: datasets.filter((d) => d.status === "pending").length,
-    under_review: datasets.filter((d) => d.status === "under_review").length,
-    draft: datasets.filter((d) => d.status === "draft").length,
-    rejected: datasets.filter((d) => d.status === "rejected").length,
-    archived: datasets.filter((d) => d.status === "archived").length,
+    all: allDatasetsForCounts.length,
+    approved: allDatasetsForCounts.filter((d) => d.status === "approved").length,
+    pending: allDatasetsForCounts.filter((d) => d.status === "pending").length,
+    under_review: allDatasetsForCounts.filter((d) => d.status === "under_review").length,
+    draft: allDatasetsForCounts.filter((d) => d.status === "draft").length,
+    rejected: allDatasetsForCounts.filter((d) => d.status === "rejected").length,
+    archived: allDatasetsForCounts.filter((d) => d.status === "archived").length,
   };
 
   return (

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   getDatasets,
   getOrganizationDatasets,
@@ -39,6 +39,11 @@ export function useOrganizationDatasets(params?: Omit<DatasetListParams, 'organi
     queryFn: () => getOrganizationDatasets(params),
     enabled: options?.enabled !== false,
     staleTime: 1 * 60 * 1000, // 1 minute - org datasets change frequently
+    // Keep showing the previous filter's rows while the new one loads,
+    // instead of unmounting straight to a loading skeleton — switching
+    // status tabs shouldn't collapse the page height and jump the scroll
+    // position on every click.
+    placeholderData: keepPreviousData,
   });
 }
 
