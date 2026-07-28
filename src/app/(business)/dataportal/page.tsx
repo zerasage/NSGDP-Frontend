@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, Suspense, useMemo } from "react";
+import { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Database, Search } from "lucide-react";
+import { Database, Search, Loader2 } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { GeoHealthDatasetCard } from "@/components/data/geohealth-dataset-card";
 import { DatasetDetailModal } from "@/components/data/dataset-detail-modal";
@@ -17,11 +17,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/data/pagination";
 import { DatasetCardSkeleton } from "@/components/feedback/skeletons";
+import { ScrollToTopButton } from "@/components/layout/scroll-to-top-button";
 import { DEFAULT_PORTAL_FILTERS } from "@/lib/constants/dataset-filters";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { useDatasets } from "@/lib/hooks/useDatasets";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { transformDatasets } from "@/lib/adapters/dataset-adapter";
+import { cn } from "@/lib/utils";
 import type { DatasetListParams, DatasetFormat } from "@/lib/api/datasets";
 import type { Dataset } from "@/types";
 
@@ -35,7 +38,9 @@ function DataportalContent() {
   const [sort, setSort] = useState<SortOption>("recent");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const searchQuery = useDebouncedValue(searchInput, 400);
+  const resultsTopRef = useRef<HTMLDivElement>(null);
 
   // Fetch real categories from API
   const { data: categoriesResponse, isLoading: categoriesLoading } = useCategories();
@@ -103,11 +108,25 @@ function DataportalContent() {
       params.diseaseIndicators = filters.diseases[0];
     }
 
+    // Map year filter to a date range (backend accepts dateFrom/dateTo, not
+    // discrete years) — spans the earliest to latest selected year.
+    if (filters.years.length > 0) {
+      const years = filters.years.map(Number).sort((a, b) => a - b);
+      params.dateFrom = `${years[0]}-01-01`;
+      params.dateTo = `${years[years.length - 1]}-12-31`;
+    }
+
     return params;
   }, [page, pageSize, sort, filters, categoriesResponse, organisationsResponse, searchQuery]);
 
-  // Fetch datasets from real API
-  const { data: datasetsData, isLoading: datasetsLoading } = useDatasets(datasetParams);
+  // Fetch datasets from real API. keepPreviousData avoids a jarring
+  // skeleton wipe on every filter/page/search change — the previous
+  // results stay on screen (dimmed via isRefetching) until the new page
+  // of results is ready.
+  const { data: datasetsData, isLoading: datasetsLoading, isFetching: datasetsFetching } = useDatasets(
+    datasetParams,
+    { keepPreviousData: true }
+  );
 
   // Transform backend datasets to frontend format
   const datasets = useMemo(() => {
@@ -162,7 +181,23 @@ function DataportalContent() {
     router.replace(params.toString() ? `/dataportal?${params}` : "/dataportal", { scroll: false });
   }, [sort, page, pageSize, router]);
 
+  // Reset to page 1 once the debounced search term settles (skip the
+  // mount-time run so it doesn't clobber a page restored from the URL).
+  const isFirstSearchRender = useRef(true);
+  useEffect(() => {
+    if (isFirstSearchRender.current) {
+      isFirstSearchRender.current = false;
+      return;
+    }
+    setPage(1);
+  }, [searchQuery]);
+
+  const scrollToResults = () => {
+    resultsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const isLoading = datasetsLoading || categoriesLoading || organisationsLoading;
+  const isRefetching = datasetsFetching && !datasetsLoading;
 
   const filterSections = buildAdvancedFilterSections(orgOptions, categoryOptions);
 
@@ -188,12 +223,13 @@ function DataportalContent() {
       <Container size="wide" className="py-8">
         <div className="flex gap-8">
           <div className="hidden lg:block w-64 shrink-0">
-            <div className="sticky top-20">
+            <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 pb-6">
               <AdvancedDatasetFilters
                 filters={filters}
                 onFilterChange={(id, vals) => {
                   setFilters((p) => ({ ...p, [id]: vals }));
                   setPage(1);
+                  scrollToResults();
                 }}
                 orgs={orgOptions}
                 categoryOptions={categoryOptions}
@@ -201,20 +237,20 @@ function DataportalContent() {
             </div>
           </div>
 
-          <div className="flex-1 min-w-0">
+          <div ref={resultsTopRef} className="flex-1 min-w-0 scroll-mt-20">
             {/* Search Bar */}
             <div className="relative mb-6">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="search"
                 placeholder="Search datasets by title or description..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setPage(1); // Reset to page 1 on search
-                }}
-                className="pl-10"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="pl-10 pr-9"
               />
+              {searchInput !== searchQuery && (
+                <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              )}
             </div>
 
             <ActiveFilterChips
@@ -227,8 +263,9 @@ function DataportalContent() {
             />
 
             <div className="flex items-center justify-between mb-6 gap-4">
-              <p className="text-sm font-medium">
+              <p className="text-sm font-medium flex items-center gap-2">
                 {isLoading ? "Loading…" : `${total} datasets found`}
+                {isRefetching && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
               </p>
               <div className="flex items-center gap-2">
                 <MobileFilterDrawer
@@ -270,13 +307,20 @@ function DataportalContent() {
               />
             ) : (
               <>
-                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                  {datasets.map((d) => (
-                    <GeoHealthDatasetCard
+                <div
+                  className={cn(
+                    "grid gap-6 sm:grid-cols-2 xl:grid-cols-3 transition-opacity duration-200",
+                    isRefetching && "opacity-60"
+                  )}
+                >
+                  {datasets.map((d, i) => (
+                    <div
                       key={d.id}
-                      dataset={d}
-                      onInfoClick={setModalDataset}
-                    />
+                      className="animate-in fade-in-0 slide-in-from-bottom-2 fill-mode-both"
+                      style={{ animationDelay: `${Math.min(i, 8) * 40}ms`, animationDuration: "300ms" }}
+                    >
+                      <GeoHealthDatasetCard dataset={d} onInfoClick={setModalDataset} />
+                    </div>
                   ))}
                 </div>
                 <Pagination
@@ -284,8 +328,15 @@ function DataportalContent() {
                   totalPages={totalPages}
                   pageSize={pageSize}
                   total={total}
-                  onPageChange={setPage}
-                  onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+                  onPageChange={(p) => {
+                    setPage(p);
+                    scrollToResults();
+                  }}
+                  onPageSizeChange={(s) => {
+                    setPageSize(s);
+                    setPage(1);
+                    scrollToResults();
+                  }}
                   className="mt-8"
                 />
               </>
@@ -299,6 +350,8 @@ function DataportalContent() {
         open={!!modalDataset}
         onOpenChange={(o) => !o && setModalDataset(null)}
       />
+
+      <ScrollToTopButton />
     </main>
   );
 }

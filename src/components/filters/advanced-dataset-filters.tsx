@@ -4,12 +4,10 @@ import { FilterSidebar } from "@/components/filters/filter-sidebar";
 import {
   DISEASE_FILTER_OPTIONS,
   WARD_FILTER_OPTIONS,
-  FACILITY_FILTER_OPTIONS,
   YEAR_FILTER_OPTIONS,
-  PROGRAM_FILTER_OPTIONS,
 } from "@/lib/constants/dataset-filters";
 import { HEALTH_CATEGORIES } from "@/lib/constants/health";
-import { NIGER_STATE_LGAS, FILE_FORMATS } from "@/lib/constants/core";
+import { NIGER_STATE_LGAS, FILE_FORMAT_OPTIONS } from "@/lib/constants/core";
 
 export interface AdvancedFilterSection {
   id: string;
@@ -39,40 +37,8 @@ export function buildAdvancedFilterSections(
     { id: "lgas", label: "LGAs", options: NIGER_STATE_LGAS.map((l) => ({ value: l, label: l })) },
     { id: "diseases", label: "Disease", options: DISEASE_FILTER_OPTIONS },
     { id: "wards", label: "Ward", options: WARD_FILTER_OPTIONS },
-    { id: "facilities", label: "Facility Type", options: FACILITY_FILTER_OPTIONS },
     { id: "years", label: "Year", options: YEAR_FILTER_OPTIONS },
-    { id: "programs", label: "Programme", options: PROGRAM_FILTER_OPTIONS },
-    { id: "formats", label: "Formats", options: FILE_FORMATS.map((f) => ({ value: f, label: f })) },
-    {
-      id: "updateFrequency",
-      label: "Update Frequency",
-      options: ["Daily", "Weekly", "Monthly", "Quarterly", "Annually", "One-time"].map((v) => ({
-        value: v,
-        label: v,
-      })),
-    },
-    {
-      id: "status",
-      label: "Status",
-      options: [
-        { value: "approved", label: "Approved" },
-        { value: "pending", label: "Pending Review" },
-        { value: "under_review", label: "Under Review" },
-        { value: "draft", label: "Draft" },
-        { value: "rejected", label: "Rejected" },
-        { value: "archived", label: "Archived" },
-      ],
-    },
-    {
-      id: "dataLicense",
-      label: "License",
-      options: [
-        { value: "CC BY 4.0", label: "CC BY 4.0" },
-        { value: "CC BY-NC 4.0", label: "CC BY-NC 4.0" },
-        { value: "Open Government License", label: "Open Govt License" },
-        { value: "Restricted Use", label: "Restricted Use" },
-      ],
-    },
+    { id: "formats", label: "Formats", options: FILE_FORMAT_OPTIONS },
   ];
 }
 

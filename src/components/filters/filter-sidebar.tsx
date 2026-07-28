@@ -19,6 +19,8 @@ interface FilterSidebarProps {
   className?: string;
 }
 
+const DEFAULT_VISIBLE_OPTIONS = 8;
+
 export function FilterSidebar({
   filters,
   onFilterChange,
@@ -28,6 +30,19 @@ export function FilterSidebar({
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(sections.map((s) => s.id))
   );
+  const [showAllSections, setShowAllSections] = useState<Set<string>>(new Set());
+
+  const toggleShowAll = (sectionId: string) => {
+    setShowAllSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  };
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections((prev) => {
@@ -97,34 +112,60 @@ export function FilterSidebar({
             </button>
 
             {/* Section Options */}
-            {isExpanded && (
-              <div className="mt-2 space-y-2 max-h-64 overflow-y-auto">
-                {section.options.map((option) => {
-                  const isChecked = (filters[section.id] || []).includes(option.value);
-                  return (
-                    <label
-                      key={option.value}
-                      className="flex items-center gap-2 cursor-pointer hover:text-primary"
+            {isExpanded && (() => {
+              const showAll = showAllSections.has(section.id) || section.options.length <= DEFAULT_VISIBLE_OPTIONS;
+              const visibleOptions = showAll
+                ? section.options
+                : section.options.slice(0, DEFAULT_VISIBLE_OPTIONS);
+              const hiddenCount = section.options.length - visibleOptions.length;
+
+              return (
+                <div className="mt-2 space-y-2">
+                  {visibleOptions.map((option) => {
+                    const isChecked = (filters[section.id] || []).includes(option.value);
+                    return (
+                      <label
+                        key={option.value}
+                        className="flex items-center gap-2 cursor-pointer hover:text-primary"
+                      >
+                        <Checkbox
+                          checked={isChecked}
+                          onCheckedChange={(checked) =>
+                            handleCheckboxChange(section.id, option.value, checked === true)
+                          }
+                        />
+                        <span className="flex-1 text-sm">
+                          {option.label}
+                          {option.count !== undefined && (
+                            <span className="ml-1 text-muted-foreground">
+                              ({option.count})
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => toggleShowAll(section.id)}
+                      className="text-xs font-medium text-primary hover:underline"
                     >
-                      <Checkbox
-                        checked={isChecked}
-                        onCheckedChange={(checked) =>
-                          handleCheckboxChange(section.id, option.value, checked === true)
-                        }
-                      />
-                      <span className="flex-1 text-sm">
-                        {option.label}
-                        {option.count !== undefined && (
-                          <span className="ml-1 text-muted-foreground">
-                            ({option.count})
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
+                      Show {hiddenCount} more
+                    </button>
+                  )}
+                  {showAll && section.options.length > DEFAULT_VISIBLE_OPTIONS && (
+                    <button
+                      type="button"
+                      onClick={() => toggleShowAll(section.id)}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Show less
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         );
       })}

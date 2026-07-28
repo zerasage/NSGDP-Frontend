@@ -47,6 +47,41 @@ const ZoomControl = dynamic(
   { ssr: false }
 );
 
+function escapeHtml(value: unknown): string {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Uploaded files can name their fields anything — build a popup from
+// whatever properties the feature actually has, falling back to
+// name/description when present. All values are untrusted (they come
+// from the uploaded file) and must be escaped before going into innerHTML.
+function buildFeaturePopupHtml(properties: Record<string, unknown>): string {
+  const title = properties.name ?? properties.title ?? "Location";
+  const entries = Object.entries(properties).filter(
+    ([key]) => key !== "name" && key !== "title"
+  );
+
+  const rowsHtml = entries
+    .slice(0, 8)
+    .map(
+      ([key, value]) =>
+        `<tr><td class="pr-2 text-muted-foreground align-top">${escapeHtml(key)}</td><td>${escapeHtml(value)}</td></tr>`
+    )
+    .join("");
+
+  return `
+    <div class="p-2 max-w-xs">
+      <h3 class="font-bold mb-1">${escapeHtml(title)}</h3>
+      ${rowsHtml ? `<table class="text-xs"><tbody>${rowsHtml}</tbody></table>` : ""}
+    </div>
+  `;
+}
+
 // Niger State coordinates (approximate center)
 const NIGER_STATE_CENTER: [number, number] = [9.9319, 6.5470];
 const DEFAULT_ZOOM = 8;
@@ -210,17 +245,7 @@ export function DatasetMap({
               }}
               onEachFeature={(feature, layer) => {
                 if (feature.properties) {
-                  const popupContent = `
-                    <div class="p-2">
-                      <h3 class="font-bold mb-1">${feature.properties.name || "Location"}</h3>
-                      ${
-                        feature.properties.description
-                          ? `<p class="text-sm">${feature.properties.description}</p>`
-                          : ""
-                      }
-                    </div>
-                  `;
-                  layer.bindPopup(popupContent);
+                  layer.bindPopup(buildFeaturePopupHtml(feature.properties));
                 }
               }}
             />

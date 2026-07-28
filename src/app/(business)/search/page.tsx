@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, Database, Building2 } from "lucide-react";
 import { Container } from "@/components/layout/container";
@@ -9,8 +9,9 @@ import { DatasetCard } from "@/components/data/dataset-card";
 import { OrgCard } from "@/components/data/org-card";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { DatasetCardSkeleton, OrgCardSkeleton } from "@/components/feedback/skeletons";
+import { Input } from "@/components/ui/input";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/components/ui/button";
 import { searchAll } from "@/lib/api/search";
 import { adaptSearchResultToDataset, adaptSearchResultToOrganisation } from "@/lib/adapters/search-adapter";
 import type { Dataset, Organisation } from "@/types";
@@ -19,11 +20,27 @@ type Tab = "all" | "dataset" | "organisation";
 type SearchResult = { type: "dataset" | "organisation"; item: Dataset | Organisation };
 
 function SearchContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const q = searchParams.get("q") ?? "";
   const [tab, setTab] = useState<Tab>("all");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [queryInput, setQueryInput] = useState(q);
+
+  // Keep the input in sync when q changes from outside this page (e.g. a
+  // fresh /search?q=... link), without clobbering what the user is typing.
+  useEffect(() => {
+    setQueryInput(q);
+  }, [q]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = queryInput.trim();
+    if (trimmed) {
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+    }
+  };
 
   useEffect(() => {
     if (!q.trim()) {
@@ -64,10 +81,31 @@ function SearchContent() {
     <main className="flex-1">
       <div className="border-b bg-muted/40">
         <Container size="wide" className="py-8">
-          <h1 className="text-3xl font-bold">Search Results</h1>
-          <p className="mt-2 text-muted-foreground">
-            {q ? `Results for "${q}"` : "Enter a search term to find datasets and organisations"}
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold">Search Results</h1>
+              <p className="mt-2 text-muted-foreground">
+                {q ? `Results for "${q}"` : "Enter a search term to find datasets and organisations"}
+              </p>
+            </div>
+            <form onSubmit={handleSearch} className="flex w-full gap-2 sm:w-auto sm:min-w-80">
+              <div className="relative flex-1">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden
+                />
+                <Input
+                  type="search"
+                  value={queryInput}
+                  onChange={(e) => setQueryInput(e.target.value)}
+                  placeholder="Search datasets and organisations..."
+                  className="pl-10"
+                  aria-label="Search datasets and organisations"
+                />
+              </div>
+              <Button type="submit">Search</Button>
+            </form>
+          </div>
         </Container>
       </div>
 

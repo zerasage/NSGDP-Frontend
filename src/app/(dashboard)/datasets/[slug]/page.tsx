@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/auth";
 import { transformDataset } from "@/lib/adapters/dataset-adapter";
 import { DatasetCardSkeleton } from "@/components/feedback/skeletons";
 import { formatDate } from "@/lib/utils/date";
+import { SPATIAL_ONLY_PREVIEW_FORMATS } from "@/lib/constants/core";
 import type { DatasetFile } from "@/lib/api/datasets";
 import type { PaginatedResponse } from "@/lib/types/common";
 import type { Category } from "@/lib/api/categories";
@@ -326,8 +327,10 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
               </CardContent>
             </Card>
 
-            {/* Data Preview */}
-            {backendDataset?.file_path && (
+            {/* Data Preview — hidden for formats the Spatial Preview card
+                already renders fully (table + map) on its own */}
+            {backendDataset?.file_path &&
+              !SPATIAL_ONLY_PREVIEW_FORMATS.includes(backendDataset.format) && (
               <Card>
                 <CardHeader>
                   <CardTitle>Data Preview</CardTitle>
@@ -498,7 +501,7 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
 
             {/* Spatial preview for geo datasets */}
             <DatasetMapSection
-              formats={dataset.formats}
+              preview={previewData?.preview}
               lgaCoverage={dataset.lgaCoverage}
             />
 
