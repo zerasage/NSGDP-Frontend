@@ -20,12 +20,18 @@ import {
 /**
  * Hook to fetch datasets with filters and pagination
  */
-export function useDatasets(params?: DatasetListParams, options?: { enabled?: boolean }) {
+export function useDatasets(
+  params?: DatasetListParams,
+  options?: { enabled?: boolean; keepPreviousData?: boolean }
+) {
   return useQuery({
     queryKey: ['datasets', params],
     queryFn: () => getDatasets(params),
     enabled: options?.enabled !== false, // Default to true, can be disabled
     staleTime: 2 * 60 * 1000, // 2 minutes - datasets change frequently
+    // Opt-in: keeps the previous page's results on screen (instead of an
+    // instant skeleton wipe) while a new filter/page/sort is loading.
+    placeholderData: options?.keepPreviousData ? keepPreviousData : undefined,
   });
 }
 

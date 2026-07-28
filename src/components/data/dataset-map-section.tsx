@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Table, Map } from "lucide-react";
+import { Table, Map, AlertTriangle } from "lucide-react";
+import type { FeatureCollection, Feature } from "geojson";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { FileFormat } from "@/types";
 import { cn } from "@/lib/utils";
 
 // Leaflet requires window — must not load during SSR
@@ -21,35 +21,59 @@ const DatasetMap = dynamic(
   }
 );
 
-const SPATIAL_FORMATS: FileFormat[] = ["GeoJSON", "Shapefile", "KML"];
+// The backend preview generator returns one of two shapes for spatial
+// formats: plain GeoJSON files come back as a bare `features` array
+// (from generateJsonPreview), while GeoPackage/Shapefile/KML come back
+// with a ready-made `geojson` FeatureCollection plus a flattened
+// attribute `columns`/`rows` table (from the dedicated generators in
+// datasets.service.ts). Both are normalised into one shape below.
+interface SpatialPreview {
+  type?: string;
+  geojson?: FeatureCollection | null;
+  features?: Feature[];
+  columns?: string[];
+  rows?: Array<Record<string, unknown>>;
+  totalFeatures?: number;
+  totalRows?: number;
+  isPartialGeometry?: boolean;
+  message?: string;
+}
+
+const SPATIAL_PREVIEW_TYPES = ["geojson", "geopackage", "shapefile", "kml"];
 
 interface DatasetMapSectionProps {
-  formats: FileFormat[];
+  preview?: unknown;
   lgaCoverage: string[];
 }
 
-export function DatasetMapSection({
-  formats,
-  lgaCoverage,
-}: DatasetMapSectionProps) {
-  const isSpatial = formats.some((f) => SPATIAL_FORMATS.includes(f));
+export function DatasetMapSection({ preview, lgaCoverage }: DatasetMapSectionProps) {
   const [view, setView] = useState<"map" | "table">("map");
 
-  if (!isSpatial) return null;
+  const p = preview as SpatialPreview | undefined;
+  if (!p || !p.type || !SPATIAL_PREVIEW_TYPES.includes(p.type)) return null;
 
-  const mockMarkers = lgaCoverage.slice(0, 5).map((lga, i) => ({
-    id: `marker-${i}`,
-    position: [9.5 + i * 0.15, 6.2 + i * 0.1] as [number, number],
-    title: lga,
-    description: `Coverage area: ${lga}`,
-  }));
+  const featureCollection: FeatureCollection | null =
+    p.geojson ?? (p.features ? { type: "FeatureCollection", features: p.features } : null);
 
-  const attributeRows = [
-    { field: "lga_name", example: lgaCoverage[0] ?? "Chanchaga", description: "Local Government Area name" },
-    { field: "facility_count", example: "187", description: "Number of health facilities" },
-    { field: "population", example: "688,000", description: "Estimated population" },
-    { field: "geometry", example: "POLYGON", description: "Spatial boundary geometry" },
-  ];
+  const columns = p.columns ?? (p.features?.length ? Object.keys(p.features[0].properties ?? {}) : []);
+  const rows = p.rows ?? p.features?.map((f) => f.properties ?? {}) ?? [];
+  const total = p.totalFeatures ?? p.totalRows;
+
+  if (!featureCollection && rows.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Spatial Preview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <AlertTriangle className="size-4" />
+            {p.message || "Spatial preview not available for this file."}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -62,6 +86,7 @@ export function DatasetMapSection({
             variant={view === "map" ? "default" : "ghost"}
             className={cn("rounded-r-none", view === "map" && "rounded-l-lg")}
             onClick={() => setView("map")}
+            disabled={!featureCollection}
           >
             <Map className="size-4 mr-1" />
             Map
@@ -72,6 +97,7 @@ export function DatasetMapSection({
             variant={view === "table" ? "default" : "ghost"}
             className="rounded-l-none border-l"
             onClick={() => setView("table")}
+            disabled={rows.length === 0}
           >
             <Table className="size-4 mr-1" />
             Attribute Table
@@ -79,33 +105,41 @@ export function DatasetMapSection({
         </div>
       </CardHeader>
       <CardContent>
-        {view === "map" ? (
-          <DatasetMap
-            markers={mockMarkers}
-            lgaCoverage={lgaCoverage}
-            height="400px"
-          />
-        ) : (
+        {view === "map" && featureCollection ? (
+          <DatasetMap geoJsonData={featureCollection} lgaCoverage={lgaCoverage} height="400px" />
+        ) : view === "table" && rows.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left">
-                  <th className="pb-2 pr-4 font-medium">Field Name</th>
-                  <th className="pb-2 pr-4 font-medium">Example Value</th>
-                  <th className="pb-2 font-medium">Description</th>
+                  {columns.map((col) => (
+                    <th key={col} className="pb-2 pr-4 font-medium whitespace-nowrap">
+                      {col}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {attributeRows.map((row) => (
-                  <tr key={row.field} className="border-b last:border-0">
-                    <td className="py-2 pr-4 font-mono text-xs">{row.field}</td>
-                    <td className="py-2 pr-4">{row.example}</td>
-                    <td className="py-2 text-muted-foreground">{row.description}</td>
+                {rows.slice(0, 20).map((row, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    {columns.map((col) => (
+                      <td key={col} className="py-2 pr-4 whitespace-nowrap">
+                        {row[col] !== null && row[col] !== undefined ? String(row[col]) : "—"}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : null}
+        {total !== undefined && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            {view === "table"
+              ? `Showing ${Math.min(rows.length, 20)} of ${total} attribute rows`
+              : `Showing ${featureCollection?.features.length ?? 0} of ${total} features`}
+            {p.isPartialGeometry && " (partial preview — file too large to load in full)"}
+          </p>
         )}
       </CardContent>
     </Card>

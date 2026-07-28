@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Info, Download } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Info, Download, Loader2 } from "lucide-react";
 import type { Dataset } from "@/types";
 import { HEALTH_CATEGORY_LABELS } from "@/lib/constants/health";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useDownloadDataset } from "@/lib/hooks/useDatasets";
+import { useAuth } from "@/lib/auth/auth-context";
 
 interface GeoHealthDatasetCardProps {
   dataset: Dataset;
@@ -21,10 +24,34 @@ export function GeoHealthDatasetCard({
   className,
   onInfoClick,
 }: GeoHealthDatasetCardProps) {
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
+  const downloadMutation = useDownloadDataset();
+
   const handleDownload = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toast.success(`Downloading ${dataset.title}…`);
+
+    // Downloading requires an account (download counts, access logging) —
+    // send anonymous visitors to sign in instead of letting the request
+    // 401 and bounce them with a confusing "session expired" toast.
+    if (!isAuthenticated) {
+      toast.info("Sign in to download this dataset.");
+      router.push(`/login?returnUrl=${encodeURIComponent(`/dataportal/${dataset.slug}`)}`);
+      return;
+    }
+
+    downloadMutation.mutate(
+      { slug: dataset.slug, mode: "download" },
+      {
+        onSuccess: (result) => {
+          window.open(result.downloadUrl, "_blank", "noopener,noreferrer");
+        },
+        onError: () => {
+          toast.error(`Couldn't start the download for ${dataset.title}.`);
+        },
+      }
+    );
   };
 
   return (
@@ -73,8 +100,13 @@ export function GeoHealthDatasetCard({
         <Button
           className="w-full bg-teal hover:bg-teal/90 text-teal-foreground font-semibold"
           onClick={handleDownload}
+          disabled={downloadMutation.isPending}
         >
-          <Download className="size-4 mr-2" />
+          {downloadMutation.isPending ? (
+            <Loader2 className="size-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="size-4 mr-2" />
+          )}
           Download
         </Button>
       </CardContent>

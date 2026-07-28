@@ -1,3 +1,6 @@
+"use client";
+
+import { use, useMemo } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -6,25 +9,49 @@ import { Container } from "@/components/layout/container";
 import { DatasetCard } from "@/components/data/dataset-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { getOrganisationBySlug, getDatasets } from "@/lib/mock";
+import { DatasetCardSkeleton } from "@/components/feedback/skeletons";
+import { useOrganisationBySlug } from "@/lib/hooks/useOrganisations";
+import { useDatasets } from "@/lib/hooks/useDatasets";
+import { useCategories } from "@/lib/hooks/useCategories";
+import { transformDatasets } from "@/lib/adapters/dataset-adapter";
 
 interface OrganisationPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export default async function OrganisationPage({ params }: OrganisationPageProps) {
-  const { slug } = await params;
-  const organisation = await getOrganisationBySlug(slug);
+export default function OrganisationPage({ params }: OrganisationPageProps) {
+  const { slug } = use(params);
 
-  if (!organisation) {
-    notFound();
+  const { data: organisation, isLoading, error } = useOrganisationBySlug(slug);
+  const { data: categoriesResponse } = useCategories();
+
+  const { data: datasetsResponse, isLoading: isDatasetsLoading } = useDatasets(
+    organisation
+      ? { organisationId: organisation.id, status: "approved", limit: 50 }
+      : undefined,
+    { enabled: !!organisation }
+  );
+
+  const datasets = useMemo(() => {
+    if (!datasetsResponse?.data) return [];
+    return transformDatasets(datasetsResponse.data, categoriesResponse?.data, [
+      organisation,
+    ].filter(Boolean) as NonNullable<typeof organisation>[]);
+  }, [datasetsResponse, categoriesResponse, organisation]);
+
+  if (isLoading) {
+    return (
+      <main className="flex-1">
+        <Container size="wide" className="py-8">
+          <DatasetCardSkeleton />
+        </Container>
+      </main>
+    );
   }
 
-  // Get datasets from this organisation
-  const { data: datasets } = await getDatasets({
-    organisations: [organisation.slug],
-    pageSize: 50,
-  });
+  if (error || !organisation) {
+    notFound();
+  }
 
   return (
     <main className="flex-1">
@@ -61,7 +88,10 @@ export default async function OrganisationPage({ params }: OrganisationPageProps
                 className="rounded-lg bg-white object-cover p-2"
               />
             ) : (
-              <div className="flex size-20 items-center justify-center rounded-lg bg-white text-4xl font-bold" style={{ color: organisation.brandColor || "#6366F1" }}>
+              <div
+                className="flex size-20 items-center justify-center rounded-lg bg-white text-4xl font-bold"
+                style={{ color: organisation.brandColor || "#6366F1" }}
+              >
                 {organisation.acronym?.charAt(0) || organisation.name.charAt(0)}
               </div>
             )}
@@ -86,9 +116,9 @@ export default async function OrganisationPage({ params }: OrganisationPageProps
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
               <Database className="size-5 text-muted-foreground" />
-              <span className="text-2xl font-bold">{organisation.datasetCount}</span>
+              <span className="text-2xl font-bold">{datasets.length}</span>
               <span className="text-sm text-muted-foreground">
-                Dataset{organisation.datasetCount !== 1 ? "s" : ""}
+                Dataset{datasets.length !== 1 ? "s" : ""}
               </span>
             </div>
           </div>
@@ -113,7 +143,13 @@ export default async function OrganisationPage({ params }: OrganisationPageProps
             {/* Datasets */}
             <div>
               <h2 className="mb-6 text-2xl font-bold">Datasets</h2>
-              {datasets.length === 0 ? (
+              {isDatasetsLoading ? (
+                <div className="grid gap-6 sm:grid-cols-2">
+                  {[...Array(2)].map((_, i) => (
+                    <DatasetCardSkeleton key={i} />
+                  ))}
+                </div>
+              ) : datasets.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center text-muted-foreground">
                     No datasets available yet

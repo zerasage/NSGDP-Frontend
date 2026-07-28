@@ -55,19 +55,61 @@ export interface GetOrganisationsParams {
   limit?: number;
 }
 
+// Raw shape returned by the backend (snake_case — matches the TypeORM entity
+// columns directly, no camelCase conversion happens server-side). The
+// backend does not compute a per-organisation dataset count.
+interface OrganisationApiPayload {
+  id: string;
+  name: string;
+  slug: string;
+  acronym?: string | null;
+  description?: string | null;
+  type: OrganisationType;
+  website: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  logo_url?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapOrganisation(raw: OrganisationApiPayload): Organisation {
+  return {
+    id: raw.id,
+    name: raw.name,
+    slug: raw.slug,
+    description: raw.description ?? undefined,
+    type: raw.type,
+    sector: raw.type,
+    website: raw.website,
+    email: raw.email,
+    phone: raw.phone,
+    address: raw.address,
+    logoUrl: raw.logo_url ?? undefined,
+    acronym: raw.acronym ?? undefined,
+    isActive: raw.is_active,
+    datasetCount: 0,
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
+  };
+}
+
 /**
  * Get all organisations with pagination
  */
 export async function getOrganisations(
   params?: GetOrganisationsParams
 ): Promise<PaginatedResponse<Organisation>> {
-  const response = await apiClient.get<ApiResponse<PaginatedResponse<Organisation>>>('/organisations', {
+  const response = await apiClient.get<ApiResponse<PaginatedResponse<OrganisationApiPayload>>>('/organisations', {
     params: {
       page: params?.page || 1,
       limit: params?.limit || 20,
     },
   });
-  return response.data.data;
+  const paginated = response.data.data;
+  return { ...paginated, data: paginated.data.map(mapOrganisation) };
 }
 
 /**
@@ -76,8 +118,15 @@ export async function getOrganisations(
 export async function getOrganisationBySlug(
   slug: string
 ): Promise<OrganisationWithDatasets> {
-  const response = await apiClient.get<ApiResponse<OrganisationWithDatasets>>(`/organisations/${slug}`);
-  return response.data.data;
+  const response = await apiClient.get<
+    ApiResponse<{
+      organisation: OrganisationApiPayload;
+      datasets: OrganisationWithDatasets['datasets'];
+      datasetCount: number;
+    }>
+  >(`/organisations/${slug}`);
+  const { organisation, datasets, datasetCount } = response.data.data;
+  return { ...mapOrganisation(organisation), datasets, datasetCount };
 }
 
 export interface CreateOrganisationPayload {

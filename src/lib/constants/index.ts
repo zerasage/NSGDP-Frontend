@@ -2,7 +2,7 @@
 // Central export point for all constants
 
 // Core constants (LGAs, sectors, formats)
-export { NIGER_STATE_LGAS, FILE_FORMATS, SECTORS } from "./core";
+export { NIGER_STATE_LGAS, FILE_FORMAT_OPTIONS, SECTORS } from "./core";
 
 // Brand constants
 export { BRAND } from "./brand";
