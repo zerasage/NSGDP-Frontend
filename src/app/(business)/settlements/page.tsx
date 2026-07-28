@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, RotateCcw, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getGisSettlements, type GisSettlement } from "@/lib/api/gis";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { MapLegend, SETTLEMENT_ACCESS_LEGEND } from "@/components/map/map-legend";
+import { MapErrorBanner } from "@/components/map/map-error-banner";
 import { MapTooltip } from "@/components/map/map-tooltip";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
 import { useStateBoundary } from "@/lib/hooks/useStateBoundary";
@@ -84,6 +86,10 @@ const GeoJSON = dynamic(
 const MarkerClusterGroup = dynamic(() => import("react-leaflet-cluster"), {
   ssr: false,
 });
+const FlyToBounds = dynamic(
+  () => import("@/components/map/fly-to-bounds").then((mod) => mod.FlyToBounds),
+  { ssr: false }
+);
 
 const NIGER_STATE_CENTER: [number, number] = [9.9319, 6.547];
 const NIGER_STATE_BOUNDS: [[number, number], [number, number]] = [
@@ -151,6 +157,7 @@ export default function SettlementsPage() {
   const [settlements, setSettlements] = useState<GisSettlement[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadedAll, setLoadedAll] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { data: stateBoundary } = useStateBoundary();
 
   useEffect(() => {
@@ -158,31 +165,46 @@ export default function SettlementsPage() {
     setMapReady(true);
   }, []);
 
-  useEffect(() => {
-    if (lga === "all") {
-      setSettlements([]);
-      setLoadedAll(false);
-      setWard("all");
-      return;
-    }
+  const loadForLga = useCallback((targetLga: string) => {
     setIsLoading(true);
-    getGisSettlements({ lga })
+    setError(null);
+    getGisSettlements({ lga: targetLga })
       .then((data) => {
         setSettlements(data);
         setWard("all");
       })
+      .catch(() => setError("Couldn't load settlements for this LGA."))
       .finally(() => setIsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (lga === "all") {
+      setSettlements([]);
+      setLoadedAll(false);
+      setError(null);
+      setWard("all");
+      return;
+    }
+    loadForLga(lga);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lga]);
 
-  const loadAllSettlements = () => {
+  const loadAllSettlements = useCallback(() => {
     setIsLoading(true);
+    setError(null);
     getGisSettlements({})
       .then((data) => {
         setSettlements(data);
         setLoadedAll(true);
       })
+      .catch(() => setError("Couldn't load settlements statewide."))
       .finally(() => setIsLoading(false));
-  };
+  }, []);
+
+  const retry = useCallback(() => {
+    if (lga === "all") loadAllSettlements();
+    else loadForLga(lga);
+  }, [lga, loadAllSettlements, loadForLga]);
 
   const wardOptions = useMemo(
     () => Array.from(new Set(settlements.map((s) => s.ward).filter((w): w is string => Boolean(w)))).sort(),
@@ -205,6 +227,11 @@ export default function SettlementsPage() {
       return true;
     });
   }, [settlements, ward, accessibility, activeFlags, query]);
+
+  const flyToPositions = useMemo(() => {
+    const source = ward !== "all" ? settlements.filter((s) => s.ward === ward) : settlements;
+    return source.map((s) => [s.lat, s.lng] as [number, number]);
+  }, [settlements, ward]);
 
   const summary = useMemo(() => {
     return filteredSettlements.reduce(
@@ -258,6 +285,12 @@ export default function SettlementsPage() {
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        />
+
+        <FlyToBounds
+          positions={flyToPositions}
+          fallbackCenter={NIGER_STATE_CENTER}
+          fallbackZoom={8}
         />
 
         <MarkerClusterGroup chunkedLoading maxClusterRadius={50}>
@@ -334,6 +367,8 @@ export default function SettlementsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 px-0">
+            {error && <MapErrorBanner message={error} onRetry={retry} />}
+
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">LGA</label>
               <Select value={lga} onValueChange={(v) => v && setLga(v)}>
@@ -360,6 +395,13 @@ export default function SettlementsPage() {
                 </Button>
               )}
             </div>
+
+            {isLoading && (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            )}
 
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

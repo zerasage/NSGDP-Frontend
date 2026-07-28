@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { ChevronDown, ChevronUp, Filter, Loader2, Users, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Filter, Loader2, RotateCcw, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   getLgaGisSummary,
   getWardGisSummary,
@@ -27,10 +28,12 @@ import {
   POPULATION_DENSITY_LEGEND,
   FACILITY_DENSITY_LEGEND,
 } from "@/components/map/map-legend";
+import { MapErrorBanner } from "@/components/map/map-error-banner";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
 import { useStateBoundary } from "@/lib/hooks/useStateBoundary";
 import { cn } from "@/lib/utils";
-import type { Feature } from "geojson";
+import type { Feature, Geometry } from "geojson";
+import type { Path } from "leaflet";
 
 function configureLeafletIcons() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -58,6 +61,10 @@ const GeoJSON = dynamic(
 );
 const ZoomControl = dynamic(
   () => import("react-leaflet").then((mod) => mod.ZoomControl),
+  { ssr: false }
+);
+const FlyToBounds = dynamic(
+  () => import("@/components/map/fly-to-bounds").then((mod) => mod.FlyToBounds),
   { ssr: false }
 );
 
@@ -93,6 +100,16 @@ function getFacilityCountColor(count: number): string {
   return "#bfdbfe";
 }
 
+// Wards are ~1/11th the size of an LGA on average, so the LGA-scale
+// facility-count thresholds above would bucket almost every ward as "Low" —
+// use a smaller scale so the ward layer's shading is actually informative.
+function getWardFacilityColor(count: number): string {
+  if (count > 20) return "#1e3a8a";
+  if (count > 10) return "#2563eb";
+  if (count > 5) return "#60a5fa";
+  return "#bfdbfe";
+}
+
 function buildLgaPopupHtml(props: LgaGisProperties): string {
   return `
     <div class="p-2 text-sm max-w-xs">
@@ -123,6 +140,16 @@ function buildWardPopupHtml(props: WardGisProperties): string {
   `;
 }
 
+function CardSkeleton() {
+  return (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-4 w-1/2" />
+      <Skeleton className="h-4 w-5/6" />
+    </div>
+  );
+}
+
 export default function GisMappingPage() {
   const [mapReady, setMapReady] = useState(false);
   const [filterOpen, setFilterOpen] = useState(true);
@@ -137,6 +164,8 @@ export default function GisMappingPage() {
   const [wardSummary, setWardSummary] = useState<WardGisFeatureCollection | null>(null);
   const [isLoadingLga, setIsLoadingLga] = useState(true);
   const [isLoadingWard, setIsLoadingWard] = useState(false);
+  const [lgaError, setLgaError] = useState<string | null>(null);
+  const [wardError, setWardError] = useState<string | null>(null);
   const { data: stateBoundary } = useStateBoundary();
 
   useEffect(() => {
@@ -144,26 +173,40 @@ export default function GisMappingPage() {
     setMapReady(true);
   }, []);
 
-  useEffect(() => {
+  const loadLgaSummary = useCallback(() => {
     setIsLoadingLga(true);
+    setLgaError(null);
     getLgaGisSummary()
       .then(setLgaSummary)
+      .catch(() => setLgaError("Couldn't load LGA data."))
       .finally(() => setIsLoadingLga(false));
+  }, []);
+
+  useEffect(() => {
+    loadLgaSummary();
+  }, [loadLgaSummary]);
+
+  const loadWardSummary = useCallback((forLga: string) => {
+    setIsLoadingWard(true);
+    setWardError(null);
+    getWardGisSummary(forLga)
+      .then((data) => {
+        setWardSummary(data);
+        setWard("all");
+      })
+      .catch(() => setWardError("Couldn't load ward data."))
+      .finally(() => setIsLoadingWard(false));
   }, []);
 
   useEffect(() => {
     if (lga === "all") {
       setWardSummary(null);
+      setWardError(null);
       setWard("all");
       return;
     }
-    setIsLoadingWard(true);
-    getWardGisSummary(lga)
-      .then((data) => {
-        setWardSummary(data);
-        setWard("all");
-      })
-      .finally(() => setIsLoadingWard(false));
+    loadWardSummary(lga);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lga]);
 
   const lgaFeatures = useMemo(() => lgaSummary?.features ?? [], [lgaSummary]);
@@ -193,6 +236,13 @@ export default function GisMappingPage() {
         return acc;
       }, {});
 
+  const resetFilters = () => {
+    setLga("all");
+    setWard("all");
+    setShowWardBoundaries(false);
+    setActiveLayer("population");
+  };
+
   if (!mapReady) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
@@ -219,6 +269,12 @@ export default function GisMappingPage() {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
 
+        <FlyToBounds
+          geometry={(selectedLga?.geometry as Geometry | null | undefined) ?? null}
+          fallbackCenter={NIGER_STATE_CENTER}
+          fallbackZoom={8}
+        />
+
         {lgaSummary && (
           <GeoJSON
             key={`lga-${activeLayer}-${lgaSummary.generatedAt}`}
@@ -242,23 +298,44 @@ export default function GisMappingPage() {
               const props = feature.properties as LgaGisProperties;
               layer.bindPopup(buildLgaPopupHtml(props));
               layer.on("click", () => setLga(props.lga));
+              layer.on("mouseover", () => {
+                (layer as Path).setStyle({ weight: 3, color: "#0f172a" });
+                (layer as Path).bringToFront();
+              });
+              layer.on("mouseout", () => {
+                const isSelected = props.lga === lga;
+                (layer as Path).setStyle({
+                  weight: isSelected ? 2.5 : 1,
+                  color: isSelected ? "#111827" : "#ffffff",
+                });
+              });
             }}
           />
         )}
 
         {showWardBoundaries && wardSummary && (
           <GeoJSON
-            key={`ward-${lga}-${wardSummary.generatedAt}`}
+            key={`ward-${activeLayer}-${lga}-${wardSummary.generatedAt}`}
             data={wardSummary as unknown as GeoJSON.FeatureCollection}
-            style={{
-              color: "#111827",
-              weight: 1,
-              fillOpacity: 0,
-              dashArray: "4,3",
+            style={(feature?: Feature) => {
+              const props = feature?.properties as WardGisProperties | undefined;
+              const isFacilityLayer = activeLayer === "facilities";
+              return {
+                color: "#111827",
+                weight: 1,
+                fillOpacity: isFacilityLayer ? 0.5 : 0,
+                fillColor:
+                  isFacilityLayer && props
+                    ? getWardFacilityColor(props.facilityCount)
+                    : undefined,
+                dashArray: "4,3",
+              };
             }}
             onEachFeature={(feature, layer) => {
               const props = feature.properties as WardGisProperties;
               layer.bindPopup(buildWardPopupHtml(props));
+              layer.on("mouseover", () => (layer as Path).setStyle({ weight: 2.5 }));
+              layer.on("mouseout", () => (layer as Path).setStyle({ weight: 1 }));
             }}
           />
         )}
@@ -299,17 +376,22 @@ export default function GisMappingPage() {
           </Button>
         </div>
         <div className="space-y-4 overflow-y-auto p-4">
+          {lgaError && <MapErrorBanner message={lgaError} onRetry={loadLgaSummary} />}
+
           <div>
             <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               Map layer
-              <HelpTooltip content="Population density colors each LGA by people per km². Facility density colors each LGA by number of health facilities." />
+              <HelpTooltip content="Population density colors each LGA by people per km². Facility density colors each LGA (and, if shown, each ward) by number of health facilities." />
             </label>
             <div className="flex rounded-lg border">
               <Button
                 type="button"
                 size="sm"
                 variant={activeLayer === "population" ? "default" : "ghost"}
-                className={cn("flex-1 rounded-r-none", activeLayer === "population" && "rounded-l-lg")}
+                className={cn(
+                  "flex-1 rounded-r-none transition-colors",
+                  activeLayer === "population" && "rounded-l-lg"
+                )}
                 onClick={() => setActiveLayer("population")}
               >
                 Population
@@ -318,7 +400,7 @@ export default function GisMappingPage() {
                 type="button"
                 size="sm"
                 variant={activeLayer === "facilities" ? "default" : "ghost"}
-                className="flex-1 rounded-l-none border-l"
+                className="flex-1 rounded-l-none border-l transition-colors"
                 onClick={() => setActiveLayer("facilities")}
               >
                 Facilities
@@ -337,7 +419,7 @@ export default function GisMappingPage() {
                 disabled={lga === "all"}
               />
               Ward boundaries
-              <HelpTooltip content="Overlay ward boundaries for the selected LGA." />
+              <HelpTooltip content="Overlay ward boundaries for the selected LGA. Colored by facility count when the Facilities layer is active." />
             </label>
             {lga === "all" && (
               <p className="text-xs text-muted-foreground pl-6">Select an LGA to show its wards</p>
@@ -346,6 +428,13 @@ export default function GisMappingPage() {
               <p className="text-xs text-muted-foreground pl-6 flex items-center gap-1">
                 <Loader2 className="size-3 animate-spin" /> Loading wards…
               </p>
+            )}
+            {wardError && (
+              <MapErrorBanner
+                message={wardError}
+                onRetry={() => loadWardSummary(lga)}
+                className="ml-6"
+              />
             )}
           </div>
 
@@ -376,6 +465,11 @@ export default function GisMappingPage() {
               </SelectContent>
             </Select>
           </div>
+
+          <Button variant="outline" className="w-full" onClick={resetFilters}>
+            <RotateCcw className="size-4 mr-2" />
+            Reset
+          </Button>
         </div>
       </div>
 
@@ -389,7 +483,7 @@ export default function GisMappingPage() {
 
       {/* Summary panel */}
       {summaryOpen ? (
-        <Card className="absolute right-4 top-16 z-[1000] w-72 shadow-xl">
+        <Card className="absolute right-4 top-16 z-[1000] w-72 shadow-xl transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm">{selectedLga ? selectedLga.properties.lga : "Niger State"} Summary</CardTitle>
             <Button size="sm" variant="ghost" onClick={() => setSummaryOpen(false)}>
@@ -397,8 +491,10 @@ export default function GisMappingPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
-            {isLoadingLga ? (
-              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            {lgaError ? (
+              <MapErrorBanner message={lgaError} onRetry={loadLgaSummary} />
+            ) : isLoadingLga ? (
+              <CardSkeleton />
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-2">
@@ -462,8 +558,10 @@ export default function GisMappingPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {isLoadingLga ? (
-              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            {lgaError ? (
+              <MapErrorBanner message={lgaError} onRetry={loadLgaSummary} />
+            ) : isLoadingLga ? (
+              <CardSkeleton />
             ) : (
               <>
                 <div>
