@@ -49,6 +49,7 @@ const DATA_PORTAL_LINKS = [
 const GIS_LINKS = [
   { href: "/population-map", label: "Population & Facility Map", icon: Map },
   { href: "/facilities", label: "Facility Finder", icon: Map },
+  { href: "/settlements", label: "Settlement Access Map", icon: Map },
 ];
 
 export function Navbar() {

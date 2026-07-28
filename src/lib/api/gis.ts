@@ -66,6 +66,49 @@ export interface GisFacility {
   lng: number | null;
 }
 
+export interface StateBoundaryFeature {
+  type: 'Feature';
+  generatedAt: string;
+  cached: boolean;
+  properties: { name: string };
+  geometry: { type: string; coordinates: unknown } | null;
+}
+
+export interface GisSettlement {
+  name: string;
+  primaryName: string | null;
+  lga: string;
+  ward: string | null;
+  accessibility: string | null;
+  securityCompromised: boolean;
+  hardToReach: boolean;
+  highRisk: boolean;
+  slum: boolean;
+  denselyPopulated: boolean;
+  riverine: boolean;
+  nomadic: boolean;
+  border: boolean;
+  habitationalStatus: string | null;
+  population: number | null;
+  households: number | null;
+  lat: number;
+  lng: number;
+}
+
+export interface SettlementFilters {
+  [key: string]: string | undefined;
+  lga?: string;
+  ward?: string;
+  accessibility?: string;
+  hardToReach?: 'Y' | 'N';
+  securityCompromised?: 'Y' | 'N';
+  highRisk?: 'Y' | 'N';
+  slums?: 'Y' | 'N';
+  riverine?: 'Y' | 'N';
+  nomadic?: 'Y' | 'N';
+  border?: 'Y' | 'N';
+}
+
 /** Population, facility distribution and boundary geometry for all 25 LGAs. */
 export async function getLgaGisSummary(): Promise<LgaGisFeatureCollection> {
   const response = await apiClient.get<ApiResponse<LgaGisFeatureCollection>>(
@@ -92,6 +135,25 @@ export async function getGisFacilities(filters?: {
 }): Promise<GisFacility[]> {
   const response = await apiClient.get<ApiResponse<GisFacility[]>>(
     '/gis/facilities',
+    { params: filters }
+  );
+  return response.data.data;
+}
+
+/** Niger State outline, dissolved server-side from the 25 LGA boundaries. */
+export async function getStateBoundary(): Promise<StateBoundaryFeature> {
+  const response = await apiClient.get<ApiResponse<StateBoundaryFeature>>(
+    '/gis/state-boundary'
+  );
+  return response.data.data;
+}
+
+/** Settlement-level access/vulnerability points from the MLoS master list. */
+export async function getGisSettlements(
+  filters: SettlementFilters
+): Promise<GisSettlement[]> {
+  const response = await apiClient.get<ApiResponse<GisSettlement[]>>(
+    '/gis/settlements',
     { params: filters }
   );
   return response.data.data;

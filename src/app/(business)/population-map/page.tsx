@@ -28,6 +28,7 @@ import {
   FACILITY_DENSITY_LEGEND,
 } from "@/components/map/map-legend";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
+import { useStateBoundary } from "@/lib/hooks/useStateBoundary";
 import { cn } from "@/lib/utils";
 import type { Feature } from "geojson";
 
@@ -136,6 +137,7 @@ export default function GisMappingPage() {
   const [wardSummary, setWardSummary] = useState<WardGisFeatureCollection | null>(null);
   const [isLoadingLga, setIsLoadingLga] = useState(true);
   const [isLoadingWard, setIsLoadingWard] = useState(false);
+  const { data: stateBoundary } = useStateBoundary();
 
   useEffect(() => {
     configureLeafletIcons();
@@ -258,6 +260,15 @@ export default function GisMappingPage() {
               const props = feature.properties as WardGisProperties;
               layer.bindPopup(buildWardPopupHtml(props));
             }}
+          />
+        )}
+
+        {stateBoundary?.geometry && (
+          <GeoJSON
+            key={`state-boundary-${stateBoundary.generatedAt}`}
+            data={stateBoundary as unknown as GeoJSON.Feature}
+            style={{ color: "#111827", weight: 3, fillOpacity: 0 }}
+            interactive={false}
           />
         )}
       </MapContainer>

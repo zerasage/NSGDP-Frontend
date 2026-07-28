@@ -18,6 +18,7 @@ import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { MapLegend, FACILITY_LEGEND } from "@/components/map/map-legend";
 import { MapTooltip } from "@/components/map/map-tooltip";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
+import { useStateBoundary } from "@/lib/hooks/useStateBoundary";
 import { cn } from "@/lib/utils";
 
 function configureLeafletIcons() {
@@ -56,6 +57,10 @@ const ZoomControl = dynamic(
   () => import("react-leaflet").then((mod) => mod.ZoomControl),
   { ssr: false }
 );
+const GeoJSON = dynamic(
+  () => import("react-leaflet").then((mod) => mod.GeoJSON),
+  { ssr: false }
+);
 
 const NIGER_STATE_CENTER: [number, number] = [9.9319, 6.547];
 const NIGER_STATE_BOUNDS: [[number, number], [number, number]] = [
@@ -88,6 +93,7 @@ export default function FacilitiesPage() {
 
   const [facilities, setFacilities] = useState<GisFacility[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { data: stateBoundary } = useStateBoundary();
 
   useEffect(() => {
     configureLeafletIcons();
@@ -182,6 +188,15 @@ export default function FacilitiesPage() {
               </Popup>
             </CircleMarker>
           ))}
+
+        {stateBoundary?.geometry && (
+          <GeoJSON
+            key={`state-boundary-${stateBoundary.generatedAt}`}
+            data={stateBoundary as unknown as GeoJSON.Feature}
+            style={{ color: "#111827", weight: 3, fillOpacity: 0 }}
+            interactive={false}
+          />
+        )}
       </MapContainer>
 
       {!filterOpen && (

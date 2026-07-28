@@ -42,6 +42,7 @@ export function Footer() {
               <li><Link href="/analytics" className="hover:text-white">Analytics Dashboard</Link></li>
               <li><Link href="/population-map" className="hover:text-white">Population & Facility Map</Link></li>
               <li><Link href="/facilities" className="hover:text-white">Facility Finder</Link></li>
+              <li><Link href="/settlements" className="hover:text-white">Settlement Access Map</Link></li>
               <li><Link href="/programs" className="hover:text-white">Programs</Link></li>
               <li><Link href="/learning" className="hover:text-white">Tools & Learning</Link></li>
               <li><Link href="/documents" className="hover:text-white">Document Library</Link></li>

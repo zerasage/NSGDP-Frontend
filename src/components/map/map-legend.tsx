@@ -87,3 +87,10 @@ export const FACILITY_DENSITY_LEGEND: LegendItem[] = [
   { label: "Moderate (50–100)",           color: "#60a5fa" },
   { label: "Low (<50 facilities)",        color: "#bfdbfe" },
 ];
+
+/** Pre-built legend for the settlement accessibility map */
+export const SETTLEMENT_ACCESS_LEGEND: LegendItem[] = [
+  { label: "Fully Accessible",     color: "#16a34a" },
+  { label: "Partially Accessible", color: "#f59e0b" },
+  { label: "Inaccessible",         color: "#dc2626" },
+];
