@@ -2,23 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import {
-  ChevronDown,
-  ChevronUp,
-  Filter,
-  Loader2,
-  Users,
-  X,
-} from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { ChevronDown, ChevronUp, Filter, Loader2, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -27,20 +11,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getGisBurdenBubbles } from "@/lib/mock";
-import { getTrendData, getLGABurdenTable } from "@/lib/mock/analytics";
-import { ANALYTICS_METRICS, NIGER_STATE_POPULATION } from "@/lib/constants/health";
+import {
+  getLgaGisSummary,
+  getWardGisSummary,
+  type LgaGisFeatureCollection,
+  type WardGisFeatureCollection,
+  type LgaGisProperties,
+  type WardGisProperties,
+} from "@/lib/api/gis";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
-import { getWardsForLGA } from "@/lib/mock/facilities";
-import { MapLegend, DISEASE_BUBBLE_LEGEND } from "@/components/map/map-legend";
-import { LayerComparison, type LayerConfig } from "@/components/map/layer-comparison";
-import { MapTooltip } from "@/components/map/map-tooltip";
+import {
+  MapLegend,
+  POPULATION_DENSITY_LEGEND,
+  FACILITY_DENSITY_LEGEND,
+} from "@/components/map/map-legend";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
-import type { AnalyticsMetric } from "@/types";
 import { cn } from "@/lib/utils";
+import type { Feature } from "geojson";
 
 function configureLeafletIcons() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -62,12 +51,8 @@ const TileLayer = dynamic(
   () => import("react-leaflet").then((mod) => mod.TileLayer),
   { ssr: false }
 );
-const CircleMarker = dynamic(
-  () => import("react-leaflet").then((mod) => mod.CircleMarker),
-  { ssr: false }
-);
-const Popup = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Popup),
+const GeoJSON = dynamic(
+  () => import("react-leaflet").then((mod) => mod.GeoJSON),
   { ssr: false }
 );
 const ZoomControl = dynamic(
@@ -81,46 +66,76 @@ const NIGER_STATE_BOUNDS: [[number, number], [number, number]] = [
   [11.5, 8.5],
 ];
 
-const YEARS = Array.from({ length: 13 }, (_, i) => 2013 + i);
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+type ActiveLayer = "population" | "facilities";
 
-type ValueType = "cases" | "rate" | "coverage";
+function escapeHtml(value: unknown): string {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getPopulationDensityColor(density: number | null): string {
+  if (density == null) return "#9ca3af";
+  if (density > 1000) return "#7f1d1d";
+  if (density > 300) return "#dc2626";
+  if (density > 100) return "#f59e0b";
+  return "#16a34a";
+}
+
+function getFacilityCountColor(count: number): string {
+  if (count > 150) return "#1e3a8a";
+  if (count > 100) return "#2563eb";
+  if (count > 50) return "#60a5fa";
+  return "#bfdbfe";
+}
+
+function buildLgaPopupHtml(props: LgaGisProperties): string {
+  return `
+    <div class="p-2 text-sm max-w-xs">
+      <h3 class="font-bold mb-1">${escapeHtml(props.lga)}</h3>
+      <table class="text-xs">
+        <tbody>
+          <tr><td class="pr-3 text-muted-foreground align-top">Population</td><td>${props.population != null ? props.population.toLocaleString() : "—"}</td></tr>
+          <tr><td class="pr-3 text-muted-foreground align-top">Density</td><td>${props.populationDensity != null ? `${props.populationDensity.toLocaleString()}/km²` : "—"}</td></tr>
+          <tr><td class="pr-3 text-muted-foreground align-top">Facilities</td><td>${props.facilityCount}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function buildWardPopupHtml(props: WardGisProperties): string {
+  return `
+    <div class="p-2 text-sm max-w-xs">
+      <h3 class="font-bold mb-1">${escapeHtml(props.ward)}</h3>
+      <p class="text-xs text-muted-foreground mb-1">${escapeHtml(props.lga)}</p>
+      <table class="text-xs">
+        <tbody>
+          <tr><td class="pr-3 text-muted-foreground align-top">Area</td><td>${props.areaSqkm != null ? `${props.areaSqkm.toLocaleString()} km²` : "—"}</td></tr>
+          <tr><td class="pr-3 text-muted-foreground align-top">Facilities</td><td>${props.facilityCount}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
 
 export default function GisMappingPage() {
   const [mapReady, setMapReady] = useState(false);
   const [filterOpen, setFilterOpen] = useState(true);
   const [summaryOpen, setSummaryOpen] = useState(true);
-  const [trendOpen, setTrendOpen] = useState(true);
-  const [metric, setMetric] = useState<AnalyticsMetric>("severe_malaria");
-  const [valueType, setValueType] = useState<ValueType>("cases");
-  const [year, setYear] = useState("2024");
-  const [month, setMonth] = useState("all");
+  const [rankingOpen, setRankingOpen] = useState(true);
+  const [activeLayer, setActiveLayer] = useState<ActiveLayer>("population");
   const [lga, setLga] = useState("all");
   const [ward, setWard] = useState("all");
-  const [minCases, setMinCases] = useState("");
-  const [maxCases, setMaxCases] = useState("");
-  const [bubbles, setBubbles] = useState<
-    Awaited<ReturnType<typeof getGisBurdenBubbles>>
-  >([]);
-  const [loading, setLoading] = useState(true);
-  const [mapLayers, setMapLayers] = useState<LayerConfig[]>([]);
   const [showWardBoundaries, setShowWardBoundaries] = useState(false);
-  const [showHotspots, setShowHotspots] = useState(true);
 
-  const wards = lga === "all" ? [] : getWardsForLGA(lga);
+  const [lgaSummary, setLgaSummary] = useState<LgaGisFeatureCollection | null>(null);
+  const [wardSummary, setWardSummary] = useState<WardGisFeatureCollection | null>(null);
+  const [isLoadingLga, setIsLoadingLga] = useState(true);
+  const [isLoadingWard, setIsLoadingWard] = useState(false);
 
   useEffect(() => {
     configureLeafletIcons();
@@ -128,58 +143,53 @@ export default function GisMappingPage() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    getGisBurdenBubbles(metric, Number(year)).then((data) => {
-      setBubbles(data);
-      setLoading(false);
-    });
-  }, [metric, year]);
+    setIsLoadingLga(true);
+    getLgaGisSummary()
+      .then(setLgaSummary)
+      .finally(() => setIsLoadingLga(false));
+  }, []);
 
-  const filteredBubbles = useMemo(() => {
-    let results = [...bubbles];
-    if (lga !== "all") results = results.filter((b) => b.lga === lga);
-    if (minCases) results = results.filter((b) => b.cases >= Number(minCases));
-    if (maxCases) results = results.filter((b) => b.cases <= Number(maxCases));
-    if (month !== "all") {
-      const factor = 0.7 + (Number(month) / 12) * 0.6;
-      results = results.map((b) => ({
-        ...b,
-        cases: Math.round(b.cases * factor),
-        radius: b.radius * (0.85 + factor * 0.15),
-      }));
+  useEffect(() => {
+    if (lga === "all") {
+      setWardSummary(null);
+      setWard("all");
+      return;
     }
-    return results;
-  }, [bubbles, lga, minCases, maxCases, month]);
+    setIsLoadingWard(true);
+    getWardGisSummary(lga)
+      .then((data) => {
+        setWardSummary(data);
+        setWard("all");
+      })
+      .finally(() => setIsLoadingWard(false));
+  }, [lga]);
 
-  const burdenTable = useMemo(() => getLGABurdenTable(metric), [metric]);
-  const filteredBurden = useMemo(() => {
-    if (lga === "all") return burdenTable;
-    return burdenTable.filter((r) => r.lga === lga);
-  }, [burdenTable, lga]);
-
-  const top5 = filteredBurden.slice(0, 5);
-  const bottom5 = [...filteredBurden].reverse().slice(0, 5);
-
-  const trendData = useMemo(
-    () => getTrendData(metric, "annual"),
-    [metric]
+  const lgaFeatures = useMemo(() => lgaSummary?.features ?? [], [lgaSummary]);
+  const wardOptions = useMemo(
+    () => (wardSummary?.features ?? []).map((f) => f.properties.ward).sort(),
+    [wardSummary]
   );
 
-  const metricLabel =
-    ANALYTICS_METRICS.find((m) => m.id === metric)?.label ?? metric;
+  const rankedByFacility = useMemo(
+    () => [...lgaFeatures].sort((a, b) => b.properties.facilityCount - a.properties.facilityCount),
+    [lgaFeatures]
+  );
+  const top5 = rankedByFacility.slice(0, 5);
+  const bottom5 = [...rankedByFacility].reverse().slice(0, 5);
 
-  const totalCases = filteredBubbles.reduce((s, b) => s + b.cases, 0);
-  const totalFacilities = filteredBurden.reduce((s, r) => s + r.facilities, 0);
+  const totalPopulation = lgaSummary?.totalPopulation ?? 0;
+  const totalFacilities = lgaSummary?.totalFacilities ?? 0;
 
-  const displayValue = (cases: number, population = 200000) => {
-    if (valueType === "rate") {
-      return `${((cases / population) * 1000).toFixed(1)}/1k`;
-    }
-    if (valueType === "coverage") {
-      return `${Math.min(99, Math.round((cases / 5000) * 100))}%`;
-    }
-    return cases.toLocaleString();
-  };
+  const selectedLga = lgaFeatures.find((f) => f.properties.lga === lga);
+
+  const ownershipBreakdown = selectedLga
+    ? selectedLga.properties.facilitiesByOwnership
+    : lgaFeatures.reduce<Record<string, number>>((acc, f) => {
+        for (const [key, value] of Object.entries(f.properties.facilitiesByOwnership)) {
+          acc[key] = (acc[key] ?? 0) + value;
+        }
+        return acc;
+      }, {});
 
   if (!mapReady) {
     return (
@@ -206,33 +216,50 @@ export default function GisMappingPage() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
-        {filteredBubbles.map((bubble) => (
-          <CircleMarker
-            key={bubble.lga}
-            center={[bubble.lat, bubble.lng]}
-            radius={bubble.radius}
-            pathOptions={{
-              color: "#dc2626",
-              fillColor: "#ef4444",
-              fillOpacity: 0.55,
-              weight: 1,
+
+        {lgaSummary && (
+          <GeoJSON
+            key={`lga-${activeLayer}-${lgaSummary.generatedAt}`}
+            data={lgaSummary as unknown as GeoJSON.FeatureCollection}
+            style={(feature?: Feature) => {
+              const props = feature?.properties as LgaGisProperties | undefined;
+              if (!props) return {};
+              const color =
+                activeLayer === "population"
+                  ? getPopulationDensityColor(props.populationDensity)
+                  : getFacilityCountColor(props.facilityCount);
+              const isSelected = props.lga === lga;
+              return {
+                color: isSelected ? "#111827" : "#ffffff",
+                weight: isSelected ? 2.5 : 1,
+                fillColor: color,
+                fillOpacity: 0.65,
+              };
             }}
-          >
-            <Popup>
-              <MapTooltip
-                title={bubble.lga}
-                rows={[
-                  { label: "Cases", value: displayValue(bubble.cases) },
-                  {
-                    label: "Period",
-                    value: `${year}${month !== "all" ? ` · ${MONTHS[Number(month) - 1]}` : ""}`,
-                  },
-                ]}
-                className="border-0 shadow-none p-0 min-w-0 bg-transparent backdrop-blur-none"
-              />
-            </Popup>
-          </CircleMarker>
-        ))}
+            onEachFeature={(feature, layer) => {
+              const props = feature.properties as LgaGisProperties;
+              layer.bindPopup(buildLgaPopupHtml(props));
+              layer.on("click", () => setLga(props.lga));
+            }}
+          />
+        )}
+
+        {showWardBoundaries && wardSummary && (
+          <GeoJSON
+            key={`ward-${lga}-${wardSummary.generatedAt}`}
+            data={wardSummary as unknown as GeoJSON.FeatureCollection}
+            style={{
+              color: "#111827",
+              weight: 1,
+              fillOpacity: 0,
+              dashArray: "4,3",
+            }}
+            onEachFeature={(feature, layer) => {
+              const props = feature.properties as WardGisProperties;
+              layer.bindPopup(buildWardPopupHtml(props));
+            }}
+          />
+        )}
       </MapContainer>
 
       {/* Filter toggle */}
@@ -255,112 +282,67 @@ export default function GisMappingPage() {
         )}
       >
         <div className="flex items-center justify-between border-b p-4">
-          <h2 className="font-semibold">Health Metrics Map</h2>
+          <h2 className="font-semibold">Population & Facility Map</h2>
           <Button size="icon" variant="ghost" onClick={() => setFilterOpen(false)}>
             <X className="size-4" />
           </Button>
         </div>
         <div className="space-y-4 overflow-y-auto p-4">
-          <div className="flex items-center justify-between">
-            <LayerComparison layers={mapLayers} onLayersChange={setMapLayers} />
-            <HelpTooltip content="Red circles show disease burden by LGA. Larger circles = more cases. Use layers to compare multiple indicators side by side." />
-          </div>
           <div>
             <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              Primary health metric
-              <HelpTooltip content="Select the disease or health indicator to display as bubble size on the map." />
+              Map layer
+              <HelpTooltip content="Population density colors each LGA by people per km². Facility density colors each LGA by number of health facilities." />
             </label>
-            <Select value={metric} onValueChange={(v) => v && setMetric(v as AnalyticsMetric)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ANALYTICS_METRICS.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Value type
-            </label>
-            <Select value={valueType} onValueChange={(v) => v && setValueType(v as ValueType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cases">Cases</SelectItem>
-                <SelectItem value="rate">Rate</SelectItem>
-                <SelectItem value="coverage">Coverage %</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Min</label>
-              <Input
-                type="number"
-                placeholder="Min cases"
-                value={minCases}
-                onChange={(e) => setMinCases(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Max</label>
-              <Input
-                type="number"
-                placeholder="Max cases"
-                value={maxCases}
-                onChange={(e) => setMaxCases(e.target.value)}
-              />
+            <div className="flex rounded-lg border">
+              <Button
+                type="button"
+                size="sm"
+                variant={activeLayer === "population" ? "default" : "ghost"}
+                className={cn("flex-1 rounded-r-none", activeLayer === "population" && "rounded-l-lg")}
+                onClick={() => setActiveLayer("population")}
+              >
+                Population
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={activeLayer === "facilities" ? "default" : "ghost"}
+                className="flex-1 rounded-l-none border-l"
+                onClick={() => setActiveLayer("facilities")}
+              >
+                Facilities
+              </Button>
             </div>
           </div>
+
           <div className="space-y-2 border-t pt-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Map Layers</p>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={showWardBoundaries} onChange={(e) => setShowWardBoundaries(e.target.checked)} className="rounded" />
+              <input
+                type="checkbox"
+                checked={showWardBoundaries}
+                onChange={(e) => setShowWardBoundaries(e.target.checked)}
+                className="rounded"
+                disabled={lga === "all"}
+              />
               Ward boundaries
-              <HelpTooltip content="Overlay 274 ward administrative boundaries for sub-LGA analysis." />
+              <HelpTooltip content="Overlay ward boundaries for the selected LGA." />
             </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={showHotspots} onChange={(e) => setShowHotspots(e.target.checked)} className="rounded" />
-              Disease hotspot layer
-              <HelpTooltip content="Highlights LGAs exceeding the epidemic threshold in red." />
-            </label>
-            {showWardBoundaries && (
-              <p className="text-xs text-muted-foreground pl-6">Ward boundaries overlay active (mock)</p>
+            {lga === "all" && (
+              <p className="text-xs text-muted-foreground pl-6">Select an LGA to show its wards</p>
+            )}
+            {isLoadingWard && (
+              <p className="text-xs text-muted-foreground pl-6 flex items-center gap-1">
+                <Loader2 className="size-3 animate-spin" /> Loading wards…
+              </p>
             )}
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Year</label>
-            <Select value={year} onValueChange={(v) => v && setYear(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {YEARS.map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Month</label>
-            <Select value={month} onValueChange={(v) => v && setMonth(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All months</SelectItem>
-                {MONTHS.map((m, i) => (
-                  <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">LGA</label>
             <Select
               value={lga}
-              onValueChange={(v) => {
-                if (v) {
-                  setLga(v);
-                  setWard("all");
-                }
-              }}
+              onValueChange={(v) => v && setLga(v)}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -373,11 +355,11 @@ export default function GisMappingPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Ward</label>
-            <Select value={ward} onValueChange={(v) => v && setWard(v)} disabled={lga === "all"}>
+            <Select value={ward} onValueChange={(v) => v && setWard(v)} disabled={lga === "all" || wardOptions.length === 0}>
               <SelectTrigger><SelectValue placeholder="Select ward" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All wards</SelectItem>
-                {wards.map((w) => (
+                {wardOptions.map((w) => (
                   <SelectItem key={w} value={w}>{w}</SelectItem>
                 ))}
               </SelectContent>
@@ -390,66 +372,57 @@ export default function GisMappingPage() {
       <div className="absolute right-4 top-4 z-[1000]">
         <Badge variant="secondary" className="gap-2 px-3 py-2 text-sm shadow-lg">
           <Users className="size-4" />
-          Niger State Population: {(NIGER_STATE_POPULATION / 1_000_000).toFixed(1)}M
+          Niger State Population: {(totalPopulation / 1_000_000).toFixed(1)}M
         </Badge>
       </div>
 
-      {/* Burden summary panel */}
+      {/* Summary panel */}
       {summaryOpen ? (
         <Card className="absolute right-4 top-16 z-[1000] w-72 shadow-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Burden Summary</CardTitle>
+            <CardTitle className="text-sm">{selectedLga ? selectedLga.properties.lga : "Niger State"} Summary</CardTitle>
             <Button size="sm" variant="ghost" onClick={() => setSummaryOpen(false)}>
               Hide
             </Button>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
-            {loading ? (
+            {isLoadingLga ? (
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <p className="text-xs text-muted-foreground">Total cases</p>
-                    <p className="font-semibold">{totalCases.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">Population</p>
+                    <p className="font-semibold">
+                      {(selectedLga ? selectedLga.properties.population ?? 0 : totalPopulation).toLocaleString()}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Facilities</p>
-                    <p className="font-semibold">{totalFacilities}</p>
+                    <p className="font-semibold">
+                      {(selectedLga ? selectedLga.properties.facilityCount : totalFacilities).toLocaleString()}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">LGAs</p>
-                    <p className="font-semibold">{lga === "all" ? 25 : 1}</p>
+                    <p className="font-semibold">{selectedLga ? 1 : 25}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Wards</p>
-                    <p className="font-semibold">{ward === "all" ? "All" : 1}</p>
+                    <p className="font-semibold">{ward === "all" ? (wardOptions.length || "—") : 1}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="mb-2 text-xs font-medium text-green-700 dark:text-green-400">
-                    Top 5 LGAs
-                  </p>
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Facilities by ownership</p>
                   <ul className="space-y-1">
-                    {top5.map((r) => (
-                      <li key={r.lga} className="flex justify-between">
-                        <span>{r.lga}</span>
-                        <span className="font-medium">{r.totalCases.toLocaleString()}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    Bottom 5 LGAs
-                  </p>
-                  <ul className="space-y-1">
-                    {bottom5.map((r) => (
-                      <li key={r.lga} className="flex justify-between">
-                        <span>{r.lga}</span>
-                        <span className="font-medium">{r.totalCases.toLocaleString()}</span>
-                      </li>
-                    ))}
+                    {Object.entries(ownershipBreakdown)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([key, value]) => (
+                        <li key={key} className="flex justify-between">
+                          <span>{key}</span>
+                          <span className="font-medium">{value.toLocaleString()}</span>
+                        </li>
+                      ))}
                   </ul>
                 </div>
               </>
@@ -467,48 +440,57 @@ export default function GisMappingPage() {
         </Button>
       )}
 
-      {/* Mini trend chart */}
-      {trendOpen ? (
+      {/* Top/bottom LGAs by facility density */}
+      {rankingOpen ? (
         <Card className="absolute bottom-4 left-4 z-[1000] w-80 shadow-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs">
-              Yearly cases of {metricLabel}
-            </CardTitle>
-            <Button size="sm" variant="ghost" onClick={() => setTrendOpen(false)}>
+            <CardTitle className="text-xs">LGAs by Facility Count</CardTitle>
+            <Button size="sm" variant="ghost" onClick={() => setRankingOpen(false)}>
               <ChevronDown className="size-4" />
               Hide
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="h-36 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={trendData}
-                  margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
-                  onClick={(state) => {
-                    const payload = state?.activePayload?.[0]?.payload as
-                      | { date: string }
-                      | undefined;
-                    if (payload?.date) setYear(payload.date);
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" tick={{ fontSize: 9 }} />
-                  <YAxis tick={{ fontSize: 9 }} width={30} />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="cases"
-                    stroke="#16a34a"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              Click a year to filter the map
-            </p>
+          <CardContent className="space-y-3">
+            {isLoadingLga ? (
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            ) : (
+              <>
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-green-700 dark:text-green-400">Top 5</p>
+                  <ul className="space-y-1 text-sm">
+                    {top5.map((f) => (
+                      <li key={f.properties.lga} className="flex justify-between">
+                        <button
+                          type="button"
+                          className="hover:underline text-left"
+                          onClick={() => setLga(f.properties.lga)}
+                        >
+                          {f.properties.lga}
+                        </button>
+                        <span className="font-medium">{f.properties.facilityCount.toLocaleString()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-muted-foreground">Bottom 5</p>
+                  <ul className="space-y-1 text-sm">
+                    {bottom5.map((f) => (
+                      <li key={f.properties.lga} className="flex justify-between">
+                        <button
+                          type="button"
+                          className="hover:underline text-left"
+                          onClick={() => setLga(f.properties.lga)}
+                        >
+                          {f.properties.lga}
+                        </button>
+                        <span className="font-medium">{f.properties.facilityCount.toLocaleString()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -516,18 +498,17 @@ export default function GisMappingPage() {
           size="sm"
           variant="secondary"
           className="absolute bottom-4 left-4 z-[1000] shadow-lg"
-          onClick={() => setTrendOpen(true)}
+          onClick={() => setRankingOpen(true)}
         >
           <ChevronUp className="size-4 mr-1" />
-          Show Trend
+          Show Rankings
         </Button>
       )}
 
       {/* Permanent legend */}
       <MapLegend
-        title="Disease Burden"
-        items={DISEASE_BUBBLE_LEGEND}
-        unit="cases"
+        title={activeLayer === "population" ? "Population Density" : "Facility Count"}
+        items={activeLayer === "population" ? POPULATION_DENSITY_LEGEND : FACILITY_DENSITY_LEGEND}
         className="absolute bottom-4 right-4 z-[1000]"
       />
     </div>

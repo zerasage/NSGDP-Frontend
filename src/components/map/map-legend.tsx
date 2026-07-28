@@ -71,3 +71,19 @@ export const FACILITY_LEGEND: LegendItem[] = [
   { label: "Secondary",        color: "#7c3aed" },
   { label: "General Hospital", color: "#dc2626" },
 ];
+
+/** Pre-built legend for the LGA population-density choropleth */
+export const POPULATION_DENSITY_LEGEND: LegendItem[] = [
+  { label: "Very High (>1,000/km²)", color: "#7f1d1d" },
+  { label: "High (300–1,000/km²)",   color: "#dc2626" },
+  { label: "Moderate (100–300/km²)", color: "#f59e0b" },
+  { label: "Low (<100/km²)",         color: "#16a34a" },
+];
+
+/** Pre-built legend for the LGA/ward facility-count choropleth */
+export const FACILITY_DENSITY_LEGEND: LegendItem[] = [
+  { label: "Very High (>150 facilities)", color: "#1e3a8a" },
+  { label: "High (100–150)",              color: "#2563eb" },
+  { label: "Moderate (50–100)",           color: "#60a5fa" },
+  { label: "Low (<50 facilities)",        color: "#bfdbfe" },
+];
