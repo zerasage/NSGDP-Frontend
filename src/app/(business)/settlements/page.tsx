@@ -292,7 +292,7 @@ export default function SettlementsPage() {
           <GeoJSON
             key={`state-boundary-${stateBoundary.generatedAt}`}
             data={stateBoundary as unknown as GeoJSON.Feature}
-            style={{ color: "#111827", weight: 3, fillOpacity: 0 }}
+            style={{ color: "#111827", weight: 1.5, fillOpacity: 0 }}
             interactive={false}
           />
         )}
