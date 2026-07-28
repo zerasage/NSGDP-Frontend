@@ -47,8 +47,8 @@ const DATA_PORTAL_LINKS = [
 ];
 
 const GIS_LINKS = [
-  { href: "/gis-mapping", label: "Disease Burden Map", icon: Map },
-  { href: "/gis-map", label: "Facility Map", icon: Map },
+  { href: "/population-map", label: "Population & Facility Map", icon: Map },
+  { href: "/facilities", label: "Facility Finder", icon: Map },
 ];
 
 export function Navbar() {

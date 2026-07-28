@@ -67,9 +67,9 @@ export const DISEASE_BUBBLE_LEGEND: LegendItem[] = [
 
 /** Pre-built legend for facility maps */
 export const FACILITY_LEGEND: LegendItem[] = [
-  { label: "PHC Centre",       color: "#2563eb" },
-  { label: "Secondary",        color: "#7c3aed" },
-  { label: "General Hospital", color: "#dc2626" },
+  { label: "Primary",   color: "#2563eb" },
+  { label: "Secondary", color: "#7c3aed" },
+  { label: "Tertiary",  color: "#dc2626" },
 ];
 
 /** Pre-built legend for the LGA population-density choropleth */

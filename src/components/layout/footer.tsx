@@ -40,8 +40,8 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-primary-foreground/85">
               <li><Link href="/dataportal" className="hover:text-white">Explore Data</Link></li>
               <li><Link href="/analytics" className="hover:text-white">Analytics Dashboard</Link></li>
-              <li><Link href="/gis-mapping" className="hover:text-white">Disease Burden Map</Link></li>
-              <li><Link href="/gis-map" className="hover:text-white">Facility Map</Link></li>
+              <li><Link href="/population-map" className="hover:text-white">Population & Facility Map</Link></li>
+              <li><Link href="/facilities" className="hover:text-white">Facility Finder</Link></li>
               <li><Link href="/programs" className="hover:text-white">Programs</Link></li>
               <li><Link href="/learning" className="hover:text-white">Tools & Learning</Link></li>
               <li><Link href="/documents" className="hover:text-white">Document Library</Link></li>

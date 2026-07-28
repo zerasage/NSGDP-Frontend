@@ -13,12 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getFacilities, getWardsForLGA } from "@/lib/mock";
+import { getGisFacilities, type GisFacility } from "@/lib/api/gis";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { MapLegend, FACILITY_LEGEND } from "@/components/map/map-legend";
 import { MapTooltip } from "@/components/map/map-tooltip";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
-import type { FacilityType } from "@/types";
 import { cn } from "@/lib/utils";
 
 function configureLeafletIcons() {
@@ -64,46 +63,67 @@ const NIGER_STATE_BOUNDS: [[number, number], [number, number]] = [
   [11.5, 8.5],
 ];
 
-const FACILITY_TYPES: Array<FacilityType | "all"> = [
-  "all",
-  "PHC",
-  "Secondary",
-  "General Hospital",
-];
+const FACILITY_LEVELS = ["all", "Primary", "Secondary", "Tertiary"] as const;
 
-export default function FacilityMapPage() {
+function getFacilityLevelColor(level: string | null): string {
+  switch (level) {
+    case "Primary":
+      return "#2563eb";
+    case "Secondary":
+      return "#7c3aed";
+    case "Tertiary":
+      return "#dc2626";
+    default:
+      return "#6b7280";
+  }
+}
+
+export default function FacilitiesPage() {
   const [mapReady, setMapReady] = useState(false);
   const [filterOpen, setFilterOpen] = useState(true);
   const [query, setQuery] = useState("");
   const [lga, setLga] = useState("all");
   const [ward, setWard] = useState("all");
-  const [facilityType, setFacilityType] = useState<FacilityType | "all">("all");
+  const [level, setLevel] = useState<(typeof FACILITY_LEVELS)[number]>("all");
 
-  const wards = lga === "all" ? [] : getWardsForLGA(lga);
+  const [facilities, setFacilities] = useState<GisFacility[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     configureLeafletIcons();
     setMapReady(true);
   }, []);
 
-  const facilities = useMemo(() => {
-    return getFacilities({
-      query: query || undefined,
-      lga: lga === "all" ? undefined : lga,
-      ward: ward === "all" ? undefined : ward,
-      facilityType,
-    });
-  }, [query, lga, ward, facilityType]);
+  useEffect(() => {
+    setIsLoading(true);
+    getGisFacilities(lga === "all" ? undefined : { lga })
+      .then((data) => {
+        setFacilities(data);
+        setWard("all");
+      })
+      .finally(() => setIsLoading(false));
+  }, [lga]);
 
-  const mappedCount = facilities.filter(
-    (f) => f.coordinates.lat && f.coordinates.lng
-  ).length;
+  const wardOptions = useMemo(
+    () => Array.from(new Set(facilities.map((f) => f.ward).filter((w): w is string => Boolean(w)))).sort(),
+    [facilities]
+  );
+
+  const filteredFacilities = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return facilities.filter((f) => {
+      if (ward !== "all" && f.ward !== ward) return false;
+      if (level !== "all" && f.level !== level) return false;
+      if (q && !f.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [facilities, ward, level, query]);
 
   const resetFilters = () => {
     setQuery("");
     setLga("all");
     setWard("all");
-    setFacilityType("all");
+    setLevel("all");
   };
 
   if (!mapReady) {
@@ -131,35 +151,37 @@ export default function FacilityMapPage() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
-        {facilities.map((facility) => (
-          <CircleMarker
-            key={facility.id}
-            center={[facility.coordinates.lat, facility.coordinates.lng]}
-            radius={7}
-            pathOptions={{
-              color: "#2563eb",
-              fillColor: "#3b82f6",
-              fillOpacity: 0.85,
-              weight: 1,
-            }}
-          >
-            <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
-              <span className="text-xs font-medium">{facility.name}</span>
-            </Tooltip>
-            <Popup>
-              <MapTooltip
-                title={facility.name}
-                rows={[
-                  { label: "LGA", value: facility.lga },
-                  { label: "Ward", value: facility.ward },
-                  { label: "Code", value: facility.facilityCode },
-                  { label: "Type", value: facility.facilityType },
-                ]}
-                className="border-0 shadow-none p-0 min-w-0 bg-transparent backdrop-blur-none"
-              />
-            </Popup>
-          </CircleMarker>
-        ))}
+        {filteredFacilities
+          .filter((f) => f.lat != null && f.lng != null)
+          .map((facility, i) => (
+            <CircleMarker
+              key={`${facility.name}-${facility.lga}-${i}`}
+              center={[facility.lat as number, facility.lng as number]}
+              radius={6}
+              pathOptions={{
+                color: getFacilityLevelColor(facility.level),
+                fillColor: getFacilityLevelColor(facility.level),
+                fillOpacity: 0.85,
+                weight: 1,
+              }}
+            >
+              <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
+                <span className="text-xs font-medium">{facility.name}</span>
+              </Tooltip>
+              <Popup>
+                <MapTooltip
+                  title={facility.name}
+                  rows={[
+                    { label: "LGA", value: facility.lga },
+                    { label: "Ward", value: facility.ward ?? "—" },
+                    { label: "Level", value: facility.level ?? "Unknown" },
+                    { label: "Ownership", value: facility.ownership ?? "Unknown" },
+                  ]}
+                  className="border-0 shadow-none p-0 min-w-0 bg-transparent backdrop-blur-none"
+                />
+              </Popup>
+            </CircleMarker>
+          ))}
       </MapContainer>
 
       {!filterOpen && (
@@ -180,9 +202,9 @@ export default function FacilityMapPage() {
       >
         <div className="flex items-center justify-between border-b p-4">
           <div>
-            <h2 className="font-semibold">Health Facility Map</h2>
+            <h2 className="font-semibold">Health Facility Finder</h2>
             <p className="text-xs text-muted-foreground">
-              {facilities.length} Facilities | {mappedCount} Mapped
+              {isLoading ? "Loading…" : `${filteredFacilities.length} Facilities`}
             </p>
           </div>
           <Button size="icon" variant="ghost" onClick={() => setFilterOpen(false)}>
@@ -193,7 +215,7 @@ export default function FacilityMapPage() {
         <Card className="m-4 border-0 shadow-none">
           <CardHeader className="px-0 pt-0">
             <CardTitle className="text-sm">
-              {facilities.length} Facilities | {mappedCount} Mapped
+              {isLoading ? "Loading…" : `${filteredFacilities.length} Facilities`}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 px-0">
@@ -212,10 +234,7 @@ export default function FacilityMapPage() {
               <Select
                 value={lga}
                 onValueChange={(v) => {
-                  if (v) {
-                    setLga(v);
-                    setWard("all");
-                  }
+                  if (v) setLga(v);
                 }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -230,11 +249,11 @@ export default function FacilityMapPage() {
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Ward</label>
-              <Select value={ward} onValueChange={(v) => v && setWard(v)} disabled={lga === "all"}>
+              <Select value={ward} onValueChange={(v) => v && setWard(v)} disabled={lga === "all" || wardOptions.length === 0}>
                 <SelectTrigger><SelectValue placeholder="All wards" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All wards</SelectItem>
-                  {wards.map((w) => (
+                  {wardOptions.map((w) => (
                     <SelectItem key={w} value={w}>{w}</SelectItem>
                   ))}
                 </SelectContent>
@@ -243,18 +262,18 @@ export default function FacilityMapPage() {
 
             <div>
               <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                Facility type
-                <HelpTooltip content="Filter facilities by type. Blue = PHC, Purple = Secondary, Red = General Hospital." />
+                Facility level
+                <HelpTooltip content="Filter facilities by level. Blue = Primary, Purple = Secondary, Red = Tertiary." />
               </label>
               <Select
-                value={facilityType}
-                onValueChange={(v) => v && setFacilityType(v as FacilityType | "all")}
+                value={level}
+                onValueChange={(v) => v && setLevel(v as (typeof FACILITY_LEVELS)[number])}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {FACILITY_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type === "all" ? "All Types" : type}
+                  {FACILITY_LEVELS.map((lvl) => (
+                    <SelectItem key={lvl} value={lvl}>
+                      {lvl === "all" ? "All Levels" : lvl}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -270,7 +289,7 @@ export default function FacilityMapPage() {
       </div>
 
       <MapLegend
-        title="Facility Types"
+        title="Facility Levels"
         items={FACILITY_LEGEND}
         className="absolute bottom-4 right-4 z-[1000]"
       />
