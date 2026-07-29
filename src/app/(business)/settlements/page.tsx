@@ -154,9 +154,8 @@ export default function SettlementsPage() {
     border: false,
   });
 
-  const [settlements, setSettlements] = useState<GisSettlement[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadedAll, setLoadedAll] = useState(false);
+  const [allSettlements, setAllSettlements] = useState<GisSettlement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { data: stateBoundary } = useStateBoundary();
 
@@ -165,55 +164,36 @@ export default function SettlementsPage() {
     setMapReady(true);
   }, []);
 
-  const loadForLga = useCallback((targetLga: string) => {
+  const loadSettlements = useCallback(() => {
     setIsLoading(true);
     setError(null);
-    getGisSettlements({ lga: targetLga })
-      .then((data) => {
-        setSettlements(data);
-        setWard("all");
-      })
-      .catch(() => setError("Couldn't load settlements for this LGA."))
+    getGisSettlements({})
+      .then(setAllSettlements)
+      .catch(() => setError("Couldn't load settlements."))
       .finally(() => setIsLoading(false));
   }, []);
 
   useEffect(() => {
-    if (lga === "all") {
-      setSettlements([]);
-      setLoadedAll(false);
-      setError(null);
-      setWard("all");
-      return;
-    }
-    loadForLga(lga);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadSettlements();
+  }, [loadSettlements]);
+
+  useEffect(() => {
+    setWard("all");
   }, [lga]);
 
-  const loadAllSettlements = useCallback(() => {
-    setIsLoading(true);
-    setError(null);
-    getGisSettlements({})
-      .then((data) => {
-        setSettlements(data);
-        setLoadedAll(true);
-      })
-      .catch(() => setError("Couldn't load settlements statewide."))
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  const retry = useCallback(() => {
-    if (lga === "all") loadAllSettlements();
-    else loadForLga(lga);
-  }, [lga, loadAllSettlements, loadForLga]);
+  const lgaScoped = useMemo(
+    () => (lga === "all" ? allSettlements : allSettlements.filter((s) => s.lga === lga)),
+    [allSettlements, lga]
+  );
 
   const wardOptions = useMemo(
-    () => Array.from(new Set(settlements.map((s) => s.ward).filter((w): w is string => Boolean(w)))).sort(),
-    [settlements]
+    () => Array.from(new Set(lgaScoped.map((s) => s.ward).filter((w): w is string => Boolean(w)))).sort(),
+    [lgaScoped]
   );
 
   const filteredSettlements = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return settlements.filter((s) => {
+    return lgaScoped.filter((s) => {
       if (ward !== "all" && s.ward !== ward) return false;
       if (accessibility !== "all" && s.accessibility !== accessibility) return false;
       if (activeFlags.hardToReach && !s.hardToReach) return false;
@@ -226,12 +206,12 @@ export default function SettlementsPage() {
       if (q && !s.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [settlements, ward, accessibility, activeFlags, query]);
+  }, [lgaScoped, ward, accessibility, activeFlags, query]);
 
   const flyToPositions = useMemo(() => {
-    const source = ward !== "all" ? settlements.filter((s) => s.ward === ward) : settlements;
+    const source = ward !== "all" ? lgaScoped.filter((s) => s.ward === ward) : lgaScoped;
     return source.map((s) => [s.lat, s.lng] as [number, number]);
-  }, [settlements, ward]);
+  }, [lgaScoped, ward]);
 
   const summary = useMemo(() => {
     return filteredSettlements.reduce(
@@ -248,6 +228,7 @@ export default function SettlementsPage() {
 
   const resetFilters = () => {
     setQuery("");
+    setLga("all");
     setWard("all");
     setAccessibility("all");
     setActiveFlags({
@@ -343,7 +324,7 @@ export default function SettlementsPage() {
 
       <div
         className={cn(
-          "absolute left-0 top-0 z-[1000] h-full w-80 transform bg-background/95 shadow-xl backdrop-blur transition-transform duration-300 overflow-y-auto",
+          "absolute left-0 top-0 z-[1000] h-full w-80 transform border-r bg-background shadow-2xl transition-transform duration-300 overflow-y-auto thin-scrollbar",
           filterOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -363,37 +344,23 @@ export default function SettlementsPage() {
           <CardHeader className="px-0 pt-0">
             <CardTitle className="text-sm flex items-center gap-1.5">
               Settlements
-              <HelpTooltip content="Individual settlements from the NSPHCDA Master List of Settlements (MLoS), tagged for accessibility, security and outreach planning. Select an LGA to load its settlements." />
+              <HelpTooltip content="Individual settlements from the NSPHCDA Master List of Settlements (MLoS), tagged for accessibility, security and outreach planning." />
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 px-0">
-            {error && <MapErrorBanner message={error} onRetry={retry} />}
+            {error && <MapErrorBanner message={error} onRetry={loadSettlements} />}
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">LGA</label>
               <Select value={lga} onValueChange={(v) => v && setLga(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All LGAs</SelectItem>
+                  <SelectItem value="all">All LGAs ({allSettlements.length.toLocaleString()})</SelectItem>
                   {NIGER_STATE_LGAS.map((name) => (
                     <SelectItem key={name} value={name}>{name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {lga === "all" && !loadedAll && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mt-2"
-                  onClick={loadAllSettlements}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <Loader2 className="size-4 mr-2 animate-spin" />
-                  ) : null}
-                  Load all 19,087 statewide
-                </Button>
-              )}
             </div>
 
             {isLoading && (
@@ -410,7 +377,7 @@ export default function SettlementsPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="pl-10"
-                disabled={settlements.length === 0}
+                disabled={allSettlements.length === 0}
               />
             </div>
 
@@ -483,10 +450,13 @@ export default function SettlementsPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {settlements.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                Select an LGA, or load all settlements statewide, to see data.
-              </p>
+            {isLoading ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Skeleton className="h-10" />
+                <Skeleton className="h-10" />
+                <Skeleton className="h-10" />
+                <Skeleton className="h-10" />
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <div>

@@ -268,7 +268,7 @@ export default function FacilitiesPage() {
 
       <div
         className={cn(
-          "absolute left-0 top-0 z-[1000] h-full w-80 transform bg-background/95 shadow-xl backdrop-blur transition-transform duration-300 overflow-y-auto",
+          "absolute left-0 top-0 z-[1000] h-full w-80 transform border-r bg-background shadow-2xl transition-transform duration-300 overflow-y-auto thin-scrollbar",
           filterOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >

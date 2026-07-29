@@ -365,7 +365,7 @@ export default function GisMappingPage() {
       {/* Sliding filter panel */}
       <div
         className={cn(
-          "absolute left-0 top-0 z-[1000] h-full w-80 transform bg-background/95 shadow-xl backdrop-blur transition-transform duration-300",
+          "absolute left-0 top-0 z-[1000] h-full w-80 transform border-r bg-background shadow-2xl transition-transform duration-300 flex flex-col",
           filterOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -375,7 +375,7 @@ export default function GisMappingPage() {
             <X className="size-4" />
           </Button>
         </div>
-        <div className="space-y-4 overflow-y-auto p-4">
+        <div className="space-y-4 overflow-y-auto thin-scrollbar p-4 flex-1">
           {lgaError && <MapErrorBanner message={lgaError} onRetry={loadLgaSummary} />}
 
           <div>
