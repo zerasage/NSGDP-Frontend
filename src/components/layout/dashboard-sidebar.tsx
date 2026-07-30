@@ -16,14 +16,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RoleBadge } from "@/components/ui/role-badge";
 import { useAuth } from "@/lib/auth";
-import type { PermissionActionKey, UserProfile } from "@/lib/types/auth";
+import type { UserProfile } from "@/lib/types/auth";
 
 interface NavLink {
   href: string;
   label: string;
   icon: React.ElementType;
-  roles?: string[]; // If specified, show for these roles...
-  permissions?: PermissionActionKey[]; // ...OR for a user holding any of these delegated permissions
+  roles?: string[]; // If specified, show only for these roles
 }
 
 const NAV_LINKS: NavLink[] = [
@@ -63,11 +62,9 @@ const NAV_LINKS: NavLink[] = [
 
 function getVisibleNavLinks(links: NavLink[], user: UserProfile | null | undefined): NavLink[] {
   return links.filter((link) => {
-    if (!link.roles && !link.permissions) return true;
+    if (!link.roles) return true;
     if (!user) return false;
-    const roleMatch = link.roles?.includes(user.role) ?? false;
-    const permissionMatch = link.permissions?.some((p) => user.permissions?.includes(p)) ?? false;
-    return roleMatch || permissionMatch;
+    return link.roles.includes(user.role);
   });
 }
 

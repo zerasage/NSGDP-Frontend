@@ -11,7 +11,6 @@ export type { DatasetAccessState } from "./mock-session";
 // Program permissions
 export {
   ROLE_PROGRAM_BASE,
-  getDelegatedProgramPermissions,
   getEffectiveProgramPermissions,
   hasProgramPermission,
   canProgram,

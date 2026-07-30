@@ -35,7 +35,7 @@ export default function DashboardLayout({
       return;
     }
     if (isAdminPortalOnly) {
-      const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3002";
+      const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3003";
       window.location.href = `${adminUrl}/login`;
     }
   }, [isAuthenticated, isLoading, isAdminPortalOnly, router]);
