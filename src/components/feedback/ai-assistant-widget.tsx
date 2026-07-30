@@ -21,7 +21,7 @@ const QUICK_QUESTIONS = [
   },
   {
     q: "What health facilities are in Bida?",
-    a: "Bida LGA has 4 registered facilities including Bida General Hospital, Bida Secondary Health Centre, and 2 PHCs. View them on the Facility Map at /gis-map.",
+    a: "Bida LGA has 4 registered facilities including Bida General Hospital, Bida Secondary Health Centre, and 2 PHCs. View them on the Facility Finder at /facilities.",
   },
   {
     q: "Show me diphtheria trends 2020–2024",
