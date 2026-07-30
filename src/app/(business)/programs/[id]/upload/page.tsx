@@ -117,7 +117,7 @@ export default function UploadProgramReportPage() {
             <CardDescription>
               Final reports, monitoring briefs, or evaluation documents linked to this programme.
               You can also attach datasets via{" "}
-              <Link href="/submit" className="text-primary hover:underline">
+              <Link href="/upload" className="text-primary hover:underline">
                 Submit Dataset
               </Link>{" "}
               and select this programme.

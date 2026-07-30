@@ -47,7 +47,7 @@ export function Footer() {
               <li><Link href="/learning" className="hover:text-white">Tools & Learning</Link></li>
               <li><Link href="/documents" className="hover:text-white">Document Library</Link></li>
               <li><Link href="/partner-data" className="hover:text-white">Partner Data</Link></li>
-              <li><Link href="/submit" className="hover:text-white">Submit Dataset</Link></li>
+              <li><Link href="/upload" className="hover:text-white">Submit Dataset</Link></li>
             </ul>
           </div>
 
