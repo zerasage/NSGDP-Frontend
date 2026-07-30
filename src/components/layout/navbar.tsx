@@ -43,7 +43,7 @@ const DATA_PORTAL_LINKS = [
   { href: "/dataportal", label: "Browse Datasets", icon: Database },
   { href: "/documents", label: "Document Library", icon: Database },
   { href: "/partner-data", label: "Partner Data", icon: Database },
-  { href: "/submit", label: "Submit Dataset", icon: Upload },
+  { href: "/upload", label: "Submit Dataset", icon: Upload },
 ];
 
 const GIS_LINKS = [

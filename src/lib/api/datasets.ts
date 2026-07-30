@@ -57,6 +57,10 @@ export interface Dataset {
   license: string | null;
   methodology: string | null;
   limitations: string | null;
+  responsible_dept: string | null;
+  contact_person: string | null;
+  contact_email: string | null;
+  update_frequency: string | null;
   metadata: Record<string, unknown> | null;
   key_attributes: Record<string, unknown>[] | null;
   bbox: unknown | null;
@@ -123,6 +127,10 @@ export interface CreateDatasetDto {
   license?: string;
   methodology?: string;
   limitations?: string;
+  responsibleDept?: string;
+  contactPerson?: string;
+  contactEmail?: string;
+  updateFrequency?: string;
   programmeId?: string;
   organisationId?: string; // For admins to create on behalf of org
 }
@@ -142,6 +150,10 @@ export interface UpdateDatasetDto {
   license?: string;
   methodology?: string;
   limitations?: string;
+  responsibleDept?: string;
+  contactPerson?: string;
+  contactEmail?: string;
+  updateFrequency?: string;
   programmeId?: string;
 }
 

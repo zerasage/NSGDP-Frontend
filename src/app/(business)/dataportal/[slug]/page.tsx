@@ -4,7 +4,7 @@ import { use } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { FileText, ChevronRight } from "lucide-react";
+import { FileText, ChevronRight, Lock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Container } from "@/components/layout/container";
 import { VisibilityBadge } from "@/components/data/visibility-badge";
@@ -14,8 +14,9 @@ import { DatasetMapSection } from "@/components/data/dataset-map-section";
 import { DatasetActivityPanel } from "@/components/data/dataset-activity-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDataset, useDatasets } from "@/lib/hooks/useDatasets";
+import { useDataset, useDatasets, useDatasetPreview } from "@/lib/hooks/useDatasets";
 import { usePublicDatasetPreview } from "@/lib/hooks/usePublicDatasetPreview";
+import { useAuth } from "@/lib/auth";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { transformDataset } from "@/lib/adapters/dataset-adapter";
@@ -32,11 +33,34 @@ interface DatasetPageProps {
 export default function DatasetPage({ params }: DatasetPageProps) {
   const { slug } = use(params);
   
-  // Fetch dataset by slug (public endpoint - approved only)
+  // Fetch dataset by slug (public endpoint — now also returns restricted
+  // datasets as metadata-only, so this can 200 even without access)
   const { data: backendDataset, isLoading, error } = useDataset(slug);
-  
-  // Fetch public preview
-  const { data: previewData, isLoading: isPreviewLoading } = usePublicDatasetPreview(slug);
+  const { isAuthenticated } = useAuth();
+
+  // The public preview endpoint only ever serves visibility:"public"
+  // datasets — for restricted/private ones it always 403s, so route those
+  // through the authenticated endpoint instead, which respects hasAccess
+  // (same-org member, approved requester, super_admin, or staff grant).
+  const isRestrictedOrPrivate =
+    backendDataset?.visibility === "restricted" || backendDataset?.visibility === "private";
+  const { data: publicPreviewData, isLoading: isPublicPreviewLoading } = usePublicDatasetPreview(
+    slug,
+    !!backendDataset && !isRestrictedOrPrivate
+  );
+  const {
+    data: authPreviewData,
+    isLoading: isAuthPreviewLoading,
+    error: authPreviewError,
+  } = useDatasetPreview(slug, !!backendDataset && isRestrictedOrPrivate && isAuthenticated);
+
+  const previewData = isRestrictedOrPrivate ? authPreviewData : publicPreviewData;
+  const isPreviewLoading = isRestrictedOrPrivate
+    ? isAuthenticated && isAuthPreviewLoading
+    : isPublicPreviewLoading;
+  // 403 from the authenticated endpoint means "no access yet", not "broken
+  // file" — the generic fallback message would be misleading here.
+  const previewBlocked = isRestrictedOrPrivate && (!isAuthenticated || !!authPreviewError);
   
   // Fetch reference data for transformation
   const { data: categoriesResponse } = useCategories() as { data?: PaginatedResponse<Category> };
@@ -186,6 +210,18 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                       <div className="size-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
                       <span className="ml-3 text-sm text-muted-foreground">Loading preview...</span>
                     </div>
+                  ) : previewBlocked ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Lock className="size-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">
+                        {isAuthenticated ? "Preview requires access" : "Log in to preview"}
+                      </p>
+                      <p className="text-xs mt-1">
+                        {isAuthenticated
+                          ? "This dataset is restricted — request access below to preview it."
+                          : "This dataset is restricted — log in and request access to preview it."}
+                      </p>
+                    </div>
                   ) : previewData ? (
                     <div className="space-y-4">
                       {/* Tabular Preview (CSV/Excel) */}
@@ -332,6 +368,7 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                           datasetSlug={dataset.slug}
                           datasetTitle={dataset.title}
                           visibility={dataset.visibility}
+                          datasetOrganisationId={dataset.organisation.id}
                         />
                       </div>
                     ))}
@@ -392,6 +429,7 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                   datasetSlug={dataset.slug}
                   datasetTitle={dataset.title}
                   visibility={dataset.visibility}
+                  datasetOrganisationId={dataset.organisation.id}
                 />
               </CardContent>
             </Card>

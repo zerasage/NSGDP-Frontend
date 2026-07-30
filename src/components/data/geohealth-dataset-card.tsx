@@ -1,17 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Info, Download, Loader2 } from "lucide-react";
+import { Info } from "lucide-react";
 import type { Dataset } from "@/types";
 import { HEALTH_CATEGORY_LABELS } from "@/lib/constants/health";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { useDownloadDataset } from "@/lib/hooks/useDatasets";
-import { useAuth } from "@/lib/auth/auth-context";
+import { DatasetDownloadActions } from "@/components/data/dataset-download-actions";
+import { VisibilityBadge } from "@/components/data/visibility-badge";
 
 interface GeoHealthDatasetCardProps {
   dataset: Dataset;
@@ -24,36 +21,6 @@ export function GeoHealthDatasetCard({
   className,
   onInfoClick,
 }: GeoHealthDatasetCardProps) {
-  const router = useRouter();
-  const { isAuthenticated } = useAuth();
-  const downloadMutation = useDownloadDataset();
-
-  const handleDownload = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Downloading requires an account (download counts, access logging) —
-    // send anonymous visitors to sign in instead of letting the request
-    // 401 and bounce them with a confusing "session expired" toast.
-    if (!isAuthenticated) {
-      toast.info("Sign in to download this dataset.");
-      router.push(`/login?returnUrl=${encodeURIComponent(`/dataportal/${dataset.slug}`)}`);
-      return;
-    }
-
-    downloadMutation.mutate(
-      { slug: dataset.slug, mode: "download" },
-      {
-        onSuccess: (result) => {
-          window.open(result.downloadUrl, "_blank", "noopener,noreferrer");
-        },
-        onError: () => {
-          toast.error(`Couldn't start the download for ${dataset.title}.`);
-        },
-      }
-    );
-  };
-
   return (
     <Card
       className={cn(
@@ -71,9 +38,14 @@ export function GeoHealthDatasetCard({
       </button>
 
       <CardHeader className="pb-2 pr-12">
-        <Badge className="w-fit mb-2 bg-primary/10 text-primary border-0 text-xs">
-          {HEALTH_CATEGORY_LABELS[dataset.healthCategory]}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+          <Badge className="w-fit bg-primary/10 text-primary border-0 text-xs">
+            {HEALTH_CATEGORY_LABELS[dataset.healthCategory]}
+          </Badge>
+          {dataset.visibility !== "public" && (
+            <VisibilityBadge visibility={dataset.visibility} />
+          )}
+        </div>
         <CardTitle className="text-base line-clamp-2 leading-snug">
           <Link href={`/dataportal/${dataset.slug}`} className="hover:text-primary">
             {dataset.title}
@@ -97,18 +69,13 @@ export function GeoHealthDatasetCard({
             </Badge>
           ))}
         </div>
-        <Button
-          className="w-full bg-teal hover:bg-teal/90 text-teal-foreground font-semibold"
-          onClick={handleDownload}
-          disabled={downloadMutation.isPending}
-        >
-          {downloadMutation.isPending ? (
-            <Loader2 className="size-4 mr-2 animate-spin" />
-          ) : (
-            <Download className="size-4 mr-2" />
-          )}
-          Download
-        </Button>
+        <DatasetDownloadActions
+          datasetId={dataset.id}
+          datasetSlug={dataset.slug}
+          datasetTitle={dataset.title}
+          visibility={dataset.visibility}
+          datasetOrganisationId={dataset.organisation.id}
+        />
       </CardContent>
     </Card>
   );

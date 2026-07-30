@@ -159,7 +159,7 @@ export default function PartnerDataPage() {
                 <ArrowRight className="size-4 ml-1.5" />
               </Button>
             </a>
-            <Link href="/submit">
+            <Link href="/upload">
               <Button variant="outline" size="lg">Submit a Dataset</Button>
             </Link>
           </div>

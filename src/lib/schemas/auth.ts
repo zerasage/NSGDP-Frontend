@@ -103,18 +103,29 @@ export const changePasswordSchema = z
 export const uploadStep1Schema = z.object({
   title: z.string().min(3, "Title is required").max(100, "Max 100 characters"),
   description: z.string().min(20, "Description must be at least 20 characters"),
+  categoryId: z.string().min(1, "Category is required"),
   tags: z.array(z.string()).optional(),
 });
 
-export const uploadStep2Schema = z.object({
-  lgas: z.array(z.string()).min(1, "Select at least one LGA"),
-  groups: z.array(z.string()).optional(),
+export const uploadStep2Schema = z
+  .object({
+    lgas: z.array(z.string()).min(1, "Select at least one LGA"),
+    temporalCoverageStart: z.string().min(1, "Start date is required"),
+    temporalCoverageEnd: z.string().min(1, "End date is required"),
+    diseaseIndicators: z.array(z.string()).optional(),
+  })
+  .refine(
+    (data) =>
+      !data.temporalCoverageStart ||
+      !data.temporalCoverageEnd ||
+      new Date(data.temporalCoverageStart) <= new Date(data.temporalCoverageEnd),
+    { message: "Start date must be before end date", path: ["temporalCoverageEnd"] }
+  );
+
+export const uploadStep4Schema = z.object({
+  license: z.string().min(1, "License is required"),
 });
 
-export const uploadStep3Schema = z.object({
+export const uploadStep5Schema = z.object({
   visibility: z.enum(["public", "restricted", "private"]),
 });
-
-export const uploadFullSchema = uploadStep1Schema
-  .merge(uploadStep2Schema)
-  .merge(uploadStep3Schema);

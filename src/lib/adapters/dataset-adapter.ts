@@ -71,7 +71,23 @@ export function transformDataset(
     
     downloadCount: backendDataset.download_count,
     updatedAt: backendDataset.updated_at,
-    
+
+    // The backend only exposes the current/primary file inline on the
+    // dataset itself (file_path/file_size), not a nested files array — build
+    // a single-item resources list from that so the Data Files & Resources
+    // section (and its download/request-access action) actually renders.
+    resources: backendDataset.file_path
+      ? [
+          {
+            id: backendDataset.id,
+            name: backendDataset.file_path.split('/').pop() || backendDataset.title,
+            format: backendDataset.format.toUpperCase() as FileFormat,
+            sizeBytes: backendDataset.file_size ?? 0,
+            updatedAt: backendDataset.updated_at,
+          },
+        ]
+      : [],
+
     // Extended metadata
     custodian: undefined, // Not in backend yet
     dateCollected: backendDataset.temporal_coverage_start || undefined,
