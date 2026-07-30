@@ -11,6 +11,7 @@ const CONFIG: Record<UserRole | BackendRole, { label: string; className: string 
   contributor: { label: "Contributor",      className: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300" },
   data_manager:{ label: "Data Manager",     className: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300" },
   admin:       { label: "Org Admin",        className: "bg-info-100 text-info-800 dark:bg-info-950 dark:text-info-300" },
+  staff:       { label: "Agency Staff",     className: "bg-primary/10 text-primary" },
   super_admin: { label: "Super Admin",      className: "bg-primary/10 text-primary" },
 };
 

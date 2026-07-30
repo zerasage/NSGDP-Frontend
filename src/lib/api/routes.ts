@@ -64,23 +64,10 @@ export const API_ROUTES = {
     myAccessRequests: '/datasets/me/access-requests',
   },
 
-  // Review Queue endpoints — cross-org dataset review, reachable by
-  // super_admin/admin role OR a user with a delegated approve:datasets /
-  // publish:datasets permission (see nsgdp-backend AccessGuard).
-  review: {
-    queue: '/admin/review-queue',
-    underReviewQueue: '/admin/review-queue/under-review',
-    datasets: '/admin/datasets',
-    bySlug: (slug: string) => `/admin/datasets/${slug}`,
-    preview: (slug: string) => `/admin/datasets/${slug}/preview`,
-    approve: (slug: string) => `/admin/datasets/${slug}/approve`,
-    reject: (slug: string) => `/admin/datasets/${slug}/reject`,
-    requestRevision: (slug: string) => `/admin/datasets/${slug}/request-revision`,
-    markUnderReview: (slug: string) => `/admin/datasets/${slug}/mark-under-review`,
-    qaChecklist: (slug: string) => `/admin/datasets/${slug}/qa-checklist`,
-    publish: (slug: string) => `/admin/datasets/${slug}/publish`,
-    unpublish: (slug: string) => `/admin/datasets/${slug}/unpublish`,
-  },
+  // Cross-org dataset review/approval (super_admin, or staff with a
+  // delegated approve:datasets/publish:datasets permission) now lives
+  // entirely in nsgdp-admin — org admins never had a legitimate use for it
+  // here, so there's no `review` route block in this app anymore.
 
   // Upload endpoints
   uploads: {

@@ -17,15 +17,28 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Auth guard - redirect to login if not authenticated
+  // staff/super_admin are admin-portal-only principals — they have no
+  // organisation-scoped functionality here. The backend already rejects
+  // their login at /auth/login; this covers stale sessions from before that
+  // guard existed, or tokens issued directly against the admin-auth system.
+  const isAdminPortalOnly = user?.role === "staff" || user?.role === "super_admin";
+
+  // Auth guard - redirect to login if not authenticated, or to the admin
+  // portal if authenticated as a principal that doesn't belong here
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
       router.push("/login?returnTo=/dashboard");
+      return;
     }
-  }, [isAuthenticated, isLoading, router]);
+    if (isAdminPortalOnly) {
+      const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3002";
+      window.location.href = `${adminUrl}/login`;
+    }
+  }, [isAuthenticated, isLoading, isAdminPortalOnly, router]);
 
   // Show loading state while checking auth
   if (isLoading) {
@@ -39,8 +52,9 @@ export default function DashboardLayout({
     );
   }
 
-  // Don't render dashboard if not authenticated
-  if (!isAuthenticated) {
+  // Don't render dashboard if not authenticated, or if this account belongs
+  // to the admin portal instead (redirect is in flight)
+  if (!isAuthenticated || isAdminPortalOnly) {
     return null;
   }
 

@@ -11,7 +11,6 @@ import {
   User,
   X,
   Upload,
-  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -38,13 +37,6 @@ const NAV_LINKS: NavLink[] = [
     label: "Datasets",
     icon: Database,
     roles: ["contributor", "admin"],
-  },
-  {
-    href: "/review-queue",
-    label: "Review Queue",
-    icon: ClipboardCheck,
-    roles: ["admin", "super_admin"],
-    permissions: ["approve:datasets", "publish:datasets"],
   },
   {
     href: "/organisation",
