@@ -62,16 +62,15 @@ export function DatasetDownloadActions({
   const downloadMutation = useDownloadDataset();
   const requestAccessMutation = useRequestDatasetAccess();
 
-  // A delegated view:restricted/download:restricted grant skips the request
-  // flow entirely — same as how the backend already treats a permission
-  // holder as having access (see AccessRequestsService.hasAccess).
-  const hasPermissionGrant = (user?.permissions ?? []).some(
-    (p) => p === "view:restricted" || p === "download:restricted"
-  );
-  const { data: myRequests } = useMyAccessRequests(isAuthenticated && visibility === "restricted" && !hasPermissionGrant);
+  // Org admins and super_admins always have access — same as the backend's
+  // AccessRequestsService.hasAccess. view:restricted/download:restricted are
+  // delegated permission-group grants, but only staff accounts can ever be
+  // group members, and staff don't use this portal — nothing to check here.
+  const hasRoleAccess = user?.role === "admin" || user?.role === "super_admin";
+  const { data: myRequests } = useMyAccessRequests(isAuthenticated && visibility === "restricted" && !hasRoleAccess);
   const matchingRequest = myRequests?.find((r) => r.dataset_id === datasetId);
 
-  const accessState: "none" | "pending" | "approved" = hasPermissionGrant
+  const accessState: "none" | "pending" | "approved" = hasRoleAccess
     ? "approved"
     : matchingRequest?.status === "approved"
       ? "approved"

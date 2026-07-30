@@ -4,22 +4,6 @@
 
 import type { UserRole } from "@/types";
 
-// Mirrors nsgdp-backend's PermissionActionKey (src/modules/admin/constants/permission-actions.ts).
-// Duplicated here since the repos share no code — keep in sync manually.
-export type PermissionActionKey =
-  | "approve:datasets"
-  | "publish:datasets"
-  | "archive:datasets"
-  | "invite:users"
-  | "deactivate:users"
-  | "promote:org-admin"
-  | "view:restricted"
-  | "download:restricted"
-  | "create:programs"
-  | "edit:programs"
-  | "delete:programs"
-  | "upload:programs";
-
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
@@ -42,7 +26,6 @@ export interface UserProfile {
   emailVerified: boolean;
   mfaEnabled: boolean;
   createdAt: string;
-  permissions: PermissionActionKey[];
 }
 
 export interface AuthResponse {
