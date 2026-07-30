@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   Users,
@@ -19,10 +19,13 @@ import {
   Clock,
   Calendar,
   Pencil,
+  KeyRound,
+  Check,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { apiClient } from "@/lib/api/client";
 import type { Organisation } from "@/lib/api/organisations";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,8 +52,20 @@ import {
   DashboardPageContent,
 } from "@/components/layout/dashboard-page-header";
 
+interface AccessRequestRow {
+  id: string;
+  reason: string;
+  status: "pending" | "approved" | "denied";
+  created_at: string;
+  requester_email: string;
+  requester_name: string;
+  dataset_title: string;
+  dataset_slug: string;
+}
+
 export default function OrganisationManagementPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -75,6 +90,43 @@ export default function OrganisationManagementPage() {
   const { data: invites, isLoading: invitesLoading, error } = useOrganisationInvites(
     isAdmin && orgId ? orgId : ""
   );
+
+  // Access requests for this org's restricted datasets — org admin only.
+  // The backend scopes this list to the caller's own org automatically.
+  const { data: accessRequests, isLoading: accessRequestsLoading } = useQuery({
+    queryKey: ["organisation-access-requests", orgId],
+    queryFn: async () => {
+      const response = await apiClient.get<{ data: { data: AccessRequestRow[] } }>(
+        "/admin/access-requests?status=pending"
+      );
+      return response.data.data.data;
+    },
+    enabled: isAdmin && !!orgId,
+  });
+
+  const approveAccessRequestMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiClient.post(`/admin/access-requests/${id}/approve`, {}),
+    onSuccess: () => {
+      toast.success("Access request approved");
+      queryClient.invalidateQueries({ queryKey: ["organisation-access-requests", orgId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to approve access request");
+    },
+  });
+
+  const denyAccessRequestMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiClient.post(`/admin/access-requests/${id}/deny`, { comment: "Denied by organisation admin" }),
+    onSuccess: () => {
+      toast.success("Access request denied");
+      queryClient.invalidateQueries({ queryKey: ["organisation-access-requests", orgId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to deny access request");
+    },
+  });
   
   // Fetch organisation members
   const { data: members, isLoading: membersLoading } = useOrganisationMembers(orgId);
@@ -254,7 +306,7 @@ export default function OrganisationManagementPage() {
 
       <DashboardPageContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid !h-auto p-2 bg-muted rounded-lg">
+          <TabsList className={cn("grid w-full lg:w-auto lg:inline-grid !h-auto p-2 bg-muted rounded-lg", isAdmin ? "grid-cols-4" : "grid-cols-2")}>
             <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm !h-auto py-3 px-4 rounded-md">
               <Building2 className="h-4 w-4 mr-2" />
               Overview
@@ -267,6 +319,12 @@ export default function OrganisationManagementPage() {
               <TabsTrigger value="invites" className="data-[state=active]:bg-background data-[state=active]:shadow-sm !h-auto py-3 px-4 rounded-md">
                 <Mail className="h-4 w-4 mr-2" />
                 Invitations ({pendingInvites.length})
+              </TabsTrigger>
+            )}
+            {isAdmin && (
+              <TabsTrigger value="access-requests" className="data-[state=active]:bg-background data-[state=active]:shadow-sm !h-auto py-3 px-4 rounded-md">
+                <KeyRound className="h-4 w-4 mr-2" />
+                Access Requests ({accessRequests?.length ?? 0})
               </TabsTrigger>
             )}
           </TabsList>
@@ -621,6 +679,76 @@ export default function OrganisationManagementPage() {
               </Card>
             )}
           </TabsContent>
+          )}
+
+          {/* Access Requests Tab - Admin Only */}
+          {isAdmin && (
+            <TabsContent value="access-requests" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pending Access Requests</CardTitle>
+                  <CardDescription>
+                    Requests to download your organisation&apos;s restricted datasets
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {accessRequestsLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-24 w-full" />
+                      ))}
+                    </div>
+                  ) : !accessRequests || accessRequests.length === 0 ? (
+                    <div className="text-center py-12">
+                      <KeyRound className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-lg font-medium">No pending access requests</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Requests to download your restricted datasets will show up here
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {accessRequests.map((request) => (
+                        <div
+                          key={request.id}
+                          className="flex items-start justify-between gap-4 p-4 border rounded-lg"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium">{request.dataset_title}</p>
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              Requested by {request.requester_name || request.requester_email} (
+                              {request.requester_email}) ·{" "}
+                              {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
+                            </p>
+                            <p className="text-sm mt-2">{request.reason}</p>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              onClick={() => approveAccessRequestMutation.mutate(request.id)}
+                              disabled={approveAccessRequestMutation.isPending || denyAccessRequestMutation.isPending}
+                            >
+                              <Check className="h-4 w-4 mr-1.5" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => denyAccessRequestMutation.mutate(request.id)}
+                              disabled={approveAccessRequestMutation.isPending || denyAccessRequestMutation.isPending}
+                            >
+                              <XCircle className="h-4 w-4 mr-1.5" />
+                              Deny
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           )}
         </Tabs>
       </DashboardPageContent>
