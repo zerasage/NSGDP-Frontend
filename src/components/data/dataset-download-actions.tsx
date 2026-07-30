@@ -33,15 +33,17 @@ interface DatasetDownloadActionsProps {
   datasetSlug: string;
   datasetTitle: string;
   visibility: Visibility;
+  datasetOrganisationId?: string;
   className?: string;
 }
 
 function getInitialState(
   visibility: Visibility,
   isAuthenticated: boolean,
+  hasRoleAccess: boolean,
   accessState: "none" | "pending" | "approved"
 ): DownloadState {
-  if (visibility === "private") return "hidden";
+  if (visibility === "private") return hasRoleAccess ? "ready" : "hidden";
   if (!isAuthenticated) return "guest";
   if (visibility === "restricted") {
     if (accessState === "approved") return "approved";
@@ -56,17 +58,23 @@ export function DatasetDownloadActions({
   datasetSlug,
   datasetTitle,
   visibility,
+  datasetOrganisationId,
   className,
 }: DatasetDownloadActionsProps) {
   const { isAuthenticated, user } = useAuth();
   const downloadMutation = useDownloadDataset();
   const requestAccessMutation = useRequestDatasetAccess();
 
-  // Org admins and super_admins always have access — same as the backend's
-  // AccessRequestsService.hasAccess. view:restricted/download:restricted are
-  // delegated permission-group grants, but only staff accounts can ever be
-  // group members, and staff don't use this portal — nothing to check here.
-  const hasRoleAccess = user?.role === "admin" || user?.role === "super_admin";
+  // super_admin always has access; any member of the dataset's own org
+  // (any role, not just admin) — same as the backend's
+  // AccessRequestsService.hasAccess and the private-visibility org check in
+  // DatasetsService. A member of a different org gets no special treatment
+  // and must request access like anyone else. view:restricted/download:restricted
+  // are delegated permission-group grants, but only staff accounts can ever
+  // be group members, and staff don't use this portal — nothing to check here.
+  const hasRoleAccess =
+    user?.role === "super_admin" ||
+    (!!datasetOrganisationId && user?.organisationId === datasetOrganisationId);
   const { data: myRequests } = useMyAccessRequests(isAuthenticated && visibility === "restricted" && !hasRoleAccess);
   const matchingRequest = myRequests?.find((r) => r.dataset_id === datasetId);
 
@@ -79,15 +87,15 @@ export function DatasetDownloadActions({
         : "none"; // covers "denied" and "never requested" — both show the Request Access button again
 
   const [state, setState] = useState<DownloadState>(() =>
-    getInitialState(visibility, isAuthenticated, accessState)
+    getInitialState(visibility, isAuthenticated, hasRoleAccess, accessState)
   );
   const [loginOpen, setLoginOpen] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
   const [reason, setReason] = useState("");
 
   useEffect(() => {
-    setState(getInitialState(visibility, isAuthenticated, accessState));
-  }, [visibility, isAuthenticated, accessState]);
+    setState(getInitialState(visibility, isAuthenticated, hasRoleAccess, accessState));
+  }, [visibility, isAuthenticated, hasRoleAccess, accessState]);
 
   const handleDownload = async () => {
     downloadMutation.mutate({ slug: datasetSlug }, {

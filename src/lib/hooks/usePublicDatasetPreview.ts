@@ -14,7 +14,7 @@ interface PublicPreviewResponse {
   rowCount?: number;
 }
 
-export function usePublicDatasetPreview(slug: string | undefined) {
+export function usePublicDatasetPreview(slug: string | undefined, enabled: boolean = true) {
   return useQuery({
     queryKey: ['dataset-public-preview', slug],
     queryFn: async () => {
@@ -24,7 +24,7 @@ export function usePublicDatasetPreview(slug: string | undefined) {
       );
       return response.data.data;
     },
-    enabled: !!slug,
+    enabled: !!slug && enabled,
     staleTime: 24 * 60 * 60 * 1000, // 24 hours (matches backend cache)
     retry: 1,
   });

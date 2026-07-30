@@ -567,6 +567,7 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
                   datasetSlug={dataset.slug}
                   datasetTitle={dataset.title}
                   visibility={dataset.visibility}
+                  datasetOrganisationId={dataset.organisation.id}
                 />
               </CardContent>
             </Card>
