@@ -22,6 +22,7 @@ import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { transformDataset } from "@/lib/adapters/dataset-adapter";
 import { DatasetCardSkeleton } from "@/components/feedback/skeletons";
 import { SPATIAL_ONLY_PREVIEW_FORMATS } from "@/lib/constants/core";
+import { formatDate } from "@/lib/utils/date";
 import type { PaginatedResponse } from "@/lib/types/common";
 import type { Category } from "@/lib/api/categories";
 import type { Organisation } from "@/lib/api/organisations";
@@ -392,6 +393,14 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
+                      Category
+                    </p>
+                    <p className="mt-1 text-sm">
+                      {categoriesResponse?.data?.find((c) => c.id === backendDataset?.category_id)?.name ?? "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
                       File Formats
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1">
@@ -412,7 +421,88 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                         : `${dataset.lgaCoverage.length} LGAs`}
                     </p>
                   </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Reporting Period
+                    </p>
+                    <p className="mt-1 text-sm">
+                      {backendDataset?.temporal_coverage_start && backendDataset?.temporal_coverage_end
+                        ? `${formatDate(backendDataset.temporal_coverage_start)} – ${formatDate(backendDataset.temporal_coverage_end)}`
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Data License
+                    </p>
+                    <p className="mt-1 text-sm">{backendDataset?.license || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Update Frequency
+                    </p>
+                    <p className="mt-1 text-sm">{backendDataset?.update_frequency || "—"}</p>
+                  </div>
                 </div>
+
+                {backendDataset?.disease_indicators && backendDataset.disease_indicators.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Disease / Health Indicators
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {backendDataset.disease_indicators.map((indicator) => (
+                        <Badge key={indicator} variant="secondary">
+                          {indicator}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(backendDataset?.responsible_dept || backendDataset?.contact_person || backendDataset?.contact_email) && (
+                  <div className="pt-2 border-t">
+                    <p className="text-sm font-medium text-muted-foreground mb-2">
+                      Contact
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {backendDataset?.responsible_dept && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Responsible Department</p>
+                          <p className="text-sm">{backendDataset.responsible_dept}</p>
+                        </div>
+                      )}
+                      {(backendDataset?.contact_person || backendDataset?.contact_email) && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Contact Person</p>
+                          <p className="text-sm">
+                            {backendDataset.contact_person}
+                            {backendDataset.contact_person && backendDataset.contact_email && " · "}
+                            {backendDataset.contact_email}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {backendDataset?.methodology && (
+                  <div className="pt-2 border-t">
+                    <p className="text-sm font-medium text-muted-foreground">Methodology</p>
+                    <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+                      {backendDataset.methodology}
+                    </p>
+                  </div>
+                )}
+
+                {backendDataset?.limitations && (
+                  <div className="pt-2 border-t">
+                    <p className="text-sm font-medium text-muted-foreground">Known Limitations</p>
+                    <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+                      {backendDataset.limitations}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
