@@ -2,6 +2,8 @@
 // Adds base URL, sends auth cookies, and normalises errors so the UI
 // can map them consistently to toasts / inline messages.
 
+import { getAccessToken, getRefreshToken, updateAccessToken, clearTokens } from "@/lib/utils/token-storage";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export class ApiError extends Error {
@@ -21,26 +23,77 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
 }
 
 /**
- * Get access token from localStorage
- * Returns null if not found or in SSR context
+ * The access token is short-lived (15m) by design — a 401 mid-session is the
+ * normal, expected way to find out it expired, not proof the session is
+ * dead. Every caller routes through this so a refresh only ever happens
+ * once even if several requests 401 at the same moment.
  */
-function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("accessToken");
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return null;
+
+    try {
+      const res = await fetch(`${BASE_URL}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) return null;
+
+      const json = await res.json();
+      const { accessToken, expiresIn } = json.data ?? json;
+      if (!accessToken) return null;
+
+      updateAccessToken(accessToken, expiresIn);
+      return accessToken as string;
+    } catch {
+      return null;
+    }
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
 }
 
-export async function apiFetch<T>(
+/**
+ * A 401 that survives a refresh attempt means the session is genuinely
+ * dead (refresh token itself expired/revoked) — only then do we clear
+ * tokens and redirect to login. A 401 with no token to begin with (e.g. a
+ * bad-credentials login attempt) is left alone.
+ */
+function handleUnauthorized(hadToken: boolean) {
+  if (!hadToken || typeof window === "undefined") return;
+  clearTokens();
+
+  if (typeof (window as unknown as { toast?: { error: (msg: string) => void } }).toast?.error === "function") {
+    (window as unknown as { toast: { error: (msg: string) => void } }).toast.error("Session expired. Please log in again.");
+  }
+
+  const currentPath = window.location.pathname;
+  if (!currentPath.startsWith("/login")) {
+    window.location.href = `/login?returnUrl=${encodeURIComponent(currentPath)}`;
+  }
+}
+
+async function doFetch(
   path: string,
-  options: RequestOptions = {},
-): Promise<T> {
-  const { body, headers, token, ...rest } = options;
+  options: RequestOptions,
+  accessToken: string | null,
+): Promise<Response> {
+  const { body, headers, ...rest } = options;
   const isFormData =
     typeof FormData !== "undefined" && body instanceof FormData;
 
-  // Use provided token or get from localStorage
-  const accessToken = token ?? getAccessToken();
-
-  const res = await fetch(`${BASE_URL}${path}`, {
+  return fetch(`${BASE_URL}${path}`, {
     ...rest,
     credentials: "include", // send httpOnly session cookie
     headers: {
@@ -57,6 +110,26 @@ export async function apiFetch<T>(
           ? body
           : JSON.stringify(body),
   });
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  const { token } = options;
+  let accessToken = token ?? getAccessToken();
+
+  let res = await doFetch(path, options, accessToken);
+
+  // Don't try to refresh a login/refresh call itself — an infinite loop
+  // waiting to happen — only a request that was actually carrying a token.
+  if (res.status === 401 && accessToken && !token) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      accessToken = newToken;
+      res = await doFetch(path, options, accessToken);
+    }
+  }
 
   if (!res.ok) {
     let message = res.statusText;
@@ -69,24 +142,7 @@ export async function apiFetch<T>(
       // non-JSON error body — keep statusText
     }
 
-    // Handle 401 - Redirect to login
-    if (res.status === 401 && typeof window !== "undefined") {
-      // Clear stored token
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      
-      // Show toast message (if sonner is available)
-      if (typeof window !== "undefined" && typeof (window as unknown as { toast?: { error: (msg: string) => void } }).toast?.error === "function") {
-        (window as unknown as { toast: { error: (msg: string) => void } }).toast.error("Session expired. Please log in again.");
-      }
-      
-      // Redirect to login with return URL
-      const currentPath = window.location.pathname;
-      window.location.href = `/login?returnUrl=${encodeURIComponent(currentPath)}`;
-      
-      // Throw error anyway for cleanup
-      throw new ApiError(res.status, message, details);
-    }
+    if (res.status === 401) handleUnauthorized(!!accessToken);
 
     throw new ApiError(res.status, message, details);
   }
