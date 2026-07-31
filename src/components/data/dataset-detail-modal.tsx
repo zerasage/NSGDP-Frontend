@@ -72,7 +72,7 @@ export function DatasetDetailModal({ dataset, open, onOpenChange }: DatasetDetai
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="pr-6 leading-snug">{dataset.title}</DialogTitle>
-          {dataset.lifecycleStage && (
+          {dataset.lifecycleStage && dataset.lifecycleStage !== "approved" && (
             <div className="pt-1">
               <LifecycleBadge stage={dataset.lifecycleStage} />
             </div>

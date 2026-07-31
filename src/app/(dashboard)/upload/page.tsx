@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, FileText, MapPin, Scale, Settings, X } from "lucide-react";
+import { Upload, FileText, MapPin, Scale, Settings, X, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Container } from "@/components/layout/container";
 import { Stepper } from "@/components/forms/stepper";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useCreateDataset } from "@/lib/hooks/useDatasets";
@@ -38,11 +39,11 @@ const steps = [
 ];
 
 const LICENSE_OPTIONS = [
-  { value: "CC-BY-4.0", label: "CC BY 4.0 — Attribution required" },
-  { value: "CC-BY-SA-4.0", label: "CC BY-SA 4.0 — Attribution, share-alike" },
-  { value: "CC0-1.0", label: "CC0 1.0 — Public domain" },
-  { value: "Government Open Data License", label: "Government Open Data License" },
-  { value: "Restricted — Internal Use Only", label: "Restricted — Internal use only" },
+  "CC-BY-4.0",
+  "CC-BY-SA-4.0",
+  "CC0-1.0",
+  "Government Open Data License",
+  "Restricted — Internal Use Only",
 ];
 
 export default function UploadDatasetPage() {
@@ -54,39 +55,81 @@ export default function UploadDatasetPage() {
   const [uploading, setUploading] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
 
-  // PRE-FILLED TEST DATA - Change as needed
-  const [title, setTitle] = useState("Test Health Dataset 2026");
-  const [description, setDescription] = useState("This is a test dataset for Niger State health data. Contains sample information for testing the upload flow and data validation.");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
-  const [tags, setTags] = useState<string[]>(["health", "test", "2026"]);
+  const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [selectedLGAs, setSelectedLGAs] = useState<string[]>(["Minna", "Suleja", "Bida"]);
-  const [temporalCoverageStart, setTemporalCoverageStart] = useState("2025-01-01");
-  const [temporalCoverageEnd, setTemporalCoverageEnd] = useState("2025-12-31");
-  const [diseaseIndicators, setDiseaseIndicators] = useState<string[]>(["Confirmed cases", "Deaths"]);
+  const [selectedLGAs, setSelectedLGAs] = useState<string[]>([]);
+  const [lgaFilter, setLgaFilter] = useState("");
+  const filteredLGAs = NIGER_STATE_LGAS.filter((lga) =>
+    lga.toLowerCase().includes(lgaFilter.trim().toLowerCase())
+  );
+  const [temporalCoverageStart, setTemporalCoverageStart] = useState("");
+  const [temporalCoverageEnd, setTemporalCoverageEnd] = useState("");
+  const [diseaseIndicators, setDiseaseIndicators] = useState<string[]>([]);
   const [indicatorInput, setIndicatorInput] = useState("");
-  const [license, setLicense] = useState("CC-BY-4.0");
-  const [methodology, setMethodology] = useState("Facility-based routine reporting via DHIS2");
-  const [limitations, setLimitations] = useState("Data may have reporting delays from rural facilities");
+  const [license, setLicense] = useState("");
+  const [methodology, setMethodology] = useState("");
+  const [limitations, setLimitations] = useState("");
   const [visibility, setVisibility] = useState<DatasetVisibility>("public");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [responsibleDept, setResponsibleDept] = useState("Disease Surveillance Unit");
-  const [contactPerson, setContactPerson] = useState("Jane Doe");
-  const [contactEmail, setContactEmail] = useState("jane.doe@example.org");
-  const [updateFrequency, setUpdateFrequency] = useState("Monthly");
+  const [responsibleDept, setResponsibleDept] = useState("");
+  const [contactPerson, setContactPerson] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [updateFrequency, setUpdateFrequency] = useState("");
+
+  const [prefillTestData, setPrefillTestData] = useState(false);
+  const togglePrefill = (checked: boolean) => {
+    setPrefillTestData(checked);
+    if (checked) {
+      setTitle(`Test Health Dataset ${new Date().getFullYear()} - ${Date.now().toString().slice(-6)}`);
+      setDescription(
+        "Sample dataset used for testing the contributor upload flow and data validation. Contains placeholder health data for Niger State."
+      );
+      setTags(["health", "test", "niger-state"]);
+      setSelectedLGAs(["Minna", "Suleja", "Bida"]);
+      setTemporalCoverageStart("2025-01-01");
+      setTemporalCoverageEnd("2025-12-31");
+      setDiseaseIndicators(["Confirmed cases", "Deaths"]);
+      setLicense("CC-BY-4.0");
+      setMethodology("Facility-based routine reporting via DHIS2");
+      setLimitations("Data may have reporting delays from rural facilities");
+      setResponsibleDept("Disease Surveillance Unit");
+      setContactPerson("Jane Doe");
+      setContactEmail("jane.doe@example.org");
+      setUpdateFrequency("Monthly");
+    } else {
+      setTitle("");
+      setDescription("");
+      setCategoryId("");
+      setTags([]);
+      setSelectedLGAs([]);
+      setTemporalCoverageStart("");
+      setTemporalCoverageEnd("");
+      setDiseaseIndicators([]);
+      setLicense("");
+      setMethodology("");
+      setLimitations("");
+      setResponsibleDept("");
+      setContactPerson("");
+      setContactEmail("");
+      setUpdateFrequency("");
+    }
+  };
 
   useDraftAutoSave(
     Boolean(title || description || uploadedFiles.length > 0),
     [title, description, uploadedFiles.length]
   );
 
-  // Category IDs are seeded per-environment, so default to the first
-  // available category once loaded rather than hardcoding an ID.
+  // Category IDs are seeded per-environment, so prefill from the first
+  // available category only when test data is explicitly enabled.
   useEffect(() => {
-    if (!categoryId && categoriesData?.data?.length) {
+    if (prefillTestData && !categoryId && categoriesData?.data?.length) {
       setCategoryId(categoriesData.data[0].id);
     }
-  }, [categoryId, categoriesData]);
+  }, [prefillTestData, categoryId, categoriesData]);
 
   // Role guard - only contributor and admin can upload
   // Must be after all hooks
@@ -268,15 +311,20 @@ export default function UploadDatasetPage() {
     <main className="flex-1 bg-muted/40">
       <div className="border-b bg-background">
         <Container size="wide" className="py-8">
-          <h1 className="text-3xl font-bold">Upload New Dataset</h1>
-          <p className="mt-2 text-muted-foreground">
-            Share your data with the Niger State community
-          </p>
-          {/* Pre-fill indicator */}
-          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              ℹ️ <strong>Form is pre-filled with test data.</strong> Just add your file in Step 3 and submit!
-            </p>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold">Upload New Dataset</h1>
+              <p className="mt-2 text-muted-foreground">
+                Share your data with the Niger State community
+              </p>
+            </div>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 cursor-pointer">
+              <Checkbox
+                checked={prefillTestData}
+                onCheckedChange={(checked) => togglePrefill(!!checked)}
+              />
+              Prefill test data
+            </label>
           </div>
         </Container>
       </div>
@@ -445,24 +493,39 @@ export default function UploadDatasetPage() {
                     {selectedLGAs.length === NIGER_STATE_LGAS.length ? "Clear All" : "Select All (25)"}
                   </Button>
                 </div>
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={lgaFilter}
+                    onChange={(e) => setLgaFilter(e.target.value)}
+                    placeholder="Filter LGAs…"
+                    className="pl-9 h-9"
+                  />
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-4 rounded-lg border">
-                  {NIGER_STATE_LGAS.map((lga) => (
-                    <label key={lga} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={selectedLGAs.includes(lga)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedLGAs([...selectedLGAs, lga]);
-                          } else {
-                            setSelectedLGAs(selectedLGAs.filter((l) => l !== lga));
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      {lga}
-                    </label>
-                  ))}
+                  {filteredLGAs.length === 0 ? (
+                    <p className="col-span-full text-sm text-muted-foreground text-center py-4">
+                      No LGAs match &ldquo;{lgaFilter}&rdquo;
+                    </p>
+                  ) : (
+                    filteredLGAs.map((lga) => (
+                      <label key={lga} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedLGAs.includes(lga)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLGAs([...selectedLGAs, lga]);
+                            } else {
+                              setSelectedLGAs(selectedLGAs.filter((l) => l !== lga));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        {lga}
+                      </label>
+                    ))
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {selectedLGAs.length} of {NIGER_STATE_LGAS.length} LGAs selected
@@ -586,22 +649,23 @@ export default function UploadDatasetPage() {
 
               <div>
                 <FieldLabelTooltip
+                  htmlFor="license"
                   label="Data License"
                   required
                   tooltip={UPLOAD_FIELD_TOOLTIPS.dataLicense}
                 />
-                <Select value={license} onValueChange={(v) => setLicense(v || "")}>
-                  <SelectTrigger className="w-full h-10">
-                    <SelectValue placeholder="Select a license" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LICENSE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="license"
+                  list="license-options"
+                  value={license}
+                  onChange={(e) => setLicense(e.target.value)}
+                  placeholder="Select a license or type your own…"
+                />
+                <datalist id="license-options">
+                  {LICENSE_OPTIONS.map((option) => (
+                    <option key={option} value={option} />
+                  ))}
+                </datalist>
                 <FormError message={stepErrors.license} />
               </div>
 

@@ -167,7 +167,7 @@ export default function DatasetPage({ params }: DatasetPageProps) {
 
               {/* Badges */}
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <StatusBadge status={dataset.status} />
+                {dataset.status !== "approved" && <StatusBadge status={dataset.status} />}
                 {dataset.groups.map((group) => (
                   <Link key={group.id} href={`/groups/${group.slug}`}>
                     <Badge variant="secondary" className="hover:bg-secondary/80">

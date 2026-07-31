@@ -26,7 +26,9 @@ export function DatasetCard({ dataset, className }: DatasetCardProps) {
         {/* Badges (top-right) */}
         <div className="absolute right-3 top-3 z-10 flex flex-col items-end gap-1">
           <VisibilityBadge visibility={dataset.visibility} />
-          {dataset.lifecycleStage && dataset.lifecycleStage !== "published" && (
+          {dataset.lifecycleStage &&
+            dataset.lifecycleStage !== "approved" &&
+            dataset.lifecycleStage !== "published" && (
             <LifecycleBadge stage={dataset.lifecycleStage} showDot={false} className="text-[10px] px-1.5 py-px" />
           )}
         </div>

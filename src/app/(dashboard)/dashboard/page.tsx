@@ -180,10 +180,12 @@ export default function DashboardPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Organization Datasets</CardTitle>
-                  <Button size="sm">
-                    <Upload className="size-4 mr-2" />
-                    Upload New
-                  </Button>
+                  <Link href="/upload">
+                    <Button size="sm">
+                      <Upload className="size-4 mr-2" />
+                      Upload New
+                    </Button>
+                  </Link>
                 </CardHeader>
                 <CardContent>
                   {loading ? (
@@ -227,10 +229,12 @@ export default function DashboardPage() {
                     <div className="text-center py-12">
                       <Database className="size-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground mb-4">You haven&apos;t uploaded any datasets yet</p>
-                      <Button>
-                        <Upload className="size-4 mr-2" />
-                        Upload Your First Dataset
-                      </Button>
+                      <Link href="/upload">
+                        <Button>
+                          <Upload className="size-4 mr-2" />
+                          Upload Your First Dataset
+                        </Button>
+                      </Link>
                     </div>
                   )}
                 </CardContent>
