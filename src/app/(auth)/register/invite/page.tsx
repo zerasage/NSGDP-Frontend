@@ -13,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PasswordStrengthMeter } from "@/components/forms/password-strength-meter";
 import { FormError } from "@/components/forms/form-error";
+import { DataConsentAgreement } from "@/components/legal/data-consent-agreement";
+import { Checkbox } from "@/components/ui/checkbox";
 import { acceptInviteSchema, type AcceptInviteFormData } from "@/lib/schemas/invite";
 import { validateInvite, acceptInvite, acceptInviteForExistingUser, type ValidateInviteResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -29,6 +31,7 @@ function InviteRegistrationForm() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   const {
     register,
@@ -82,6 +85,7 @@ function InviteRegistrationForm() {
         lastName: data.lastName,
         password: data.password,
         phoneNumber: data.phone,
+        consentAccepted: inviteData?.organisationConsentGiven ? undefined : consentAccepted,
       });
 
       // Store tokens for auto-login
@@ -115,7 +119,10 @@ function InviteRegistrationForm() {
     setLoading(true);
 
     try {
-      const response = await acceptInviteForExistingUser(inviteToken);
+      const response = await acceptInviteForExistingUser(
+        inviteToken,
+        inviteData?.organisationConsentGiven ? undefined : consentAccepted
+      );
 
       if (response.tokens) {
         localStorage.setItem('accessToken', response.tokens.accessToken);
@@ -242,7 +249,36 @@ function InviteRegistrationForm() {
                   You&apos;re logged in as {inviteData.invitedEmail}. Accept below to upgrade
                   your account.
                 </p>
-                <Button className="w-full" onClick={onAcceptExisting} disabled={loading}>
+
+                {!inviteData.organisationConsentGiven && (
+                  <div className="space-y-3">
+                    <p className="text-sm">
+                      {inviteData.organisationName} hasn&apos;t yet consented to our Data
+                      Contribution &amp; Usage Consent Agreement. As the first member accepting an
+                      invite on its behalf, please review and agree to the terms below.
+                    </p>
+                    <div className="max-h-64 overflow-y-auto rounded-lg border p-4 bg-muted/20">
+                      <DataConsentAgreement organisationName={inviteData.organisationName} />
+                    </div>
+                    <label className="flex items-start gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={consentAccepted}
+                        onCheckedChange={(checked) => setConsentAccepted(!!checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        I have read and agree to the Data Contribution &amp; Usage Consent
+                        Agreement on behalf of {inviteData.organisationName}.
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                <Button
+                  className="w-full"
+                  onClick={onAcceptExisting}
+                  disabled={loading || (!inviteData.organisationConsentGiven && !consentAccepted)}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="size-4 mr-2 animate-spin" />
@@ -438,7 +474,35 @@ function InviteRegistrationForm() {
               </ul>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            {!inviteData.organisationConsentGiven && (
+              <div className="space-y-3">
+                <p className="text-sm">
+                  {inviteData.organisationName} hasn&apos;t yet consented to our Data Contribution
+                  &amp; Usage Consent Agreement. As the first member accepting an invite on its
+                  behalf, please review and agree to the terms below.
+                </p>
+                <div className="max-h-64 overflow-y-auto rounded-lg border p-4 bg-muted/20">
+                  <DataConsentAgreement organisationName={inviteData.organisationName} />
+                </div>
+                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={consentAccepted}
+                    onCheckedChange={(checked) => setConsentAccepted(!!checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    I have read and agree to the Data Contribution &amp; Usage Consent Agreement on
+                    behalf of {inviteData.organisationName}.
+                  </span>
+                </label>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || (!inviteData.organisationConsentGiven && !consentAccepted)}
+            >
               {loading ? (
                 <>
                   <Loader2 className="size-4 mr-2 animate-spin" />
