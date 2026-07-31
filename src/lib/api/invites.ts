@@ -12,6 +12,12 @@ export interface ValidateInviteResponse {
    * their role/org) — they must log in as that account to accept it,
    * instead of setting a new password. */
   isExistingUser: boolean;
+  /** True if this organisation has already given electronic consent to the
+   * Data Contribution & Usage Consent Agreement (captured the first time
+   * anyone accepted an invite to join it). When false, this invitee is the
+   * organisation's first representative to accept, and must be shown and
+   * agree to the full consent agreement before their account is created. */
+  organisationConsentGiven: boolean;
 }
 
 export interface AcceptInviteRequest {
@@ -19,6 +25,8 @@ export interface AcceptInviteRequest {
   lastName: string;
   password: string;
   phoneNumber?: string;
+  /** Required (must be true) only when organisationConsentGiven was false. */
+  consentAccepted?: boolean;
 }
 
 export interface AcceptInviteResponse {
@@ -56,10 +64,12 @@ export async function acceptInvite(
  * Requires the caller to already be authenticated as the invited email.
  */
 export async function acceptInviteForExistingUser(
-  token: string
+  token: string,
+  consentAccepted?: boolean
 ): Promise<AcceptInviteResponse> {
   const response = await apiClient.post<{ data: AcceptInviteResponse }>(
-    `/invites/${token}/accept-existing`
+    `/invites/${token}/accept-existing`,
+    { consentAccepted }
   );
   return response.data.data;
 }
