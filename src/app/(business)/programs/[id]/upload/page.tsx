@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/select";
 import { FileUploadArea, type UploadedFile } from "@/components/forms/file-upload-area";
 import { FormError } from "@/components/forms/form-error";
-import { getProgramById, addProgramReport } from "@/lib/mock/programs";
+import { useProgramBySlug, useCreateProgramReport } from "@/lib/hooks/usePrograms";
+import { uploadFile } from "@/lib/api/uploads";
 import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
 import { useAuth } from "@/lib/auth";
 import { programReportSchema, type ProgramReportFormData } from "@/lib/schemas/program";
@@ -31,7 +32,8 @@ export default function UploadProgramReportPage() {
   const router = useRouter();
   const { canUpload } = useProgramPermissions();
   const { user, isLoading } = useAuth();
-  const program = getProgramById(id);
+  const { data: program } = useProgramBySlug(id);
+  const createReportMutation = useCreateProgramReport();
   const [files, setFiles] = useState<UploadedFile[]>([]);
 
   const {
@@ -82,15 +84,20 @@ export default function UploadProgramReportPage() {
       return;
     }
     const file = files[0];
-    addProgramReport(program.id, {
-      title: data.title,
-      uploadedBy: `${user.firstName} ${user.lastName}`,
-      fileSizeBytes: file.size,
-      fileFormat: data.fileFormat,
-      url: `/reports/${program.slug}-${Date.now()}.${data.fileFormat.toLowerCase()}`,
-    });
-    toast.success("Report uploaded (mock)");
-    router.push(`/programs/${program.id}`);
+    try {
+      const report = await createReportMutation.mutateAsync({
+        slug: program.slug,
+        data: {
+          title: data.title,
+          description: data.notes || data.title,
+        },
+      });
+      await uploadFile(file.file, undefined, report.id);
+      toast.success("Report uploaded — pending admin review before it appears publicly");
+      router.push(`/programs/${program.id}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload report");
+    }
   };
 
   return (

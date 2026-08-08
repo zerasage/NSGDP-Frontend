@@ -3,12 +3,12 @@
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProgramForm, programToFormDefaults } from "@/components/programs/program-form";
-import { getProgramById, updateProgram, deleteProgram } from "@/lib/mock/programs";
+import { useProgramBySlug, useUpdateProgram, useDeleteProgram } from "@/lib/hooks/usePrograms";
 import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
 import { useAuth } from "@/lib/auth";
 import type { ProgramFormData } from "@/lib/schemas/program";
@@ -19,7 +19,9 @@ export default function EditProgramPage() {
   const router = useRouter();
   const { canEdit, canDelete } = useProgramPermissions();
   const { user, isLoading } = useAuth();
-  const program = getProgramById(id);
+  const { data: program, isLoading: programLoading } = useProgramBySlug(id);
+  const updateMutation = useUpdateProgram();
+  const deleteMutation = useDeleteProgram();
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -27,8 +29,13 @@ export default function EditProgramPage() {
     }
   }, [isLoading, router, user]);
 
-  if (isLoading || !user) {
-    return null;
+  if (isLoading || !user || programLoading) {
+    return (
+      <Container className="py-16 flex items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" />
+        Loading…
+      </Container>
+    );
   }
 
   if (!program) {
@@ -58,17 +65,27 @@ export default function EditProgramPage() {
   }
 
   const handleSubmit = async (data: ProgramFormData) => {
-    updateProgram(program.id, data);
-    toast.success("Programme updated");
-    router.push(`/programs/${program.id}`);
+    try {
+      await updateMutation.mutateAsync({ slug: program.slug, data });
+      toast.success("Programme updated");
+      router.push(`/programs/${program.id}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update programme");
+    }
   };
 
   const handleDelete = () => {
     if (!canDelete) return;
     if (!window.confirm(`Delete "${program.name}"? This cannot be undone.`)) return;
-    deleteProgram(program.id);
-    toast.success("Programme deleted");
-    router.push("/programs");
+    deleteMutation.mutate(program.slug, {
+      onSuccess: () => {
+        toast.success("Programme deleted");
+        router.push("/programs");
+      },
+      onError: (err: unknown) => {
+        toast.error(err instanceof Error ? err.message : "Failed to delete programme");
+      },
+    });
   };
 
   return (

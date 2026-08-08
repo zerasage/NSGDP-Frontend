@@ -50,15 +50,6 @@ export default function DashboardPage() {
     { enabled: !!user?.organisationId }
   );
 
-  // Debug logging - remove after testing
-  console.log('=== DASHBOARD DEBUG ===');
-  console.log('User:', user);
-  console.log('User Org ID:', user?.organisationId);
-  console.log('Summary Data:', summary);
-  console.log('Datasets Data:', datasetsData);
-  console.log('Download History:', downloadHistory);
-  console.log('======================');
-
   const myDatasets = datasetsData?.data || [];
   const loading = summaryLoading || datasetsLoading;
 

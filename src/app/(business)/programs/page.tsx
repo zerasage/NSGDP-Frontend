@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import {
@@ -25,9 +25,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getProgramsList } from "@/lib/mock/programs";
+import { usePrograms } from "@/lib/hooks/usePrograms";
 import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
-import type { Program, ProgramStatus, ProgramType } from "@/types";
+import type { ProgramStatus, ProgramType } from "@/types";
 import { typeChip } from "@/lib/constants/status-surfaces";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -103,11 +103,8 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 export default function ProgramsPage() {
   const { canCreate, canUpload } = useProgramPermissions();
-  const [programs, setPrograms] = useState<Program[]>([]);
-
-  useEffect(() => {
-    setPrograms(getProgramsList());
-  }, []);
+  const { data, isLoading, error } = usePrograms();
+  const programs = useMemo(() => data?.data ?? [], [data]);
 
   const [statusFilter, setStatusFilter] = useState<ProgramStatus | "all">("all");
   const [typeFilter, setTypeFilter]     = useState<ProgramType | "all">("all");
@@ -227,6 +224,16 @@ export default function ProgramsPage() {
       {/* ── Program cards ───────────────────────────────────────────────────── */}
       <section className="py-8 sm:py-12 lg:py-16">
         <Container size="wide">
+          {isLoading ? (
+            <div className="rounded-xl border bg-muted/30 py-20 text-center text-muted-foreground">
+              Loading programmes…
+            </div>
+          ) : error ? (
+            <div className="rounded-xl border bg-muted/30 py-20 text-center text-muted-foreground">
+              Couldn&apos;t load programmes. Please try again shortly.
+            </div>
+          ) : (
+          <>
           <p className="mb-4 text-sm text-muted-foreground">
             Showing <strong>{filtered.length}</strong> of {programs.length} programs
           </p>
@@ -434,6 +441,8 @@ export default function ProgramsPage() {
                 </Card>
               ))}
             </div>
+          )}
+          </>
           )}
         </Container>
       </section>

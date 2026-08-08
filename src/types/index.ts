@@ -215,6 +215,8 @@ export interface Facility {
 
 export interface ProgramReport {
   id: string;
+  /** Document slug — used to request a fresh presigned download URL. */
+  slug?: string;
   title: string;
   uploadedAt: string;
   uploadedBy: string;

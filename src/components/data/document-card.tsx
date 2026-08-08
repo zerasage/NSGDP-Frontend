@@ -41,12 +41,17 @@ function formatBytes(bytes: number) {
 interface DocumentCardProps {
   doc: PortalDocument;
   className?: string;
+  onDownload?: (doc: PortalDocument) => void;
 }
 
-export function DocumentCard({ doc, className }: DocumentCardProps) {
+export function DocumentCard({ doc, className, onDownload }: DocumentCardProps) {
   const handleDownload = () => {
     if (doc.restricted) {
       toast.error("This document requires special access. Contact data@nsphcda.ng");
+      return;
+    }
+    if (onDownload) {
+      onDownload(doc);
       return;
     }
     toast.success(`Downloading "${doc.title}" (mock)`);

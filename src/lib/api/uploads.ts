@@ -28,16 +28,20 @@ export interface JobStatus {
 }
 
 /**
- * Upload a file and optionally associate it with a dataset
+ * Upload a file and optionally associate it with a dataset or document
  */
 export async function uploadFile(
   file: File,
-  datasetId?: string
+  datasetId?: string,
+  documentId?: string
 ): Promise<UploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
   if (datasetId) {
     formData.append('datasetId', datasetId);
+  }
+  if (documentId) {
+    formData.append('documentId', documentId);
   }
 
   const response = await apiClient.post<ApiResponse<UploadResponse>>(

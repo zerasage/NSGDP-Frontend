@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { HomeHeroSection } from "@/components/map/home-hero-section";
 import { OutbreakAlertBanner } from "@/components/home/outbreak-alert-banner";
 import { RepositoryDashboard } from "@/components/home/repository-dashboard";
+import { FeaturedGroupsSection } from "@/components/home/featured-groups-section";
 import { mockAlerts } from "@/lib/mock/alerts";
 
 const features = [
@@ -160,6 +161,9 @@ export default function HomePage() {
           </div>
         </Container>
       </section>
+
+      {/* Featured curated collections */}
+      <FeaturedGroupsSection />
 
       {/* Real-world applications */}
       <section className="py-16 sm:py-20">

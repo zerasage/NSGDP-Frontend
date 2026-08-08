@@ -8,7 +8,7 @@ import { Container } from "@/components/layout/container";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProgramForm } from "@/components/programs/program-form";
-import { createProgram } from "@/lib/mock/programs";
+import { useCreateProgram } from "@/lib/hooks/usePrograms";
 import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
 import { useAuth } from "@/lib/auth";
 import type { ProgramFormData } from "@/lib/schemas/program";
@@ -18,6 +18,7 @@ export default function NewProgramPage() {
   const router = useRouter();
   const { canCreate } = useProgramPermissions();
   const { user, isLoading } = useAuth();
+  const createMutation = useCreateProgram();
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -44,9 +45,13 @@ export default function NewProgramPage() {
   }
 
   const handleSubmit = async (data: ProgramFormData) => {
-    const program = createProgram(data);
-    toast.success(`Programme "${program.name}" created`);
-    router.push(`/programs/${program.id}`);
+    try {
+      const program = await createMutation.mutateAsync(data);
+      toast.success(`Programme "${program.name}" created`);
+      router.push(`/programs/${program.id}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create programme");
+    }
   };
 
   return (

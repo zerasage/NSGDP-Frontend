@@ -9,6 +9,7 @@ import {
   MapPin,
   ArrowUpDown,
   Building,
+  Info,
 } from "lucide-react";
 import {
   LineChart,
@@ -23,6 +24,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import { Container } from "@/components/layout/container";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -125,6 +127,15 @@ export default function HealthAnalyticsPage() {
   return (
     <main className="flex-1 py-8">
       <Container size="wide" className="space-y-8">
+        <Alert>
+          <Info className="size-4" />
+          <AlertDescription>
+            This dashboard is showing illustrative mock/seed data, not live
+            health indicators. Real aggregation from uploaded datasets is
+            planned for a future release.
+          </AlertDescription>
+        </Alert>
+
         {/* Global filters */}
         <div className="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-muted/30 p-4">
           <div className="space-y-1">
