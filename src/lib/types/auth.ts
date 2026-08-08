@@ -39,6 +39,8 @@ export interface RegisterPayload {
   password: string;
   phoneNumber?: string;
   accessLevel?: 'public' | 'partner' | 'administrator';
+  lga?: string;
+  ward?: string;
   reason?: string;
 }
 

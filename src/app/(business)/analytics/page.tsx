@@ -38,6 +38,8 @@ import { PageHeaderSkeleton } from "@/components/feedback/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getHealthAnalytics } from "@/lib/mock";
 import { mockPrograms } from "@/lib/mock/programs";
+import { useAnalyticsDashboard } from "@/lib/hooks/useAnalyticsDashboard";
+import { downloadAnalyticsCsv } from "@/lib/api/analytics";
 import { ANALYTICS_METRICS } from "@/lib/constants/health";
 import {
   ANALYTICS_DATA_SOURCES,
@@ -66,6 +68,7 @@ export default function HealthAnalyticsPage() {
   const [data, setData] = useState<Awaited<ReturnType<typeof getHealthAnalytics>> | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [sortAsc, setSortAsc] = useState(true);
+  const { data: dashboard } = useAnalyticsDashboard();
 
   useEffect(() => {
     setLoading(true);
@@ -103,6 +106,11 @@ export default function HealthAnalyticsPage() {
 
   const sourceLabel = getAnalyticsSourceLabel(dataSource);
 
+  const realHealthFacilities = dashboard?.lgaCoverage.reduce(
+    (sum, l) => sum + l.facilityCount,
+    0
+  );
+
   const filteredPrograms = mockPrograms.filter((p) => {
     if (p.status !== "ongoing") return false;
     if (dataSource === "all") return true;
@@ -130,9 +138,11 @@ export default function HealthAnalyticsPage() {
         <Alert>
           <Info className="size-4" />
           <AlertDescription>
-            This dashboard is showing illustrative mock/seed data, not live
-            health indicators. Real aggregation from uploaded datasets is
-            planned for a future release.
+            Disease-burden figures on this page (cases, trends, incidence,
+            seasonality) are illustrative mock/seed data — no real disease
+            surveillance data source exists yet. Health facility counts, LGA
+            coverage, and density anomalies below are computed from real
+            platform data.
           </AlertDescription>
         </Alert>
 
@@ -325,7 +335,7 @@ export default function HealthAnalyticsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {data?.kpis.healthFacilities.toLocaleString()}
+                  {realHealthFacilities?.toLocaleString() ?? "—"}
                 </p>
                 <p className="text-xs text-muted-foreground">Health Facilities</p>
               </div>
@@ -337,7 +347,9 @@ export default function HealthAnalyticsPage() {
                 <BarChart3 className="size-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{data?.kpis.lgasCovered}</p>
+                <p className="text-2xl font-bold">
+                  {dashboard?.platformStats.lgasCovered ?? "—"}
+                </p>
                 <p className="text-xs text-muted-foreground">LGAs Covered</p>
               </div>
             </CardContent>
@@ -348,8 +360,10 @@ export default function HealthAnalyticsPage() {
                 <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{data?.kpis.outlierFacilities}</p>
-                <p className="text-xs text-muted-foreground">Outlier Facilities</p>
+                <p className="text-2xl font-bold">
+                  {dashboard?.anomalies.length ?? "—"}
+                </p>
+                <p className="text-xs text-muted-foreground">Density Anomalies</p>
               </div>
             </CardContent>
           </Card>
@@ -488,49 +502,62 @@ export default function HealthAnalyticsPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Outlier Facilities
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base flex items-center gap-1.5">
+              LGA Density Anomalies
+              <HelpTooltip content="LGAs whose population density or health-facility count sits 2+ standard deviations from the state-wide mean, computed nightly from real platform data — not disease case counts." />
               <span className="ml-2 text-sm font-normal text-muted-foreground">
                 (z-score ≥ 2.0 indicates statistical outlier)
               </span>
             </CardTitle>
+            <Button variant="outline" size="sm" onClick={downloadAnalyticsCsv}>
+              <Download className="size-3.5" />
+              Export real data (CSV)
+            </Button>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <p className="mb-4 text-sm font-medium text-red-600 dark:text-red-400">
-              High Outliers ({data?.outliers.length ?? 0})
+              Anomalies found ({dashboard?.anomalies.length ?? 0})
             </p>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
-                  <th className="pb-3 pr-4 font-medium">Facility</th>
                   <th className="pb-3 pr-4 font-medium">LGA</th>
-                  <th className="pb-3 pr-4 font-medium">Total Cases</th>
+                  <th className="pb-3 pr-4 font-medium">Metric</th>
+                  <th className="pb-3 pr-4 font-medium">Value</th>
                   <th className="pb-3 pr-4 font-medium">Z-Score</th>
-                  <th className="pb-3 font-medium">Interpretation</th>
+                  <th className="pb-3 font-medium">Direction</th>
                 </tr>
               </thead>
               <tbody>
-                {data?.outliers.map((row) => (
-                  <tr key={row.facility} className="border-b last:border-0">
-                    <td className="py-2.5 pr-4 font-medium">{row.facility}</td>
-                    <td className="py-2.5 pr-4">{row.lga}</td>
-                    <td className="py-2.5 pr-4">{row.totalCases.toLocaleString()}</td>
-                    <td className="py-2.5 pr-4">{row.zScore.toFixed(1)}</td>
-                    <td
-                      className={cn(
-                        "py-2.5",
-                        row.interpretation.includes("Very high")
-                          ? "text-red-600 dark:text-red-400"
-                          : row.interpretation.includes("Elevated")
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-muted-foreground"
-                      )}
-                    >
-                      {row.interpretation}
+                {dashboard?.anomalies.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-4 text-center text-muted-foreground">
+                      No anomalies detected in the latest run.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  dashboard?.anomalies.map((row, i) => (
+                    <tr key={`${row.lga}-${row.metric}-${i}`} className="border-b last:border-0">
+                      <td className="py-2.5 pr-4 font-medium">{row.lga}</td>
+                      <td className="py-2.5 pr-4">
+                        {row.metric === "populationDensity" ? "Population density" : "Facility count"}
+                      </td>
+                      <td className="py-2.5 pr-4">{row.value.toLocaleString()}</td>
+                      <td className="py-2.5 pr-4">{row.zScore.toFixed(2)}</td>
+                      <td
+                        className={cn(
+                          "py-2.5 capitalize",
+                          row.direction === "high"
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-amber-600 dark:text-amber-400"
+                        )}
+                      >
+                        {row.direction}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </CardContent>

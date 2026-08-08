@@ -12,10 +12,9 @@ import { Container } from "@/components/layout/container";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { HomeHeroSection } from "@/components/map/home-hero-section";
-import { OutbreakAlertBanner } from "@/components/home/outbreak-alert-banner";
+import { LiveOutbreakAlerts } from "@/components/home/live-outbreak-alerts";
 import { RepositoryDashboard } from "@/components/home/repository-dashboard";
 import { FeaturedGroupsSection } from "@/components/home/featured-groups-section";
-import { mockAlerts } from "@/lib/mock/alerts";
 
 const features = [
   {
@@ -105,7 +104,7 @@ export default function HomePage() {
 
       {/* Outbreak / disease alerts */}
       <Container>
-        <OutbreakAlertBanner alerts={mockAlerts} />
+        <LiveOutbreakAlerts />
       </Container>
 
       {/* Feature cards */}

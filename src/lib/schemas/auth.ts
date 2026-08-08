@@ -40,6 +40,8 @@ export const registerSchema = z
       .regex(/[a-z]/, "Include at least one lowercase letter")
       .regex(/\d/, "Include at least one number"),
     confirmPassword: z.string(),
+    lga: z.string().optional(),
+    ward: z.string().optional(),
     reason: z.string().max(500, "Must be under 500 characters").optional(),
     terms: z.literal(true, { message: "You must accept the terms" }),
   })

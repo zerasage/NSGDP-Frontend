@@ -12,10 +12,12 @@ import { StatusBadge } from "@/components/data/status-badge";
 import { DatasetDownloadActions } from "@/components/data/dataset-download-actions";
 import { DatasetMapSection } from "@/components/data/dataset-map-section";
 import { DatasetActivityPanel } from "@/components/data/dataset-activity-panel";
+import { DatasetInsightsPanel } from "@/components/data/dataset-insights-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDataset, useDatasets, useDatasetPreview } from "@/lib/hooks/useDatasets";
+import { useDataset, useDatasets, useDatasetPreview, useDatasetInsights } from "@/lib/hooks/useDatasets";
 import { usePublicDatasetPreview } from "@/lib/hooks/usePublicDatasetPreview";
+import { usePublicDatasetInsights } from "@/lib/hooks/usePublicDatasetInsights";
 import { useAuth } from "@/lib/auth";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
@@ -62,6 +64,21 @@ export default function DatasetPage({ params }: DatasetPageProps) {
   // 403 from the authenticated endpoint means "no access yet", not "broken
   // file" — the generic fallback message would be misleading here.
   const previewBlocked = isRestrictedOrPrivate && (!isAuthenticated || !!authPreviewError);
+
+  // Same public/authenticated split as the preview above, since insights
+  // are derived from the same file and carry the same access sensitivity.
+  const { data: publicInsightsData, isLoading: isPublicInsightsLoading } = usePublicDatasetInsights(
+    slug,
+    !!backendDataset && !isRestrictedOrPrivate
+  );
+  const { data: authInsightsData, isLoading: isAuthInsightsLoading } = useDatasetInsights(
+    slug,
+    !!backendDataset && isRestrictedOrPrivate && isAuthenticated
+  );
+  const insightsData = isRestrictedOrPrivate ? authInsightsData : publicInsightsData;
+  const isInsightsLoading = isRestrictedOrPrivate
+    ? isAuthenticated && isAuthInsightsLoading
+    : isPublicInsightsLoading;
   
   // Fetch reference data for transformation
   const { data: categoriesResponse } = useCategories() as { data?: PaginatedResponse<Category> };
@@ -335,6 +352,19 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                 </CardContent>
               </Card>
             )}
+
+            {/* Automated Insights — deterministic column profiling (date +
+                numeric metric detection, trend), not shown at all when the
+                file has no detectable date/metric columns or is blocked by
+                the same restricted/private access gate as the preview. */}
+            {backendDataset?.file_path &&
+              !SPATIAL_ONLY_PREVIEW_FORMATS.includes(backendDataset.format) &&
+              !previewBlocked && (
+                <DatasetInsightsPanel
+                  insights={insightsData}
+                  isLoading={isInsightsLoading}
+                />
+              )}
 
             {/* Resources / Files */}
             {dataset.resources && dataset.resources.length > 0 && (

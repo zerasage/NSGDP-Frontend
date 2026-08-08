@@ -12,6 +12,7 @@ import {
   getDatasetFiles,
   getDatasetVersions,
   getDatasetPreview,
+  getDatasetInsights,
   type DatasetListParams,
   type CreateDatasetDto,
   type UpdateDatasetDto,
@@ -204,5 +205,20 @@ export function useDatasetPreview(slug: string, enabled: boolean = true) {
     queryFn: () => getDatasetPreview(slug),
     enabled: !!slug && enabled,
     staleTime: 24 * 60 * 60 * 1000, // 24 hours - previews are cached
+  });
+}
+
+/**
+ * Hook to fetch automated column insights (detected date column, numeric
+ * metric trends) — deterministic profiling computed at upload time, not an
+ * AI feature. Returns null when the file has no detectable date/metric
+ * columns (e.g. a facility registry with no time dimension).
+ */
+export function useDatasetInsights(slug: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['dataset-insights', slug],
+    queryFn: () => getDatasetInsights(slug),
+    enabled: !!slug && enabled,
+    staleTime: 24 * 60 * 60 * 1000,
   });
 }
