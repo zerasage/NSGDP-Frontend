@@ -11,6 +11,7 @@ import {
   User,
   X,
   Upload,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,12 @@ const NAV_LINKS: NavLink[] = [
     href: "/datasets",
     label: "Datasets",
     icon: Database,
+    roles: ["contributor", "admin"],
+  },
+  {
+    href: "/my-programs",
+    label: "Programmes",
+    icon: ClipboardList,
     roles: ["contributor", "admin"],
   },
   {

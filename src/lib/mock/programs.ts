@@ -247,7 +247,6 @@ export function createProgram(data: ProgramFormData): Program {
     targetCount: target,
     activeDays: 0,
     lgasCovered: data.lgasCovered ?? 0,
-    organisationId: data.organisationId,
     reports: [],
     linkedDatasetIds: [],
   });

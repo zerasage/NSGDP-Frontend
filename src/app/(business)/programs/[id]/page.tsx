@@ -1,25 +1,23 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Target, TrendingUp, FileText, Download, Pencil, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Target, TrendingUp, FileText, Download, Settings, Loader2 } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { useProgramBySlug, useProgramReports, useDeleteProgram } from "@/lib/hooks/usePrograms";
+import { useProgramBySlug, useProgramReports } from "@/lib/hooks/usePrograms";
 import { useDownloadDocument } from "@/lib/hooks/useDocuments";
-import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function ProgramDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const { canUpload, canEdit, canDelete } = useProgramPermissions();
+  const { user } = useAuth();
   const { data: program, isLoading, error } = useProgramBySlug(id);
   const { data: reports } = useProgramReports(id);
-  const deleteMutation = useDeleteProgram();
   const downloadMutation = useDownloadDocument();
 
   const handleDownloadReport = (slug: string | undefined, title: string) => {
@@ -55,23 +53,10 @@ export default function ProgramDetailPage() {
     );
   }
 
-  const showEdit = canEdit(program.organisationId);
+  const canManage = !!user?.organisationId && user.organisationId === program.organisationId;
   const coveragePct = program.targetCount > 0
     ? Math.round((program.reachCount / program.targetCount) * 100)
     : 0;
-
-  const handleDelete = () => {
-    if (!window.confirm(`Delete "${program.name}"? This cannot be undone.`)) return;
-    deleteMutation.mutate(program.slug, {
-      onSuccess: () => {
-        toast.success("Programme deleted");
-        router.push("/programs");
-      },
-      onError: (err: unknown) => {
-        toast.error(err instanceof Error ? err.message : "Failed to delete programme");
-      },
-    });
-  };
 
   return (
     <main className="flex-1">
@@ -96,23 +81,17 @@ export default function ProgramDetailPage() {
               </div>
               <p className="text-sm text-muted-foreground mt-1">{program.description}</p>
             </div>
-            <div className="ml-auto flex flex-wrap gap-2">
-              {showEdit && (
+            {canManage && (
+              <div className="ml-auto flex flex-wrap gap-2">
                 <Link
-                  href={`/programs/${program.id}/edit`}
+                  href={`/my-programs/${program.slug}/edit`}
                   className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
                 >
-                  <Pencil className="size-3.5" />
-                  Edit
+                  <Settings className="size-3.5" />
+                  Manage in Dashboard
                 </Link>
-              )}
-              {canDelete && (
-                <Button size="sm" variant="outline" className="text-destructive" onClick={handleDelete}>
-                  <Trash2 className="size-3.5 mr-1.5" />
-                  Delete
-                </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </Container>
       </div>
@@ -163,21 +142,10 @@ export default function ProgramDetailPage() {
         {/* Reports / Documents */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="size-4 text-muted-foreground" />
-                Programme Documents
-              </CardTitle>
-              {canUpload && (
-                <Link
-                  href={`/programs/${program.id}/upload`}
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-                >
-                  <Download className="size-3.5 rotate-180" />
-                  Upload Report
-                </Link>
-              )}
-            </div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="size-4 text-muted-foreground" />
+              Programme Documents
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {reports?.map((report) => (

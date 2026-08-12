@@ -231,6 +231,8 @@ export interface Program {
   name: string;
   type: ProgramType;
   status: ProgramStatus;
+  /** True backend status (active/completed/suspended/archived) — `status` above collapses suspended/archived into "planned" for public display; the org-scoped dashboard needs the real value to filter/manage those. */
+  rawStatus?: "active" | "completed" | "suspended" | "archived";
   description: string;
   startDate: string;
   endDate?: string;
@@ -243,6 +245,7 @@ export interface Program {
   /** Owning organisation (data source / programme owner) */
   organisationId?: string;
   organisationName?: string;
+  updatedAt?: string;
   /** Reports are only visible when completionPercent === 100 */
   reports?: ProgramReport[];
   linkedDatasetIds?: string[];

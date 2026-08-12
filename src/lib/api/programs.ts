@@ -91,6 +91,8 @@ function mapProgramme(raw: ProgrammeApiPayload): Program {
     activeDays: activeDaysSince(raw.start_date),
     lgasCovered: raw.lgas_covered_count ?? raw.target_lgas?.length ?? 0,
     organisationId: raw.organisation_id ?? undefined,
+    rawStatus: raw.status,
+    updatedAt: raw.updated_at,
   };
 }
 
@@ -120,7 +122,9 @@ function toCreatePayload(data: ProgramFormData) {
     name: data.name,
     description: data.description,
     type: data.type,
-    organisationId: data.organisationId || undefined,
+    // organisationId is intentionally omitted — the backend derives it from
+    // the caller's own organisation for CONTRIBUTOR/ADMIN; this portal has
+    // no path for a caller to create/edit on behalf of another org.
     targetLgas: undefined,
     startDate: data.startDate || undefined,
     endDate: data.endDate || undefined,
@@ -156,6 +160,43 @@ export async function getPrograms(
 
 export async function getProgramBySlug(slug: string): Promise<Program> {
   const response = await apiClient.get<ApiResponse<ProgrammeApiPayload>>(`/programs/${slug}`);
+  return mapProgramme(response.data.data);
+}
+
+/**
+ * Org-scoped list (authenticated) — shows every status, including
+ * suspended/archived programmes the public endpoint hides.
+ */
+export async function getOrganizationPrograms(
+  params?: Omit<GetProgramsParams, 'organisationId'>
+): Promise<PaginatedResponse<Program>> {
+  const response = await apiClient.get<ApiResponse<PaginatedResponse<ProgrammeApiPayload>>>(
+    '/programs/my-organization',
+    {
+      params: {
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 50,
+        status: params?.status,
+        type: params?.type,
+        lga: params?.lga,
+        q: params?.q,
+        sort: params?.sort,
+      },
+    }
+  );
+  const paginated = response.data.data;
+  return { ...paginated, data: paginated.data.map(mapProgramme) };
+}
+
+/**
+ * Org-scoped single lookup (authenticated) — 404s if the slug belongs to a
+ * different organisation, so a caller can never load another org's
+ * programme into a management form.
+ */
+export async function getOrganizationProgramBySlug(slug: string): Promise<Program> {
+  const response = await apiClient.get<ApiResponse<ProgrammeApiPayload>>(
+    `/programs/my-organization/${slug}`
+  );
   return mapProgramme(response.data.data);
 }
 
@@ -198,4 +239,8 @@ export async function createProgramReport(
     data
   );
   return response.data.data;
+}
+
+export async function deleteProgramReportApi(slug: string, reportId: string): Promise<void> {
+  await apiClient.delete(`/programs/${slug}/reports/${reportId}`);
 }

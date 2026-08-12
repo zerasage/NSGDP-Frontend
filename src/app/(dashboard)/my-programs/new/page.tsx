@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -14,17 +13,11 @@ import { useAuth } from "@/lib/auth";
 import type { ProgramFormData } from "@/lib/schemas/program";
 import { toast } from "sonner";
 
-export default function NewProgramPage() {
+export default function NewProgrammePage() {
   const router = useRouter();
   const { canCreate } = useProgramPermissions();
   const { user, isLoading } = useAuth();
   const createMutation = useCreateProgram();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
-    }
-  }, [isLoading, router, user]);
 
   if (isLoading || !user) {
     return null;
@@ -34,11 +27,10 @@ export default function NewProgramPage() {
     return (
       <Container className="py-16 text-center space-y-4">
         <p className="text-muted-foreground">
-          You do not have permission to create programmes. Contact your Organisation Admin or
-          request the <strong>Create Programmes</strong> permission via a user group.
+          You do not have permission to create programmes. Contact your Organisation Admin.
         </p>
-        <Link href="/programs">
-          <Button variant="outline">Back to Programmes</Button>
+        <Link href="/my-programs">
+          <Button variant="outline">Back to My Programmes</Button>
         </Link>
       </Container>
     );
@@ -46,9 +38,9 @@ export default function NewProgramPage() {
 
   const handleSubmit = async (data: ProgramFormData) => {
     try {
-      const program = await createMutation.mutateAsync(data);
-      toast.success(`Programme "${program.name}" created`);
-      router.push(`/programs/${program.id}`);
+      const programme = await createMutation.mutateAsync(data);
+      toast.success(`Programme "${programme.name}" created`);
+      router.push(`/programs/${programme.slug}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to create programme");
     }
@@ -58,15 +50,15 @@ export default function NewProgramPage() {
     <main className="flex-1">
       <Container className="py-8 max-w-2xl">
         <div className="mb-6 flex items-center gap-3">
-          <Link href="/programs">
-            <Button variant="ghost" size="icon" aria-label="Back to programmes">
+          <Link href="/my-programs">
+            <Button variant="ghost" size="icon" aria-label="Back to My Programmes">
               <ArrowLeft className="size-4" />
             </Button>
           </Link>
           <div>
             <h1 className="text-2xl font-bold">Create Programme</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Register a new health programme for monitoring and reporting
+              Register a new health programme for your organisation
             </p>
           </div>
         </div>
@@ -75,17 +67,11 @@ export default function NewProgramPage() {
           <CardHeader>
             <CardTitle>Programme Details</CardTitle>
             <CardDescription>
-              Required for org admins, repository admins, and delegated programme leads.
+              This programme will belong to your organisation.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ProgramForm
-              onSubmit={handleSubmit}
-              submitLabel="Create Programme"
-              organisationIds={
-                user.role === "admin" && user.organisationId ? [user.organisationId] : undefined
-              }
-            />
+            <ProgramForm onSubmit={handleSubmit} submitLabel="Create Programme" />
           </CardContent>
         </Card>
       </Container>

@@ -11,7 +11,6 @@ import {
   Clock,
   FileText,
   Download,
-  Plus,
   Filter,
   CheckCircle2,
   CircleDot,
@@ -23,10 +22,7 @@ import {
 import { Container } from "@/components/layout/container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { usePrograms } from "@/lib/hooks/usePrograms";
-import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
 import type { ProgramStatus, ProgramType } from "@/types";
 import { typeChip } from "@/lib/constants/status-surfaces";
 
@@ -102,7 +98,6 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function ProgramsPage() {
-  const { canCreate, canUpload } = useProgramPermissions();
   const { data, isLoading, error } = usePrograms();
   const programs = useMemo(() => data?.data ?? [], [data]);
 
@@ -146,16 +141,6 @@ export default function ProgramsPage() {
                 </p>
               </div>
             </div>
-            {canCreate && (
-              <Link
-                href="/programs/new"
-                className={cn(buttonVariants({ variant: "onDarkSolid" }), "text-sm gap-1.5")}
-              >
-                <Plus className="size-4" />
-                <span className="hidden sm:inline">Create Programme</span>
-                <span className="sm:hidden">New</span>
-              </Link>
-            )}
           </div>
 
           {/* Summary stat chips — 2-col on mobile, 4-col on sm+ */}
@@ -371,18 +356,6 @@ export default function ProgramsPage() {
                             </li>
                           ))}
                         </ul>
-                        {canUpload && (
-                          <Link
-                            href={`/programs/${program.id}/upload`}
-                            className={cn(
-                              buttonVariants({ variant: "outline", size: "sm" }),
-                              "mt-2 w-full text-xs"
-                            )}
-                          >
-                            <Plus className="size-3" />
-                            Upload Report
-                          </Link>
-                        )}
                       </div>
                     )}
 
@@ -392,39 +365,6 @@ export default function ProgramsPage() {
                         <p className="text-xs text-muted-foreground italic">
                           Reports will be available once this program reaches 100% completion.
                         </p>
-                        {canUpload && (
-                          <Link
-                            href={`/programs/${program.id}/upload`}
-                            className={cn(
-                              buttonVariants({ variant: "outline", size: "sm" }),
-                              "mt-2 w-full text-xs"
-                            )}
-                          >
-                            <FileText className="size-3" />
-                            Upload Report
-                          </Link>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Admin actions for planned */}
-                    {program.status === "planned" && canCreate && (
-                      <div className="border-t pt-3 mt-auto flex gap-2">
-                        <Link
-                          href={`/programs/${program.id}/edit`}
-                          className={cn(
-                            buttonVariants({ variant: "outline", size: "sm" }),
-                            "flex-1 text-xs"
-                          )}
-                        >
-                          Edit Timeline
-                        </Link>
-                        <Link
-                          href={`/programs/${program.id}/edit`}
-                          className={cn(buttonVariants({ size: "sm" }), "flex-1 text-xs bg-primary")}
-                        >
-                          Mark as Started
-                        </Link>
                       </div>
                     )}
 

@@ -14,6 +14,5 @@ export {
   getEffectiveProgramPermissions,
   hasProgramPermission,
   canProgram,
-  canEditProgram,
 } from "./program-permissions";
 export type { ProgramCapability } from "./program-permissions";

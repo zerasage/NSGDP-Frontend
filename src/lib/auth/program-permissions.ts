@@ -7,7 +7,10 @@ import type { ProgramPermissionAction } from "@/types/permissions";
 export const ROLE_PROGRAM_BASE: Record<UserRole, ProgramPermissionAction[]> = {
   public: [],
   registered: [],
-  contributor: ["upload:programs"],
+  // Contributors can edit their own organisation's programmes — the backend
+  // edit:programs decorator already allows CONTRIBUTOR, this just makes the
+  // UI consistent with that instead of hiding a capability the API grants.
+  contributor: ["edit:programs", "upload:programs"],
   admin: ["create:programs", "edit:programs", "upload:programs"],
   staff: [],
   super_admin: ["create:programs", "edit:programs", "delete:programs", "upload:programs"],
@@ -32,17 +35,4 @@ const CAPABILITY_ACTION: Record<ProgramCapability, ProgramPermissionAction> = {
 
 export function canProgram(role: UserRole, capability: ProgramCapability): boolean {
   return hasProgramPermission(role, CAPABILITY_ACTION[capability]);
-}
-
-/** Org admins may only edit programmes owned by their organisation */
-export function canEditProgram(
-  role: UserRole,
-  organisationIds: string[],
-  programOrganisationId?: string
-): boolean {
-  if (!canProgram(role, "edit")) return false;
-  if (role === "admin" && programOrganisationId) {
-    return organisationIds.includes(programOrganisationId);
-  }
-  return true;
 }

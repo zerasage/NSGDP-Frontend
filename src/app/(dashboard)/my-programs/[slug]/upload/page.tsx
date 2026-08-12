@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Upload } from "lucide-react";
+import { ArrowLeft, Upload, Loader2 } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Container } from "@/components/layout/container";
@@ -20,19 +20,17 @@ import {
 } from "@/components/ui/select";
 import { FileUploadArea, type UploadedFile } from "@/components/forms/file-upload-area";
 import { FormError } from "@/components/forms/form-error";
-import { useProgramBySlug, useCreateProgramReport } from "@/lib/hooks/usePrograms";
+import { useOrganizationProgram, useCreateProgramReport } from "@/lib/hooks/usePrograms";
 import { uploadFile } from "@/lib/api/uploads";
 import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
-import { useAuth } from "@/lib/auth";
 import { programReportSchema, type ProgramReportFormData } from "@/lib/schemas/program";
 import { toast } from "sonner";
 
-export default function UploadProgramReportPage() {
-  const { id } = useParams<{ id: string }>();
+export default function UploadProgrammeReportPage() {
+  const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const { canUpload } = useProgramPermissions();
-  const { user, isLoading } = useAuth();
-  const { data: program } = useProgramBySlug(id);
+  const { data: programme, isLoading } = useOrganizationProgram(slug);
   const createReportMutation = useCreateProgramReport();
   const [files, setFiles] = useState<UploadedFile[]>([]);
 
@@ -46,20 +44,19 @@ export default function UploadProgramReportPage() {
     defaultValues: { fileFormat: "PDF" },
   });
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
-    }
-  }, [isLoading, router, user]);
-
-  if (isLoading || !user) {
-    return null;
+  if (isLoading) {
+    return (
+      <Container className="py-16 flex items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" />
+        Loading…
+      </Container>
+    );
   }
 
-  if (!program) {
+  if (!programme) {
     return (
       <Container className="py-16 text-center text-muted-foreground">
-        Programme not found.
+        Programme not found, or it doesn&apos;t belong to your organisation.
       </Container>
     );
   }
@@ -68,11 +65,10 @@ export default function UploadProgramReportPage() {
     return (
       <Container className="py-16 text-center space-y-4">
         <p className="text-muted-foreground">
-          Upload requires the <strong>Upload Programme Reports</strong> permission (Contributors,
-          Custodians, Org Admins, or delegated Programme Leads group).
+          Upload requires the <strong>Upload Programme Reports</strong> permission.
         </p>
-        <Link href={`/programs/${program.id}`}>
-          <Button variant="outline">Back to Programme</Button>
+        <Link href="/my-programs">
+          <Button variant="outline">Back to My Programmes</Button>
         </Link>
       </Container>
     );
@@ -86,7 +82,7 @@ export default function UploadProgramReportPage() {
     const file = files[0];
     try {
       const report = await createReportMutation.mutateAsync({
-        slug: program.slug,
+        slug: programme.slug,
         data: {
           title: data.title,
           description: data.notes || data.title,
@@ -94,7 +90,7 @@ export default function UploadProgramReportPage() {
       });
       await uploadFile(file.file, undefined, report.id);
       toast.success("Report uploaded — pending admin review before it appears publicly");
-      router.push(`/programs/${program.id}`);
+      router.push("/my-programs");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to upload report");
     }
@@ -104,14 +100,14 @@ export default function UploadProgramReportPage() {
     <main className="flex-1">
       <Container className="py-8 max-w-2xl">
         <div className="mb-6 flex items-center gap-3">
-          <Link href={`/programs/${program.id}`}>
+          <Link href="/my-programs">
             <Button variant="ghost" size="icon" aria-label="Back">
               <ArrowLeft className="size-4" />
             </Button>
           </Link>
           <div>
             <h1 className="text-2xl font-bold">Upload Programme Report</h1>
-            <p className="text-sm text-muted-foreground mt-1">{program.name}</p>
+            <p className="text-sm text-muted-foreground mt-1">{programme.name}</p>
           </div>
         </div>
 
@@ -123,11 +119,6 @@ export default function UploadProgramReportPage() {
             </CardTitle>
             <CardDescription>
               Final reports, monitoring briefs, or evaluation documents linked to this programme.
-              You can also attach datasets via{" "}
-              <Link href="/upload" className="text-primary hover:underline">
-                Submit Dataset
-              </Link>{" "}
-              and select this programme.
             </CardDescription>
           </CardHeader>
           <CardContent>

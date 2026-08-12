@@ -19,7 +19,6 @@ export const programFormSchema = z.object({
   targetCount: z.number().min(1, "Target must be at least 1"),
   reachCount: z.number().min(0).optional(),
   lgasCovered: z.number().min(0).max(25).optional(),
-  organisationId: z.string().min(1, "Select the responsible organisation"),
 });
 
 export type ProgramFormData = z.infer<typeof programFormSchema>;
