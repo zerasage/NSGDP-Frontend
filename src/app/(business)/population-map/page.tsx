@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { ChevronDown, ChevronUp, Filter, Loader2, RotateCcw, Users, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Filter, Loader2, RotateCcw, Users, X, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -17,16 +17,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getLgaGisSummary,
   getWardGisSummary,
+  getDiseaseBurdenSimplified,
   type LgaGisFeatureCollection,
   type WardGisFeatureCollection,
   type LgaGisProperties,
   type WardGisProperties,
+  type DiseaseBurdenGisProperties,
+  type DiseaseBurdenFeatureCollection,
 } from "@/lib/api/gis";
+import { useDiseaseIndicators } from "@/lib/hooks/useDiseaseIndicators";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import {
   MapLegend,
   POPULATION_DENSITY_LEGEND,
   FACILITY_DENSITY_LEGEND,
+  DISEASE_BUBBLE_LEGEND,
 } from "@/components/map/map-legend";
 import { MapErrorBanner } from "@/components/map/map-error-banner";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
@@ -74,7 +79,7 @@ const NIGER_STATE_BOUNDS: [[number, number], [number, number]] = [
   [11.5, 8.5],
 ];
 
-type ActiveLayer = "population" | "facilities";
+type ActiveLayer = "population" | "facilities" | "disease-burden";
 
 function escapeHtml(value: unknown): string {
   return String(value)
@@ -108,6 +113,27 @@ function getWardFacilityColor(count: number): string {
   if (count > 10) return "#2563eb";
   if (count > 5) return "#60a5fa";
   return "#bfdbfe";
+}
+
+function getDiseaseBurdenColor(cases: number): string {
+  if (cases > 500) return "#dc2626";
+  if (cases > 200) return "#ea580c";
+  if (cases > 50) return "#d97706";
+  return "#16a34a";
+}
+
+function buildDiseaseBurdenPopupHtml(props: DiseaseBurdenGisProperties): string {
+  return `
+    <div class="p-2 text-sm max-w-xs">
+      <h3 class="font-bold mb-1">${escapeHtml(props.lgaName)}</h3>
+      <table class="text-xs">
+        <tbody>
+          <tr><td class="pr-3 text-muted-foreground align-top">Total cases</td><td>${props.totalCases.toLocaleString()}</td></tr>
+          <tr><td class="pr-3 text-muted-foreground align-top">Incidence</td><td>${props.incidencePer1000.toFixed(1)} / 1,000</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function buildLgaPopupHtml(props: LgaGisProperties): string {
@@ -159,19 +185,31 @@ export default function GisMappingPage() {
   const [lga, setLga] = useState("all");
   const [ward, setWard] = useState("all");
   const [showWardBoundaries, setShowWardBoundaries] = useState(false);
+  const [selectedIndicator, setSelectedIndicator] = useState("");
+  const [burdenYear, setBurdenYear] = useState(new Date().getFullYear());
 
   const [lgaSummary, setLgaSummary] = useState<LgaGisFeatureCollection | null>(null);
   const [wardSummary, setWardSummary] = useState<WardGisFeatureCollection | null>(null);
+  const [diseaseBurden, setDiseaseBurden] = useState<DiseaseBurdenFeatureCollection | null>(null);
   const [isLoadingLga, setIsLoadingLga] = useState(true);
   const [isLoadingWard, setIsLoadingWard] = useState(false);
+  const [isLoadingBurden, setIsLoadingBurden] = useState(false);
   const [lgaError, setLgaError] = useState<string | null>(null);
   const [wardError, setWardError] = useState<string | null>(null);
+  const [burdenError, setBurdenError] = useState<string | null>(null);
   const { data: stateBoundary } = useStateBoundary();
+  const { data: indicators } = useDiseaseIndicators();
 
   useEffect(() => {
     configureLeafletIcons();
     setMapReady(true);
   }, []);
+
+  useEffect(() => {
+    if (indicators?.length && !selectedIndicator) {
+      setSelectedIndicator(indicators[0].slug);
+    }
+  }, [indicators, selectedIndicator]);
 
   const loadLgaSummary = useCallback(() => {
     setIsLoadingLga(true);
@@ -209,6 +247,24 @@ export default function GisMappingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lga]);
 
+  const loadDiseaseBurden = useCallback((indicator: string, year: number) => {
+    setIsLoadingBurden(true);
+    setBurdenError(null);
+    getDiseaseBurdenSimplified(indicator, year)
+      .then(setDiseaseBurden)
+      .catch(() => setBurdenError("Couldn't load disease-burden data."))
+      .finally(() => setIsLoadingBurden(false));
+  }, []);
+
+  useEffect(() => {
+    if (activeLayer !== "disease-burden" || !selectedIndicator) {
+      setDiseaseBurden(null);
+      setBurdenError(null);
+      return;
+    }
+    loadDiseaseBurden(selectedIndicator, burdenYear);
+  }, [activeLayer, selectedIndicator, burdenYear, loadDiseaseBurden]);
+
   const lgaFeatures = useMemo(() => lgaSummary?.features ?? [], [lgaSummary]);
   const wardOptions = useMemo(
     () => (wardSummary?.features ?? []).map((f) => f.properties.ward).sort(),
@@ -241,6 +297,10 @@ export default function GisMappingPage() {
     setWard("all");
     setShowWardBoundaries(false);
     setActiveLayer("population");
+    if (indicators?.length) {
+      setSelectedIndicator(indicators[0].slug);
+    }
+    setBurdenYear(new Date().getFullYear());
   };
 
   if (!mapReady) {
@@ -275,7 +335,40 @@ export default function GisMappingPage() {
           fallbackZoom={8}
         />
 
-        {lgaSummary && (
+        {activeLayer === "disease-burden" && diseaseBurden ? (
+          <GeoJSON
+            key={`burden-${selectedIndicator}-${burdenYear}`}
+            data={diseaseBurden as unknown as GeoJSON.FeatureCollection}
+            style={(feature?: Feature) => {
+              const props = feature?.properties as DiseaseBurdenGisProperties | undefined;
+              if (!props) return {};
+              const color = getDiseaseBurdenColor(props.totalCases);
+              const isSelected = props.lgaName === lga;
+              return {
+                color: isSelected ? "#111827" : "#ffffff",
+                weight: isSelected ? 2.5 : 1,
+                fillColor: color,
+                fillOpacity: 0.65,
+              };
+            }}
+            onEachFeature={(feature, layer) => {
+              const props = feature.properties as DiseaseBurdenGisProperties;
+              layer.bindPopup(buildDiseaseBurdenPopupHtml(props));
+              layer.on("click", () => setLga(props.lgaName));
+              layer.on("mouseover", () => {
+                (layer as Path).setStyle({ weight: 3, color: "#0f172a" });
+                (layer as Path).bringToFront();
+              });
+              layer.on("mouseout", () => {
+                const isSelected = props.lgaName === lga;
+                (layer as Path).setStyle({
+                  weight: isSelected ? 2.5 : 1,
+                  color: isSelected ? "#111827" : "#ffffff",
+                });
+              });
+            }}
+          />
+        ) : lgaSummary ? (
           <GeoJSON
             key={`lga-${activeLayer}-${lgaSummary.generatedAt}`}
             data={lgaSummary as unknown as GeoJSON.FeatureCollection}
@@ -311,9 +404,9 @@ export default function GisMappingPage() {
               });
             }}
           />
-        )}
+        ) : null}
 
-        {showWardBoundaries && wardSummary && (
+        {showWardBoundaries && wardSummary && activeLayer !== "disease-burden" && (
           <GeoJSON
             key={`ward-${activeLayer}-${lga}-${wardSummary.generatedAt}`}
             data={wardSummary as unknown as GeoJSON.FeatureCollection}
@@ -381,7 +474,7 @@ export default function GisMappingPage() {
           <div>
             <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               Map layer
-              <HelpTooltip content="Population density colors each LGA by people per km². Facility density colors each LGA (and, if shown, each ward) by number of health facilities." />
+              <HelpTooltip content="Population density colors each LGA by people per km². Facility density colors each LGA by health facility count. Disease burden colors each LGA by ingested case counts for the selected indicator." />
             </label>
             <div className="flex rounded-lg border">
               <Button
@@ -400,13 +493,68 @@ export default function GisMappingPage() {
                 type="button"
                 size="sm"
                 variant={activeLayer === "facilities" ? "default" : "ghost"}
-                className="flex-1 rounded-l-none border-l transition-colors"
+                className="flex-1 rounded-none border-l transition-colors"
                 onClick={() => setActiveLayer("facilities")}
               >
                 Facilities
               </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={activeLayer === "disease-burden" ? "default" : "ghost"}
+                className="flex-1 rounded-l-none border-l transition-colors"
+                onClick={() => setActiveLayer("disease-burden")}
+              >
+                <Activity className="size-3.5 mr-1" />
+                Disease
+              </Button>
             </div>
           </div>
+
+          {activeLayer === "disease-burden" && (
+            <div className="space-y-3 border-t pt-3">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Indicator</label>
+                <Select
+                  value={selectedIndicator}
+                  onValueChange={(v) => v && setSelectedIndicator(v)}
+                  disabled={!indicators?.length}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select indicator" /></SelectTrigger>
+                  <SelectContent>
+                    {(indicators ?? []).map((ind) => (
+                      <SelectItem key={ind.slug} value={ind.slug}>{ind.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Year</label>
+                <Select
+                  value={String(burdenYear)}
+                  onValueChange={(v) => v && setBurdenYear(Number(v))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {isLoadingBurden && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="size-3 animate-spin" /> Loading disease-burden…
+                </p>
+              )}
+              {burdenError && (
+                <MapErrorBanner
+                  message={burdenError}
+                  onRetry={() => loadDiseaseBurden(selectedIndicator, burdenYear)}
+                />
+              )}
+            </div>
+          )}
 
           <div className="space-y-2 border-t pt-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Map Layers</p>
@@ -616,8 +764,20 @@ export default function GisMappingPage() {
 
       {/* Permanent legend */}
       <MapLegend
-        title={activeLayer === "population" ? "Population Density" : "Facility Count"}
-        items={activeLayer === "population" ? POPULATION_DENSITY_LEGEND : FACILITY_DENSITY_LEGEND}
+        title={
+          activeLayer === "population"
+            ? "Population Density"
+            : activeLayer === "facilities"
+              ? "Facility Count"
+              : "Disease Burden (cases)"
+        }
+        items={
+          activeLayer === "population"
+            ? POPULATION_DENSITY_LEGEND
+            : activeLayer === "facilities"
+              ? FACILITY_DENSITY_LEGEND
+              : DISEASE_BUBBLE_LEGEND
+        }
         className="absolute bottom-4 right-4 z-[1000]"
       />
     </div>

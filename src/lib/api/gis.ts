@@ -158,3 +158,27 @@ export async function getGisSettlements(
   );
   return response.data.data;
 }
+
+export interface DiseaseBurdenGisProperties {
+  lgaName: string;
+  lgaCode: string;
+  totalCases: number;
+  incidencePer1000: number;
+}
+
+export interface DiseaseBurdenFeatureCollection {
+  type: 'FeatureCollection';
+  features: GisFeature<DiseaseBurdenGisProperties>[];
+}
+
+/** Choropleth polygons coloured by disease-burden case counts per LGA. */
+export async function getDiseaseBurdenSimplified(
+  indicator: string,
+  year?: number
+): Promise<DiseaseBurdenFeatureCollection> {
+  const response = await apiClient.get<ApiResponse<DiseaseBurdenFeatureCollection>>(
+    '/gis/disease-burden/simplified',
+    { params: { indicator, ...(year != null ? { year } : {}) } }
+  );
+  return response.data.data;
+}

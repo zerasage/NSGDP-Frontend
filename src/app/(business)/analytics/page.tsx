@@ -22,7 +22,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { toast } from "sonner";
 import { Container } from "@/components/layout/container";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,11 +35,11 @@ import {
 } from "@/components/ui/select";
 import { PageHeaderSkeleton } from "@/components/feedback/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getHealthAnalytics } from "@/lib/mock";
 import { mockPrograms } from "@/lib/mock/programs";
 import { useAnalyticsDashboard } from "@/lib/hooks/useAnalyticsDashboard";
+import { useDiseaseIndicators } from "@/lib/hooks/useDiseaseIndicators";
+import { useDiseaseBurdenAnalytics } from "@/lib/hooks/useDiseaseBurdenAnalytics";
 import { downloadAnalyticsCsv } from "@/lib/api/analytics";
-import { ANALYTICS_METRICS } from "@/lib/constants/health";
 import {
   ANALYTICS_DATA_SOURCES,
   PROGRAM_DATA_SOURCE,
@@ -59,30 +58,84 @@ type SortKey = keyof Pick<
   "rank" | "lga" | "totalCases" | "facilities" | "population" | "incidencePer1000"
 >;
 
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+function outlierInterpretation(zScore: number): string {
+  const z = Math.abs(zScore);
+  if (z >= 3) return "Very high – investigate";
+  if (z >= 2.5) return "Elevated – monitor";
+  return "Borderline outlier";
+}
+
 export default function HealthAnalyticsPage() {
-  const [metric, setMetric] = useState<AnalyticsMetric>("severe_malaria");
+  const wardMockMetric: AnalyticsMetric = "severe_malaria";
+  const [selectedIndicator, setSelectedIndicator] = useState<string>("");
   const [dataSource, setDataSource] = useState<AnalyticsDataSourceId>("all");
   const [trendMode, setTrendMode] = useState<TrendMode>("annual");
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("indicators");
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<Awaited<ReturnType<typeof getHealthAnalytics>> | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [sortAsc, setSortAsc] = useState(true);
+
   const { data: dashboard } = useAnalyticsDashboard();
+  const { data: indicators, isLoading: indicatorsLoading } = useDiseaseIndicators();
+  const { data: burdenData, isLoading: burdenLoading } =
+    useDiseaseBurdenAnalytics(selectedIndicator || undefined);
 
   useEffect(() => {
-    setLoading(true);
-    getHealthAnalytics(metric, dataSource).then((d) => {
-      setData(d);
-      setLoading(false);
-    });
-  }, [metric, dataSource]);
+    if (indicators?.length && !selectedIndicator) {
+      setSelectedIndicator(indicators[0].slug);
+    }
+  }, [indicators, selectedIndicator]);
 
-  const trendData = trendMode === "annual" ? data?.trendAnnual : data?.trendSeasonal;
+  const coverageByLga = useMemo(
+    () => new Map(dashboard?.lgaCoverage.map((c) => [c.lga, c]) ?? []),
+    [dashboard?.lgaCoverage]
+  );
+
+  const burdenTable = useMemo((): LGABurden[] => {
+    if (!burdenData?.lgaBurden) return [];
+    return burdenData.lgaBurden.map((row, i) => {
+      const coverage = coverageByLga.get(row.lgaName);
+      return {
+        rank: i + 1,
+        lga: row.lgaName,
+        totalCases: row.totalCases,
+        facilities: coverage?.facilityCount ?? 0,
+        population: coverage?.population ?? 0,
+        incidencePer1000: Math.round(row.incidencePer1000 * 10) / 10,
+      };
+    });
+  }, [burdenData?.lgaBurden, coverageByLga]);
+
+  const trendData = useMemo(() => {
+    if (!burdenData) return [];
+    if (trendMode === "annual") {
+      return burdenData.trendsAnnual.map((p) => ({
+        date: String(p.year),
+        cases: p.total,
+      }));
+    }
+    return burdenData.trendsMonthly.map((p) => ({
+      date: MONTH_NAMES[(p.month ?? 1) - 1] ?? String(p.month),
+      cases: p.total,
+    }));
+  }, [burdenData, trendMode]);
+
+  const topLGAs = useMemo(
+    () =>
+      (burdenData?.topLgas ?? []).map((r) => ({
+        lga: r.lgaName,
+        cases: r.totalCases,
+      })),
+    [burdenData?.topLgas]
+  );
 
   const sortedBurden = useMemo(() => {
-    if (!data?.burdenTable) return [];
-    return [...data.burdenTable].sort((a, b) => {
+    if (!burdenTable.length) return [];
+    return [...burdenTable].sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
       if (typeof av === "string" && typeof bv === "string") {
@@ -90,7 +143,7 @@ export default function HealthAnalyticsPage() {
       }
       return sortAsc ? Number(av) - Number(bv) : Number(bv) - Number(av);
     });
-  }, [data?.burdenTable, sortKey, sortAsc]);
+  }, [burdenTable, sortKey, sortAsc]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -101,8 +154,8 @@ export default function HealthAnalyticsPage() {
     }
   };
 
-  const metricLabel =
-    ANALYTICS_METRICS.find((m) => m.id === metric)?.label ?? metric;
+  const indicatorLabel =
+    indicators?.find((i) => i.slug === selectedIndicator)?.name ?? selectedIndicator;
 
   const sourceLabel = getAnalyticsSourceLabel(dataSource);
 
@@ -117,7 +170,11 @@ export default function HealthAnalyticsPage() {
     return PROGRAM_DATA_SOURCE[p.id] === dataSource;
   });
 
-  if (loading && !data) {
+  const indicatorsLoadingState =
+    analyticsTab === "indicators" &&
+    (indicatorsLoading || (burdenLoading && !burdenData));
+
+  if (indicatorsLoadingState) {
     return (
       <main className="flex-1 py-8">
         <Container size="wide" className="space-y-6">
@@ -138,49 +195,52 @@ export default function HealthAnalyticsPage() {
         <Alert>
           <Info className="size-4" />
           <AlertDescription>
-            Disease-burden figures on this page (cases, trends, incidence,
-            seasonality) are illustrative mock/seed data — no real disease
-            surveillance data source exists yet. Health facility counts, LGA
-            coverage, and density anomalies below are computed from real
-            platform data.
+            Health Indicators tab uses real disease-burden data from ingested
+            surveillance datasets. Ward-level analytics and Programme Monitoring
+            tabs still use illustrative mock data. Health facility counts, LGA
+            coverage, and density anomalies are computed from real platform data.
           </AlertDescription>
         </Alert>
 
-        {/* Global filters */}
-        <div className="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-muted/30 p-4">
-          <div className="space-y-1">
-            <p className="text-sm font-medium flex items-center gap-1.5">
-              Data Source
-              <HelpTooltip content="Filter analytics to datasets generated and uploaded by a specific organisation. 'All Sources' shows aggregated state-level indicators." />
-            </p>
-            <p className="text-xs text-muted-foreground max-w-xl">
-              Organisation responsible for generating and uploading the underlying data
-            </p>
-          </div>
-          <Select
-            value={dataSource}
-            onValueChange={(v) => v && setDataSource(v as AnalyticsDataSourceId)}
-          >
-            <SelectTrigger className="w-72">
-              <SelectValue placeholder="Select data source" />
-            </SelectTrigger>
-            <SelectContent>
-              {ANALYTICS_DATA_SOURCES.map((source) => (
-                <SelectItem key={source.id} value={source.id}>
-                  {source.acronym} — {source.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Global filters — applies to ward/programmes tabs only */}
+        {analyticsTab !== "indicators" && (
+          <>
+            <div className="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-muted/30 p-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  Data Source
+                  <HelpTooltip content="Filter analytics to datasets generated and uploaded by a specific organisation. 'All Sources' shows aggregated state-level indicators." />
+                </p>
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  Organisation responsible for generating and uploading the underlying data
+                </p>
+              </div>
+              <Select
+                value={dataSource}
+                onValueChange={(v) => v && setDataSource(v as AnalyticsDataSourceId)}
+              >
+                <SelectTrigger className="w-72">
+                  <SelectValue placeholder="Select data source" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ANALYTICS_DATA_SOURCES.map((source) => (
+                    <SelectItem key={source.id} value={source.id}>
+                      {source.acronym} — {source.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        {dataSource !== "all" && (
-          <p className="text-sm text-muted-foreground -mt-4">
-            Showing analytics for <strong className="text-foreground">{sourceLabel}</strong>
-            {ANALYTICS_DATA_SOURCES.find((s) => s.id === dataSource)?.description
-              ? ` — ${ANALYTICS_DATA_SOURCES.find((s) => s.id === dataSource)?.description}`
-              : ""}
-          </p>
+            {dataSource !== "all" && (
+              <p className="text-sm text-muted-foreground -mt-4">
+                Showing analytics for <strong className="text-foreground">{sourceLabel}</strong>
+                {ANALYTICS_DATA_SOURCES.find((s) => s.id === dataSource)?.description
+                  ? ` — ${ANALYTICS_DATA_SOURCES.find((s) => s.id === dataSource)?.description}`
+                  : ""}
+              </p>
+            )}
+          </>
         )}
 
         {/* Tab switcher */}
@@ -251,13 +311,19 @@ export default function HealthAnalyticsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <Alert>
+                <Info className="size-4" />
+                <AlertDescription>
+                  Ward-level charts use illustrative mock data — no public ward-level disease-burden API exists yet.
+                </AlertDescription>
+              </Alert>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm font-medium mb-2">Cases by Ward (Top 10)</p>
                   <WardAnalyticsChart
                     metric="cases"
                     dataSourceId={dataSource}
-                    analyticsMetric={metric}
+                    analyticsMetric={wardMockMetric}
                   />
                 </div>
                 <div>
@@ -268,7 +334,7 @@ export default function HealthAnalyticsPage() {
                   <WardAnalyticsChart
                     metric="incidencePer1000"
                     dataSourceId={dataSource}
-                    analyticsMetric={metric}
+                    analyticsMetric={wardMockMetric}
                   />
                 </div>
               </div>
@@ -286,34 +352,42 @@ export default function HealthAnalyticsPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Select
-              value={metric}
-              onValueChange={(v) => v && setMetric(v as AnalyticsMetric)}
+              value={selectedIndicator}
+              onValueChange={(v) => v && setSelectedIndicator(v)}
+              disabled={!indicators?.length}
             >
               <SelectTrigger className="w-56">
-                <SelectValue placeholder="Select metric" />
+                <SelectValue placeholder="Select indicator" />
               </SelectTrigger>
               <SelectContent>
-                {ANALYTICS_METRICS.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.label}
+                {(indicators ?? []).map((ind) => (
+                  <SelectItem key={ind.slug} value={ind.slug}>
+                    {ind.name}
+                    {ind.unit ? ` (${ind.unit})` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              onClick={() =>
-                toast.success(
-                  `Export started for ${metricLabel} — ${sourceLabel} (mock)`
-                )
-              }
-            >
-              <Download className="size-4" />
-              Export
-            </Button>
           </div>
         </div>
 
+        {!indicators?.length && (
+          <Card>
+            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              No active disease indicators found. Indicators appear here after datasets are ingested and published.
+            </CardContent>
+          </Card>
+        )}
+
+        {indicators?.length && burdenData && !burdenData.kpis.found && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              No data found for &ldquo;{indicatorLabel}&rdquo; in {burdenData.kpis.year}.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {indicators?.length && burdenData?.kpis.found && <>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardContent className="flex items-center gap-4 pt-6">
@@ -322,9 +396,9 @@ export default function HealthAnalyticsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {data?.kpis.totalCases.toLocaleString()}
+                  {burdenData.kpis.totalCases.toLocaleString()}
                 </p>
-                <p className="text-xs text-muted-foreground">Total Cases</p>
+                <p className="text-xs text-muted-foreground">Total Cases ({burdenData.kpis.year})</p>
               </div>
             </CardContent>
           </Card>
@@ -348,9 +422,9 @@ export default function HealthAnalyticsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {dashboard?.platformStats.lgasCovered ?? "—"}
+                  {burdenData.kpis.lgasReporting}
                 </p>
-                <p className="text-xs text-muted-foreground">LGAs Covered</p>
+                <p className="text-xs text-muted-foreground">LGAs Reporting</p>
               </div>
             </CardContent>
           </Card>
@@ -361,9 +435,9 @@ export default function HealthAnalyticsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {dashboard?.anomalies.length ?? "—"}
+                  {burdenData.outliers.length}
                 </p>
-                <p className="text-xs text-muted-foreground">Density Anomalies</p>
+                <p className="text-xs text-muted-foreground">Facility Outliers</p>
               </div>
             </CardContent>
           </Card>
@@ -392,24 +466,30 @@ export default function HealthAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={trendData ?? []}
-                    margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="cases"
-                      stroke="#16a34a"
-                      strokeWidth={2}
-                      name="State Total"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                {trendData.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    No trend data for this indicator.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={trendData}
+                      margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Line
+                        type="monotone"
+                        dataKey="cases"
+                        stroke="#16a34a"
+                        strokeWidth={2}
+                        name="State Total"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -420,29 +500,35 @@ export default function HealthAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={data?.topLGAs ?? []}
-                    layout="vertical"
-                    margin={{ top: 5, right: 20, left: 60, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis
-                      type="category"
-                      dataKey="lga"
-                      tick={{ fontSize: 10 }}
-                      width={55}
-                    />
-                    <Tooltip />
-                    <Bar
-                      dataKey="cases"
-                      fill="#16a34a"
-                      name="Cases"
-                      radius={[0, 4, 4, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                {topLGAs.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    No LGA data for this indicator.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={topLGAs}
+                      layout="vertical"
+                      margin={{ top: 5, right: 20, left: 60, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <YAxis
+                        type="category"
+                        dataKey="lga"
+                        tick={{ fontSize: 10 }}
+                        width={55}
+                      />
+                      <Tooltip />
+                      <Bar
+                        dataKey="cases"
+                        fill="#16a34a"
+                        name="Cases"
+                        radius={[0, 4, 4, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -492,12 +578,54 @@ export default function HealthAnalyticsPage() {
                     <td className="py-2.5 pr-4 font-medium">{row.lga}</td>
                     <td className="py-2.5 pr-4">{row.totalCases.toLocaleString()}</td>
                     <td className="py-2.5 pr-4">{row.facilities}</td>
-                    <td className="py-2.5 pr-4">{row.population.toLocaleString()}</td>
+                    <td className="py-2.5 pr-4">{row.population ? row.population.toLocaleString() : "—"}</td>
                     <td className="py-2.5 pr-4">{row.incidencePer1000}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-1.5">
+              Facility Outliers
+              <HelpTooltip content="Health facilities whose case count for this indicator sits 2+ standard deviations above their LGA mean." />
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                (z-score ≥ 2.0)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            {burdenData.outliers.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                No facility outliers detected for this indicator.
+              </p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="pb-3 pr-4 font-medium">Facility</th>
+                    <th className="pb-3 pr-4 font-medium">LGA</th>
+                    <th className="pb-3 pr-4 font-medium">Cases</th>
+                    <th className="pb-3 pr-4 font-medium">Z-Score</th>
+                    <th className="pb-3 font-medium">Interpretation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {burdenData.outliers.map((row) => (
+                    <tr key={row.facility_id} className="border-b last:border-0">
+                      <td className="py-2.5 pr-4 font-medium">{row.facility_name}</td>
+                      <td className="py-2.5 pr-4">{row.lga_name}</td>
+                      <td className="py-2.5 pr-4">{Number(row.total_cases).toLocaleString()}</td>
+                      <td className="py-2.5 pr-4">{Number(row.z_score).toFixed(2)}</td>
+                      <td className="py-2.5">{outlierInterpretation(Number(row.z_score))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </CardContent>
         </Card>
 
@@ -562,6 +690,7 @@ export default function HealthAnalyticsPage() {
             </table>
           </CardContent>
         </Card>
+        </>}
         </>}
       </Container>
     </main>
