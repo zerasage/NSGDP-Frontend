@@ -14,11 +14,15 @@ import {
 } from '../api/programs';
 import type { ProgramFormData } from '@/lib/schemas/program';
 
-export function usePrograms(params?: GetProgramsParams) {
+export function usePrograms(
+  params?: GetProgramsParams,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ['programs', params],
     queryFn: () => getPrograms(params),
     staleTime: 2 * 60 * 1000,
+    enabled: options?.enabled !== false,
   });
 }
 

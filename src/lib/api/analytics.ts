@@ -15,6 +15,7 @@ export interface BurdenKpis {
   totalCases: number;
   lgasReporting: number;
   completeness: number | null;
+  monthsReporting: number;
   found: boolean;
 }
 
@@ -25,6 +26,7 @@ export interface LgaBurdenRow {
   totalCases: number;
   missingRows: number;
   incidencePer1000: number;
+  population: number | null;
 }
 
 export interface BurdenTrendAnnual {
@@ -47,6 +49,31 @@ export interface FacilityOutlierRow {
   lga_avg: number;
   lga_stddev: number;
   z_score: number;
+}
+
+export interface WardBurdenRow {
+  wardId: string;
+  wardName: string;
+  wardCode: string;
+  lgaName: string;
+  totalCases: number;
+  missingRows: number;
+  incidencePer1000: number;
+  population: number;
+}
+
+export interface AnalyticsDataSourceRow {
+  id: string;
+  slug: string;
+  name: string;
+  acronym: string | null;
+  datasetCount: number;
+  indicatorCount: number;
+}
+
+export interface LgaTrendPoint {
+  year: number;
+  total: number;
 }
 
 export interface AnomalyResult {
@@ -150,6 +177,44 @@ export async function getBurdenOutliers(
   const response = await apiClient.get<ApiResponse<FacilityOutlierRow[]>>(
     '/analytics/outliers',
     { params: { indicator, ...(year != null ? { year } : {}) } }
+  );
+  return response.data.data;
+}
+
+export async function getAnalyticsDataSources(): Promise<AnalyticsDataSourceRow[]> {
+  const response = await apiClient.get<ApiResponse<AnalyticsDataSourceRow[]>>(
+    '/analytics/data-sources'
+  );
+  return response.data.data;
+}
+
+export async function getWardBurden(
+  indicator: string,
+  lga: string,
+  opts?: { year?: number; organisationId?: string; limit?: number }
+): Promise<WardBurdenRow[]> {
+  const response = await apiClient.get<ApiResponse<WardBurdenRow[]>>(
+    '/analytics/ward-burden',
+    {
+      params: {
+        indicator,
+        lga,
+        ...(opts?.year != null ? { year: opts.year } : {}),
+        ...(opts?.organisationId ? { organisationId: opts.organisationId } : {}),
+        ...(opts?.limit != null ? { limit: opts.limit } : {}),
+      },
+    }
+  );
+  return response.data.data;
+}
+
+export async function getLgaTrend(
+  indicator: string,
+  lga: string
+): Promise<LgaTrendPoint[]> {
+  const response = await apiClient.get<ApiResponse<LgaTrendPoint[]>>(
+    '/analytics/lga-trend',
+    { params: { indicator, lga } }
   );
   return response.data.data;
 }

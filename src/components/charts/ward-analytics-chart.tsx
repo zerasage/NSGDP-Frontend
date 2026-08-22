@@ -10,67 +10,45 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import type { AnalyticsDataSourceId } from "@/lib/constants/analytics-sources";
-import { getAnalyticsSourceShare } from "@/lib/constants/analytics-sources";
-import type { AnalyticsMetric } from "@/types";
-
-interface WardDataPoint {
-  ward: string;
-  lga: string;
-  cases: number;
-  population: number;
-  incidencePer1000: number;
-}
-
-// Seeded mock ward data
-const MOCK_WARD_DATA: WardDataPoint[] = [
-  { ward: "Tunga",        lga: "Bosso",   cases: 145, population: 12400, incidencePer1000: 11.7 },
-  { ward: "Minna Central",lga: "Bosso",   cases: 198, population: 18200, incidencePer1000: 10.9 },
-  { ward: "Kpakungu",     lga: "Bosso",   cases: 87,  population: 9800,  incidencePer1000: 8.9  },
-  { ward: "Shango",       lga: "Chanchaga",cases:201, population: 14500, incidencePer1000: 13.9 },
-  { ward: "Limawa",       lga: "Chanchaga",cases:112, population: 11000, incidencePer1000: 10.2 },
-  { ward: "Gwari",        lga: "Chanchaga",cases:76,  population: 8200,  incidencePer1000: 9.3  },
-  { ward: "Bida Central", lga: "Bida",    cases: 234, population: 21000, incidencePer1000: 11.1 },
-  { ward: "Bida North",   lga: "Bida",    cases: 167, population: 15600, incidencePer1000: 10.7 },
-  { ward: "Efako",        lga: "Bida",    cases: 89,  population: 9400,  incidencePer1000: 9.5  },
-  { ward: "Lapai Central",lga: "Lapai",   cases: 312, population: 16800, incidencePer1000: 18.6 },
-];
-
-const HIGH_THRESHOLD = 15;
+import type { WardBurdenRow } from "@/lib/api/analytics";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface WardAnalyticsChartProps {
-  lgaFilter?: string;
+  data?: WardBurdenRow[];
+  isLoading?: boolean;
   metric?: "cases" | "incidencePer1000";
-  dataSourceId?: AnalyticsDataSourceId;
-  analyticsMetric?: AnalyticsMetric;
+  /** When set, incidence bars above this value render red. Omit for count/rate indicators. */
+  incidenceHighlightThreshold?: number | null;
+  emptyMessage?: string;
 }
 
 export function WardAnalyticsChart({
-  lgaFilter,
+  data = [],
+  isLoading = false,
   metric = "cases",
-  dataSourceId = "all",
-  analyticsMetric = "severe_malaria",
+  incidenceHighlightThreshold = null,
+  emptyMessage = "No ward-level data for this indicator, year, and LGA.",
 }: WardAnalyticsChartProps) {
-  const share = getAnalyticsSourceShare(dataSourceId, analyticsMetric);
+  if (isLoading) {
+    return <Skeleton className="h-[280px] w-full" />;
+  }
 
-  const scaled = MOCK_WARD_DATA.map((row) => ({
-    ...row,
-    cases: Math.round(row.cases * share),
-    population: Math.round(row.population * (dataSourceId === "all" ? 1 : share * 2)),
-    incidencePer1000:
-      Math.round(
-        ((row.cases * share) / Math.max(row.population * (dataSourceId === "all" ? 1 : share * 2), 1)) *
-          1000 *
-          10
-      ) / 10,
+  if (data.length === 0) {
+    return (
+      <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground text-center px-4">
+        {emptyMessage}
+      </div>
+    );
+  }
+
+  const chartData = data.map((row) => ({
+    ward: row.wardName,
+    lga: row.lgaName,
+    cases: row.totalCases,
+    incidencePer1000: Math.round(row.incidencePer1000 * 10) / 10,
   }));
 
-  const data = lgaFilter
-    ? scaled.filter((d) => d.lga === lgaFilter)
-    : scaled;
-
-  const sorted = [...data].sort((a, b) => b[metric] - a[metric]);
-
+  const sorted = [...chartData].sort((a, b) => b[metric] - a[metric]);
   const label = metric === "cases" ? "Reported Cases" : "Incidence per 1,000";
 
   return (
@@ -92,17 +70,19 @@ export function WardAnalyticsChart({
           }}
         />
         <Bar dataKey={metric} radius={[0, 4, 4, 0]}>
-          {sorted.map((entry) => (
-            <Cell
-              key={entry.ward}
-              fill={
-                metric === "incidencePer1000" && entry.incidencePer1000 > HIGH_THRESHOLD
-                  ? "#dc2626"
-                  : "#2563eb"
-              }
-              fillOpacity={0.8}
-            />
-          ))}
+          {sorted.map((entry) => {
+            const highlight =
+              metric === "incidencePer1000" &&
+              incidenceHighlightThreshold != null &&
+              entry.incidencePer1000 > incidenceHighlightThreshold;
+            return (
+              <Cell
+                key={entry.ward}
+                fill={highlight ? "#dc2626" : "#2563eb"}
+                fillOpacity={0.8}
+              />
+            );
+          })}
         </Bar>
       </BarChart>
     </ResponsiveContainer>

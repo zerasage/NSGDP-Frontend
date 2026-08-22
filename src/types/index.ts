@@ -270,8 +270,9 @@ export interface LGABurden {
   rank: number;
   lga: string;
   totalCases: number;
+  missingRows: number;
   facilities: number;
-  population: number;
+  population: number | null;
   incidencePer1000: number;
 }
 

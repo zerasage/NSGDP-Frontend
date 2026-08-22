@@ -26,6 +26,7 @@ import {
   type DiseaseBurdenFeatureCollection,
 } from "@/lib/api/gis";
 import { useDiseaseIndicators } from "@/lib/hooks/useDiseaseIndicators";
+import { getBurdenTrends, getLgaTrend, type LgaTrendPoint } from "@/lib/api/analytics";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import {
   MapLegend,
@@ -122,7 +123,42 @@ function getDiseaseBurdenColor(cases: number): string {
   return "#16a34a";
 }
 
-function buildDiseaseBurdenPopupHtml(props: DiseaseBurdenGisProperties): string {
+function buildTrendSparklineSvg(
+  points: LgaTrendPoint[],
+  width = 200,
+  height = 44
+): string {
+  if (points.length < 2) {
+    return `<p class="text-xs text-muted-foreground mt-2">Insufficient trend history</p>`;
+  }
+  const max = Math.max(...points.map((p) => p.total), 1);
+  const pad = 4;
+  const coords = points
+    .map((p, i) => {
+      const x = pad + (i / (points.length - 1)) * (width - pad * 2);
+      const y = height - pad - (p.total / max) * (height - pad * 2);
+      return `${x},${y}`;
+    })
+    .join(" ");
+  const last = points[points.length - 1];
+  const first = points[0];
+  const delta = last.total - first.total;
+  const deltaLabel =
+    delta > 0 ? `+${delta.toLocaleString()}` : delta.toLocaleString();
+  return `
+    <div class="mt-2">
+      <p class="text-xs text-muted-foreground mb-1">Trend (${first.year}–${last.year}): ${deltaLabel}</p>
+      <svg width="${width}" height="${height}" aria-hidden="true">
+        <polyline fill="none" stroke="#16a34a" stroke-width="2" points="${coords}" />
+      </svg>
+    </div>
+  `;
+}
+
+function buildDiseaseBurdenPopupHtml(
+  props: DiseaseBurdenGisProperties,
+  trend?: LgaTrendPoint[]
+): string {
   return `
     <div class="p-2 text-sm max-w-xs">
       <h3 class="font-bold mb-1">${escapeHtml(props.lgaName)}</h3>
@@ -132,6 +168,7 @@ function buildDiseaseBurdenPopupHtml(props: DiseaseBurdenGisProperties): string 
           <tr><td class="pr-3 text-muted-foreground align-top">Incidence</td><td>${props.incidencePer1000.toFixed(1)} / 1,000</td></tr>
         </tbody>
       </table>
+      ${trend ? buildTrendSparklineSvg(trend) : `<p class="text-xs text-muted-foreground mt-2">Loading trend…</p>`}
     </div>
   `;
 }
@@ -187,6 +224,7 @@ export default function GisMappingPage() {
   const [showWardBoundaries, setShowWardBoundaries] = useState(false);
   const [selectedIndicator, setSelectedIndicator] = useState("");
   const [burdenYear, setBurdenYear] = useState(new Date().getFullYear());
+  const [burdenYearOptions, setBurdenYearOptions] = useState<number[]>([]);
 
   const [lgaSummary, setLgaSummary] = useState<LgaGisFeatureCollection | null>(null);
   const [wardSummary, setWardSummary] = useState<WardGisFeatureCollection | null>(null);
@@ -210,6 +248,25 @@ export default function GisMappingPage() {
       setSelectedIndicator(indicators[0].slug);
     }
   }, [indicators, selectedIndicator]);
+
+  useEffect(() => {
+    if (activeLayer !== "disease-burden" || !selectedIndicator) {
+      setBurdenYearOptions([]);
+      return;
+    }
+    getBurdenTrends(selectedIndicator, { granularity: "annual" })
+      .then((rows) => {
+        const years = rows.map((r) => r.year).sort((a, b) => a - b);
+        setBurdenYearOptions(years.length ? years : [new Date().getFullYear()]);
+        if (years.length && !years.includes(burdenYear)) {
+          setBurdenYear(years[years.length - 1]);
+        }
+      })
+      .catch(() => {
+        setBurdenYearOptions([new Date().getFullYear()]);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayer, selectedIndicator]);
 
   const loadLgaSummary = useCallback(() => {
     setIsLoadingLga(true);
@@ -354,6 +411,16 @@ export default function GisMappingPage() {
             onEachFeature={(feature, layer) => {
               const props = feature.properties as DiseaseBurdenGisProperties;
               layer.bindPopup(buildDiseaseBurdenPopupHtml(props));
+              layer.on("popupopen", () => {
+                if (!selectedIndicator) return;
+                getLgaTrend(selectedIndicator, props.lgaName)
+                  .then((trend) => {
+                    layer.setPopupContent(buildDiseaseBurdenPopupHtml(props, trend));
+                  })
+                  .catch(() => {
+                    layer.setPopupContent(buildDiseaseBurdenPopupHtml(props, []));
+                  });
+              });
               layer.on("click", () => setLga(props.lgaName));
               layer.on("mouseover", () => {
                 (layer as Path).setStyle({ weight: 3, color: "#0f172a" });
@@ -520,7 +587,7 @@ export default function GisMappingPage() {
                   onValueChange={(v) => v && setSelectedIndicator(v)}
                   disabled={!indicators?.length}
                 >
-                  <SelectTrigger><SelectValue placeholder="Select indicator" /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select indicator" /></SelectTrigger>
                   <SelectContent>
                     {(indicators ?? []).map((ind) => (
                       <SelectItem key={ind.slug} value={ind.slug}>{ind.name}</SelectItem>
@@ -529,18 +596,44 @@ export default function GisMappingPage() {
                 </Select>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Year</label>
-                <Select
-                  value={String(burdenYear)}
-                  onValueChange={(v) => v && setBurdenYear(Number(v))}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 12 }, (_, i) => new Date().getFullYear() - i).map((y) => (
-                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Year
+                  {burdenYearOptions.length > 0 && (
+                    <span className="ml-1 font-normal">({burdenYear})</span>
+                  )}
+                </label>
+                {burdenYearOptions.length > 1 ? (
+                  <>
+                    <input
+                      type="range"
+                      min={0}
+                      max={burdenYearOptions.length - 1}
+                      step={1}
+                      value={Math.max(0, burdenYearOptions.indexOf(burdenYear))}
+                      onChange={(e) => {
+                        const idx = Number(e.target.value);
+                        setBurdenYear(burdenYearOptions[idx] ?? burdenYear);
+                      }}
+                      className="w-full accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                      <span>{burdenYearOptions[0]}</span>
+                      <span>{burdenYearOptions[burdenYearOptions.length - 1]}</span>
+                    </div>
+                  </>
+                ) : (
+                  <Select
+                    value={String(burdenYear)}
+                    onValueChange={(v) => v && setBurdenYear(Number(v))}
+                  >
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(burdenYearOptions.length ? burdenYearOptions : [burdenYear]).map((y) => (
+                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               {isLoadingBurden && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -592,7 +685,7 @@ export default function GisMappingPage() {
               value={lga}
               onValueChange={(v) => v && setLga(v)}
             >
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder="All LGAs" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All LGAs</SelectItem>
                 {NIGER_STATE_LGAS.map((name) => (
@@ -604,7 +697,7 @@ export default function GisMappingPage() {
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Ward</label>
             <Select value={ward} onValueChange={(v) => v && setWard(v)} disabled={lga === "all" || wardOptions.length === 0}>
-              <SelectTrigger><SelectValue placeholder="Select ward" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder="All wards" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All wards</SelectItem>
                 {wardOptions.map((w) => (
@@ -697,7 +790,7 @@ export default function GisMappingPage() {
 
       {/* Top/bottom LGAs by facility density */}
       {rankingOpen ? (
-        <Card className="absolute bottom-4 left-4 z-[1000] w-80 shadow-xl">
+        <Card className={cn("absolute bottom-4 z-[1000] w-80 shadow-xl transition-[left]", filterOpen ? "left-[21rem]" : "left-4")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs">LGAs by Facility Count</CardTitle>
             <Button size="sm" variant="ghost" onClick={() => setRankingOpen(false)}>
@@ -754,7 +847,7 @@ export default function GisMappingPage() {
         <Button
           size="sm"
           variant="secondary"
-          className="absolute bottom-4 left-4 z-[1000] shadow-lg"
+          className={cn("absolute bottom-4 z-[1000] shadow-lg transition-[left]", filterOpen ? "left-[21rem]" : "left-4")}
           onClick={() => setRankingOpen(true)}
         >
           <ChevronUp className="size-4 mr-1" />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
@@ -35,28 +36,37 @@ import {
 } from "@/components/ui/select";
 import { PageHeaderSkeleton } from "@/components/feedback/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
-import { mockPrograms } from "@/lib/mock/programs";
 import { useAnalyticsDashboard } from "@/lib/hooks/useAnalyticsDashboard";
 import { useDiseaseIndicators } from "@/lib/hooks/useDiseaseIndicators";
 import { useDiseaseBurdenAnalytics } from "@/lib/hooks/useDiseaseBurdenAnalytics";
+import { useAnalyticsDataSources } from "@/lib/hooks/useAnalyticsDataSources";
+import { useWardBurden } from "@/lib/hooks/useWardBurden";
+import { usePrograms } from "@/lib/hooks/usePrograms";
 import { downloadAnalyticsCsv } from "@/lib/api/analytics";
 import {
-  ANALYTICS_DATA_SOURCES,
-  PROGRAM_DATA_SOURCE,
+  ALL_SOURCES_ID,
   getAnalyticsSourceLabel,
   type AnalyticsDataSourceId,
 } from "@/lib/constants/analytics-sources";
+import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { WardAnalyticsChart } from "@/components/charts/ward-analytics-chart";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
-import type { AnalyticsMetric, LGABurden } from "@/types";
+import { formatDate } from "@/lib/utils/date";
+import type { LGABurden } from "@/types";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 type TrendMode = "annual" | "seasonal";
 type AnalyticsTab = "indicators" | "ward" | "programmes";
 type SortKey = keyof Pick<
   LGABurden,
-  "rank" | "lga" | "totalCases" | "facilities" | "population" | "incidencePer1000"
+  "rank" | "lga" | "totalCases" | "missingRows" | "facilities" | "population" | "incidencePer1000"
 >;
+
+function formatCompleteness(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return `${Math.round(value * 100)}%`;
+}
 
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -71,9 +81,10 @@ function outlierInterpretation(zScore: number): string {
 }
 
 export default function HealthAnalyticsPage() {
-  const wardMockMetric: AnalyticsMetric = "severe_malaria";
   const [selectedIndicator, setSelectedIndicator] = useState<string>("");
-  const [dataSource, setDataSource] = useState<AnalyticsDataSourceId>("all");
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [dataSource, setDataSource] = useState<AnalyticsDataSourceId>(ALL_SOURCES_ID);
+  const [wardLga, setWardLga] = useState<string>("");
   const [trendMode, setTrendMode] = useState<TrendMode>("annual");
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("indicators");
   const [sortKey, setSortKey] = useState<SortKey>("rank");
@@ -81,14 +92,51 @@ export default function HealthAnalyticsPage() {
 
   const { data: dashboard } = useAnalyticsDashboard();
   const { data: indicators, isLoading: indicatorsLoading } = useDiseaseIndicators();
+  const { data: dataSources = [] } = useAnalyticsDataSources();
   const { data: burdenData, isLoading: burdenLoading } =
-    useDiseaseBurdenAnalytics(selectedIndicator || undefined);
+    useDiseaseBurdenAnalytics(selectedIndicator || undefined, selectedYear);
+
+  const orgFilterId = dataSource === ALL_SOURCES_ID ? undefined : dataSource;
+  const { data: wardBurden, isLoading: wardLoading } = useWardBurden(
+    selectedIndicator || undefined,
+    wardLga || undefined,
+    { organisationId: orgFilterId, year: selectedYear }
+  );
+
+  const { data: programmesPage, isLoading: programmesLoading } = usePrograms(
+    {
+      status: "active",
+      organisationId: orgFilterId,
+      limit: 50,
+    },
+    { enabled: analyticsTab === "programmes" }
+  );
+
+  const monitoringProgrammes = useMemo(
+    () =>
+      (programmesPage?.data ?? []).filter(
+        (p) => p.status === "ongoing" || p.status === "planned"
+      ),
+    [programmesPage?.data]
+  );
 
   useEffect(() => {
     if (indicators?.length && !selectedIndicator) {
       setSelectedIndicator(indicators[0].slug);
     }
   }, [indicators, selectedIndicator]);
+
+  useEffect(() => {
+    if (!wardLga && NIGER_STATE_LGAS.length) {
+      setWardLga(NIGER_STATE_LGAS[0]);
+    }
+  }, [wardLga]);
+
+  const lgaOptions = useMemo(() => {
+    const fromCoverage = dashboard?.lgaCoverage.map((c) => c.lga) ?? [];
+    if (fromCoverage.length) return fromCoverage.sort();
+    return [...NIGER_STATE_LGAS];
+  }, [dashboard?.lgaCoverage]);
 
   const coverageByLga = useMemo(
     () => new Map(dashboard?.lgaCoverage.map((c) => [c.lga, c]) ?? []),
@@ -99,16 +147,57 @@ export default function HealthAnalyticsPage() {
     if (!burdenData?.lgaBurden) return [];
     return burdenData.lgaBurden.map((row, i) => {
       const coverage = coverageByLga.get(row.lgaName);
+      const population = row.population ?? coverage?.population ?? null;
+      const incidencePer1000 =
+        population && row.totalCases > 0
+          ? Math.round((row.totalCases / population) * 1000 * 10) / 10
+          : row.incidencePer1000;
       return {
         rank: i + 1,
         lga: row.lgaName,
         totalCases: row.totalCases,
+        missingRows: row.missingRows,
         facilities: coverage?.facilityCount ?? 0,
-        population: coverage?.population ?? 0,
-        incidencePer1000: Math.round(row.incidencePer1000 * 10) / 10,
+        population,
+        incidencePer1000,
       };
     });
   }, [burdenData?.lgaBurden, coverageByLga]);
+
+  const yearOptions = useMemo(() => {
+    const fromTrends = burdenData?.trendsAnnual.map((p) => p.year) ?? [];
+    const merged = new Set([...fromTrends, selectedYear, new Date().getFullYear()]);
+    return [...merged].sort((a, b) => b - a);
+  }, [burdenData?.trendsAnnual, selectedYear]);
+
+  const selectedIndicatorMeta = indicators?.find((i) => i.slug === selectedIndicator);
+
+  const isPartialYear =
+    selectedYear === new Date().getFullYear() &&
+    (burdenData?.kpis.monthsReporting ?? 0) > 0 &&
+    (burdenData?.kpis.monthsReporting ?? 0) < 12;
+
+  const wardIncidenceHighlight = useMemo(() => {
+    const unit = selectedIndicatorMeta?.unit?.toLowerCase() ?? "";
+    const category = selectedIndicatorMeta?.category?.toLowerCase() ?? "";
+    if (
+      category === "completeness" ||
+      unit.includes("%") ||
+      unit.includes("rate") ||
+      unit.includes("proportion")
+    ) {
+      return null;
+    }
+    return 15;
+  }, [selectedIndicatorMeta]);
+
+  const orgNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of dataSources) {
+      map.set(s.id, s.acronym ? `${s.acronym} — ${s.name}` : s.name);
+    }
+    return map;
+  }, [dataSources]);
 
   const trendData = useMemo(() => {
     if (!burdenData) return [];
@@ -154,21 +243,14 @@ export default function HealthAnalyticsPage() {
     }
   };
 
-  const indicatorLabel =
-    indicators?.find((i) => i.slug === selectedIndicator)?.name ?? selectedIndicator;
+  const indicatorLabel = selectedIndicatorMeta?.name ?? selectedIndicator;
 
-  const sourceLabel = getAnalyticsSourceLabel(dataSource);
+  const sourceLabel = getAnalyticsSourceLabel(dataSource, dataSources);
 
-  const realHealthFacilities = dashboard?.lgaCoverage.reduce(
+  const stateHealthFacilities = dashboard?.lgaCoverage.reduce(
     (sum, l) => sum + l.facilityCount,
     0
   );
-
-  const filteredPrograms = mockPrograms.filter((p) => {
-    if (p.status !== "ongoing") return false;
-    if (dataSource === "all") return true;
-    return PROGRAM_DATA_SOURCE[p.id] === dataSource;
-  });
 
   const indicatorsLoadingState =
     analyticsTab === "indicators" &&
@@ -195,24 +277,25 @@ export default function HealthAnalyticsPage() {
         <Alert>
           <Info className="size-4" />
           <AlertDescription>
-            Health Indicators tab uses real disease-burden data from ingested
-            surveillance datasets. Ward-level analytics and Programme Monitoring
-            tabs still use illustrative mock data. Health facility counts, LGA
-            coverage, and density anomalies are computed from real platform data.
+            Health Indicators aggregates published surveillance datasets (one value
+            per LGA/ward/facility/period — latest publish wins when sources overlap).
+            Platform GIS metrics below are state-wide context, not tied to the selected indicator.
           </AlertDescription>
         </Alert>
 
-        {/* Global filters — applies to ward/programmes tabs only */}
+        {/* Organisation filter — ward + programmes tabs only */}
         {analyticsTab !== "indicators" && (
           <>
             <div className="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-muted/30 p-4">
               <div className="space-y-1">
                 <p className="text-sm font-medium flex items-center gap-1.5">
-                  Data Source
-                  <HelpTooltip content="Filter analytics to datasets generated and uploaded by a specific organisation. 'All Sources' shows aggregated state-level indicators." />
+                  Organisation filter
+                  <HelpTooltip content="Ward burden can be scoped to an organisation that published contributing datasets. Programme Monitoring filters by the programme's owning organisation." />
                 </p>
                 <p className="text-xs text-muted-foreground max-w-xl">
-                  Organisation responsible for generating and uploading the underlying data
+                  {analyticsTab === "ward"
+                    ? "Limit ward burden to datasets published by one organisation"
+                    : "Show programmes owned by one organisation"}
                 </p>
               </div>
               <Select
@@ -220,10 +303,11 @@ export default function HealthAnalyticsPage() {
                 onValueChange={(v) => v && setDataSource(v as AnalyticsDataSourceId)}
               >
                 <SelectTrigger className="w-72">
-                  <SelectValue placeholder="Select data source" />
+                  <SelectValue placeholder="Select organisation" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ANALYTICS_DATA_SOURCES.map((source) => (
+                  <SelectItem value={ALL_SOURCES_ID}>All organisations</SelectItem>
+                  {dataSources.map((source) => (
                     <SelectItem key={source.id} value={source.id}>
                       {source.acronym} — {source.name}
                     </SelectItem>
@@ -232,12 +316,9 @@ export default function HealthAnalyticsPage() {
               </Select>
             </div>
 
-            {dataSource !== "all" && (
+            {dataSource !== ALL_SOURCES_ID && (
               <p className="text-sm text-muted-foreground -mt-4">
-                Showing analytics for <strong className="text-foreground">{sourceLabel}</strong>
-                {ANALYTICS_DATA_SOURCES.find((s) => s.id === dataSource)?.description
-                  ? ` — ${ANALYTICS_DATA_SOURCES.find((s) => s.id === dataSource)?.description}`
-                  : ""}
+                Filtered to <strong className="text-foreground">{sourceLabel}</strong>
               </p>
             )}
           </>
@@ -263,39 +344,110 @@ export default function HealthAnalyticsPage() {
 
         {analyticsTab === "programmes" && (
           <>
-            <p className="text-sm text-muted-foreground">
-              {dataSource === "all"
-                ? "Ongoing programmes across all data sources"
-                : `Ongoing programmes linked to ${sourceLabel}`}
-            </p>
-            {filteredPrograms.length === 0 ? (
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">
+                Self-reported programme progress (reach / target entered by programme owners).
+                {dataSource === ALL_SOURCES_ID
+                  ? " Showing active programmes across all organisations."
+                  : ` Filtered to programmes owned by ${sourceLabel}.`}
+              </p>
+            </div>
+            {programmesLoading ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-48" />
+                ))}
+              </div>
+            ) : monitoringProgrammes.length === 0 ? (
               <Card>
-                <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                  No ongoing programmes linked to this data source.
+                <CardContent className="py-10 text-center text-sm text-muted-foreground space-y-2">
+                  <p>
+                    {dataSource === ALL_SOURCES_ID
+                      ? "No active programmes to monitor yet."
+                      : `No active programmes owned by ${sourceLabel}.`}
+                  </p>
+                  {dataSource !== ALL_SOURCES_ID && (
+                    <p>
+                      Try switching the organisation filter to{" "}
+                      <button
+                        type="button"
+                        className="font-medium text-foreground underline-offset-4 hover:underline"
+                        onClick={() => setDataSource(ALL_SOURCES_ID)}
+                      >
+                        All organisations
+                      </button>
+                      .
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredPrograms.map((p) => (
-                  <Card key={p.id}>
-                    <CardHeader>
-                      <CardTitle className="text-base leading-snug">{p.name}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{p.primaryMetric}</span>
-                        <span className="font-bold text-primary">{p.completionPercent}%</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${p.completionPercent}%` }} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                        <span>{p.lgasCovered} LGAs</span>
-                        <span>{p.reachCount.toLocaleString()} reached</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                {monitoringProgrammes.map((p) => {
+                  const orgLabel =
+                    (p.organisationId && orgNameById.get(p.organisationId)) ||
+                    p.organisationName ||
+                    null;
+                  return (
+                    <Card key={p.slug}>
+                      <CardHeader className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge
+                            variant={p.status === "ongoing" ? "default" : "secondary"}
+                            className="capitalize"
+                          >
+                            {p.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground capitalize">
+                            {(p.type || "other").replace(/_/g, " ")}
+                          </span>
+                        </div>
+                        <CardTitle className="text-base leading-snug">
+                          <Link href={`/programs/${p.slug}`} className="hover:underline">
+                            {p.name}
+                          </Link>
+                        </CardTitle>
+                        {orgLabel && (
+                          <p className="text-xs text-muted-foreground">{orgLabel}</p>
+                        )}
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            {p.primaryMetric || "Progress"}
+                          </span>
+                          <span className="font-bold text-primary">
+                            {p.targetCount > 0 ? `${p.completionPercent}%` : "—"}
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full bg-primary rounded-full"
+                            style={{
+                              width: `${p.targetCount > 0 ? Math.min(p.completionPercent, 100) : 0}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <span>
+                            {p.reachCount.toLocaleString()}
+                            {p.targetCount > 0
+                              ? ` / ${p.targetCount.toLocaleString()} target`
+                              : " reached"}
+                          </span>
+                          <span>{p.lgasCovered} LGAs</span>
+                          <span>
+                            {formatDate(p.startDate)}
+                            {p.endDate ? ` → ${formatDate(p.endDate)}` : ""}
+                          </span>
+                          <span>
+                            {p.activeDays > 0 ? `${p.activeDays} days active` : "Not started"}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </>
@@ -307,37 +459,166 @@ export default function HealthAnalyticsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Building className="size-5 text-primary" />
                 Ward-Level Disease Burden
-                <HelpTooltip content="Shows disaggregated case counts and incidence rates at ward level for selected LGAs. Red bars indicate wards exceeding the 15 per 1,000 threshold." />
+                <HelpTooltip content="Ward totals come from published burden rows with a ward_id. Many indicators are LGA-only — an empty chart usually means no ward disaggregation, not a missing LGA total." />
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Alert>
-                <Info className="size-4" />
-                <AlertDescription>
-                  Ward-level charts use illustrative mock data — no public ward-level disease-burden API exists yet.
-                </AlertDescription>
-              </Alert>
+              <div className="flex flex-wrap gap-3">
+                <div className="min-w-[12rem] flex-1">
+                  <p className="text-sm font-medium mb-2">Indicator</p>
+                  <Select
+                    value={selectedIndicator}
+                    onValueChange={(v) => v && setSelectedIndicator(v)}
+                    disabled={!indicators?.length}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select indicator" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(indicators ?? []).map((ind) => (
+                        <SelectItem key={ind.slug} value={ind.slug}>
+                          {ind.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="min-w-[12rem] flex-1">
+                  <p className="text-sm font-medium mb-2">LGA</p>
+                  <Select value={wardLga} onValueChange={(v) => v && setWardLga(v)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select LGA" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {lgaOptions.map((name) => (
+                        <SelectItem key={name} value={name}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-28">
+                  <p className="text-sm font-medium mb-2">Year</p>
+                  <Select
+                    value={String(selectedYear)}
+                    onValueChange={(v) => v && setSelectedYear(Number(v))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {yearOptions.map((y) => (
+                        <SelectItem key={y} value={String(y)}>
+                          {y}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {!wardLoading && (wardBurden?.length ?? 0) === 0 && (
+                <Alert>
+                  <Info className="size-4" />
+                  <AlertDescription>
+                    No ward-level rows for <strong>{indicatorLabel}</strong> in{" "}
+                    <strong>{wardLga}</strong> ({selectedYear}). This indicator may only
+                    be reported at LGA level — check Health Indicators for the LGA total.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {(wardBurden?.length ?? 0) > 0 && (
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {[
+                    ["Wards with data", wardBurden!.length],
+                    [
+                      "Total cases",
+                      wardBurden!
+                        .reduce((s, r) => s + r.totalCases, 0)
+                        .toLocaleString(),
+                    ],
+                    [
+                      "Missing rows",
+                      wardBurden!.reduce((s, r) => s + r.missingRows, 0),
+                    ],
+                  ].map(([label, value]) => (
+                    <div key={label as string} className="rounded-lg border bg-muted/20 px-4 py-3">
+                      <p className="text-lg font-semibold tabular-nums">{value}</p>
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <p className="text-sm font-medium mb-2">Cases by Ward (Top 10)</p>
+                  <p className="text-sm font-medium mb-2">Cases by Ward</p>
                   <WardAnalyticsChart
                     metric="cases"
-                    dataSourceId={dataSource}
-                    analyticsMetric={wardMockMetric}
+                    data={wardBurden}
+                    isLoading={wardLoading}
+                    emptyMessage="No ward cases to chart for this selection."
                   />
                 </div>
                 <div>
                   <p className="text-sm font-medium mb-2 flex items-center gap-1.5">
                     Incidence Rate per 1,000
-                    <HelpTooltip content="Incidence per 1,000 population standardises case counts to allow fair comparison across wards with different populations." />
+                    <HelpTooltip
+                      content={
+                        wardIncidenceHighlight != null
+                          ? `Incidence per 1,000 population. Bars above ${wardIncidenceHighlight} are highlighted.`
+                          : "Incidence per 1,000 population. Highlighting is off for rate/completeness indicators."
+                      }
+                    />
                   </p>
                   <WardAnalyticsChart
                     metric="incidencePer1000"
-                    dataSourceId={dataSource}
-                    analyticsMetric={wardMockMetric}
+                    data={wardBurden}
+                    isLoading={wardLoading}
+                    incidenceHighlightThreshold={wardIncidenceHighlight}
+                    emptyMessage="No ward incidence to chart for this selection."
                   />
                 </div>
               </div>
+
+              {(wardBurden?.length ?? 0) > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="pb-3 pr-4 font-medium">Ward</th>
+                        <th className="pb-3 pr-4 font-medium">Cases</th>
+                        <th className="pb-3 pr-4 font-medium">Population</th>
+                        <th className="pb-3 pr-4 font-medium">Incidence / 1,000</th>
+                        <th className="pb-3 font-medium">Missing rows</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...(wardBurden ?? [])]
+                        .sort((a, b) => b.totalCases - a.totalCases)
+                        .map((row) => (
+                          <tr key={row.wardId} className="border-b last:border-0">
+                            <td className="py-2.5 pr-4 font-medium">{row.wardName}</td>
+                            <td className="py-2.5 pr-4 tabular-nums">
+                              {row.totalCases.toLocaleString()}
+                            </td>
+                            <td className="py-2.5 pr-4 tabular-nums">
+                              {row.population
+                                ? row.population.toLocaleString()
+                                : "—"}
+                            </td>
+                            <td className="py-2.5 pr-4 tabular-nums">
+                              {Math.round(row.incidencePer1000 * 10) / 10}
+                            </td>
+                            <td className="py-2.5 tabular-nums">{row.missingRows}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -349,6 +630,16 @@ export default function HealthAnalyticsPage() {
             <p className="mt-2 text-muted-foreground">
               Real-time insights into health indicators across Niger State
             </p>
+            {selectedIndicatorMeta && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {selectedIndicatorMeta.category
+                  ? `${selectedIndicatorMeta.category} · `
+                  : ""}
+                {selectedIndicatorMeta.unit
+                  ? `Unit: ${selectedIndicatorMeta.unit}`
+                  : "Unit: cases (whole numbers)"}
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Select
@@ -364,6 +655,22 @@ export default function HealthAnalyticsPage() {
                   <SelectItem key={ind.slug} value={ind.slug}>
                     {ind.name}
                     {ind.unit ? ` (${ind.unit})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={String(selectedYear)}
+              onValueChange={(v) => v && setSelectedYear(Number(v))}
+              disabled={!indicators?.length}
+            >
+              <SelectTrigger className="w-28">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {yearOptions.map((y) => (
+                  <SelectItem key={y} value={String(y)}>
+                    {y}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -398,20 +705,10 @@ export default function HealthAnalyticsPage() {
                 <p className="text-2xl font-bold">
                   {burdenData.kpis.totalCases.toLocaleString()}
                 </p>
-                <p className="text-xs text-muted-foreground">Total Cases ({burdenData.kpis.year})</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-4 pt-6">
-              <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-950">
-                <MapPin className="size-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {realHealthFacilities?.toLocaleString() ?? "—"}
+                <p className="text-xs text-muted-foreground">
+                  Total {selectedIndicatorMeta?.unit ?? "cases"} ({burdenData.kpis.year})
+                  {isPartialYear && " · year-to-date"}
                 </p>
-                <p className="text-xs text-muted-foreground">Health Facilities</p>
               </div>
             </CardContent>
           </Card>
@@ -424,7 +721,24 @@ export default function HealthAnalyticsPage() {
                 <p className="text-2xl font-bold">
                   {burdenData.kpis.lgasReporting}
                 </p>
-                <p className="text-xs text-muted-foreground">LGAs Reporting</p>
+                <p className="text-xs text-muted-foreground">LGAs reporting</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-950">
+                <MapPin className="size-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">
+                  {formatCompleteness(burdenData.kpis.completeness)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Data completeness
+                  {isPartialYear &&
+                    ` · ${burdenData.kpis.monthsReporting} mo reported`}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -437,16 +751,58 @@ export default function HealthAnalyticsPage() {
                 <p className="text-2xl font-bold">
                   {burdenData.outliers.length}
                 </p>
-                <p className="text-xs text-muted-foreground">Facility Outliers</p>
+                <p className="text-xs text-muted-foreground">
+                  Facility outliers (this indicator)
+                </p>
               </div>
             </CardContent>
           </Card>
         </div>
 
+        {dashboard && (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                label: "State health facilities",
+                value: stateHealthFacilities?.toLocaleString() ?? "—",
+                hint: "Platform GIS registry (all indicators)",
+              },
+              {
+                label: "Published datasets",
+                value: dashboard.platformStats.totalDatasets.toLocaleString(),
+                hint: "Contributing to analytics",
+              },
+              {
+                label: "LGAs with map coverage",
+                value: dashboard.platformStats.lgasCovered,
+                hint: "Population & facility layers",
+              },
+              {
+                label: "Platform downloads",
+                value: dashboard.platformStats.totalDownloads.toLocaleString(),
+                hint: "All-time dataset downloads",
+              },
+            ].map(({ label, value, hint }) => (
+              <Card key={label} className="border-dashed bg-muted/20">
+                <CardContent className="pt-6">
+                  <p className="text-xl font-semibold tabular-nums">{value}</p>
+                  <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base">Trends Over Time</CardTitle>
+              {isPartialYear && (
+                <span className="text-xs text-muted-foreground">
+                  {selectedYear} is partial ({burdenData.kpis.monthsReporting} months)
+                </span>
+              )}
               <div className="flex gap-1">
                 <Button
                   size="sm"
@@ -546,10 +902,11 @@ export default function HealthAnalyticsPage() {
                     [
                       ["rank", "Rank"],
                       ["lga", "LGA"],
-                      ["totalCases", "Total Cases"],
-                      ["facilities", "Facilities"],
+                      ["totalCases", "Total"],
+                      ["missingRows", "Missing rows"],
                       ["population", "Population"],
                       ["incidencePer1000", "Incidence / 1,000"],
+                      ["facilities", "State facilities"],
                     ] as const
                   ).map(([key, label]) => (
                     <th key={key} className="pb-3 pr-4 font-medium">
@@ -577,9 +934,14 @@ export default function HealthAnalyticsPage() {
                     <td className="py-2.5 pr-4">{row.rank}</td>
                     <td className="py-2.5 pr-4 font-medium">{row.lga}</td>
                     <td className="py-2.5 pr-4">{row.totalCases.toLocaleString()}</td>
-                    <td className="py-2.5 pr-4">{row.facilities}</td>
-                    <td className="py-2.5 pr-4">{row.population ? row.population.toLocaleString() : "—"}</td>
-                    <td className="py-2.5 pr-4">{row.incidencePer1000}</td>
+                    <td className="py-2.5 pr-4 tabular-nums">{row.missingRows}</td>
+                    <td className="py-2.5 pr-4">
+                      {row.population != null ? row.population.toLocaleString() : "—"}
+                    </td>
+                    <td className="py-2.5 pr-4 tabular-nums">{row.incidencePer1000}</td>
+                    <td className="py-2.5 pr-4 tabular-nums text-muted-foreground">
+                      {row.facilities}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -632,20 +994,17 @@ export default function HealthAnalyticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base flex items-center gap-1.5">
-              LGA Density Anomalies
-              <HelpTooltip content="LGAs whose population density or health-facility count sits 2+ standard deviations from the state-wide mean, computed nightly from real platform data — not disease case counts." />
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                (z-score ≥ 2.0 indicates statistical outlier)
-              </span>
+              Platform GIS health
+              <HelpTooltip content="State-wide population density and facility-count anomalies from the platform map layers — not related to the selected disease indicator." />
             </CardTitle>
             <Button variant="outline" size="sm" onClick={downloadAnalyticsCsv}>
               <Download className="size-3.5" />
-              Export real data (CSV)
+              Export platform CSV
             </Button>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            <p className="mb-4 text-sm font-medium text-red-600 dark:text-red-400">
-              Anomalies found ({dashboard?.anomalies.length ?? 0})
+            <p className="mb-4 text-sm text-muted-foreground">
+              {dashboard?.anomalies.length ?? 0} LGA anomalies from nightly platform scan
             </p>
             <table className="w-full text-sm">
               <thead>

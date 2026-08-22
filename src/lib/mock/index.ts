@@ -338,8 +338,11 @@ export async function getHealthAnalytics(
 
 export async function getAnalyticsDataSources() {
   await simulateDelay();
-  const { ANALYTICS_DATA_SOURCES } = await import("@/lib/constants/analytics-sources");
-  return ANALYTICS_DATA_SOURCES;
+  return [
+    { id: "all", name: "All Sources (Aggregated)", acronym: "ALL" },
+    { id: "org-1", name: "NSPHCDA", acronym: "NSPHCDA" },
+    { id: "org-6", name: "NSPHCDA Surveillance", acronym: "SURV" },
+  ];
 }
 
 export async function getGisBurdenBubbles(metric: AnalyticsMetric, year = 2024) {
