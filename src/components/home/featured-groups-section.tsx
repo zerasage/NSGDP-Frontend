@@ -1,57 +1,66 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Database, Star } from "lucide-react";
-import { Container } from "@/components/layout/container";
-import { Card, CardContent } from "@/components/ui/card";
+import { ArrowRight, Database, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Panel } from "@/components/layout/content-panel";
+import { METRIC_TONE } from "@/components/data/metric-card";
 import { useGroups } from "@/lib/hooks/useGroups";
+import { cn } from "@/lib/utils";
 
 export function FeaturedGroupsSection() {
   const { data, isLoading } = useGroups({ featured: true, limit: 3 });
   const groups = data?.data ?? [];
 
-  if (isLoading || groups.length === 0) return null;
-
   return (
-    <section className="py-16 sm:py-20">
-      <Container size="wide">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-bold sm:text-4xl">Featured Collections</h2>
-            <p className="mt-2 text-muted-foreground">
-              Curated topic collections of datasets and documents
-            </p>
-          </div>
-          <Link href="/groups">
-            <Button variant="outline">
-              Browse all topics
-              <ArrowRight className="size-4" />
-            </Button>
-          </Link>
-        </div>
-        <div className="grid gap-6 md:grid-cols-3">
+    <Panel
+      title="Featured collections"
+      description="Curated topic collections of datasets and documents"
+      action={
+        <Link href="/groups">
+          <Button variant="outline" size="sm" className="h-9">
+            Browse all topics
+            <ArrowRight className="size-4" />
+          </Button>
+        </Link>
+      }
+    >
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading collections…</p>
+      ) : groups.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No featured collections yet.</p>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-3">
           {groups.map((group) => (
-            <Link key={group.id} href={`/groups/${group.slug}`}>
-              <Card className="h-full transition-colors hover:border-primary">
-                <CardContent className="flex h-full flex-col gap-3 pt-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold leading-snug">{group.name}</h3>
-                    <Star className="size-4 shrink-0 fill-amber-400 text-amber-400" />
-                  </div>
-                  <p className="line-clamp-3 flex-1 text-sm text-muted-foreground">
+            <Link
+              key={group.id}
+              href={`/groups/${group.slug}`}
+              className="rounded-xl border bg-background p-4 transition-colors hover:border-primary/40"
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={cn(
+                    "flex size-9 shrink-0 items-center justify-center rounded-lg border",
+                    METRIC_TONE.primary.well
+                  )}
+                >
+                  <FolderOpen className={cn("size-4", METRIC_TONE.primary.icon)} aria-hidden />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold leading-5">{group.name}</h3>
+                  <p className="mt-1 line-clamp-3 text-[13px] text-muted-foreground">
                     {group.description}
                   </p>
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Database className="size-3.5" />
+                  <span className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Database className="size-3.5" aria-hidden />
                     {group.datasetCount} dataset{group.datasetCount !== 1 ? "s" : ""}
                   </span>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </Link>
           ))}
         </div>
-      </Container>
-    </section>
+      )}
+    </Panel>
   );
 }
