@@ -221,6 +221,30 @@ export async function getDatasets(
   return response.data.data;
 }
 
+export interface DatasetMapCoverage {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  format: DatasetFormat;
+  visibility: DatasetVisibility;
+  hasSpatialData: boolean;
+  geographicCoverage: string[];
+  downloadCount: number;
+  organisationId: string | null;
+  organisationName: string | null;
+}
+
+/**
+ * Published catalogue datasets with LGA coverage for the public explorer map.
+ */
+export async function getDatasetMapCoverage(): Promise<DatasetMapCoverage[]> {
+  const response = await apiClient.get<ApiResponse<DatasetMapCoverage[]>>(
+    API_ROUTES.datasets.mapCoverage
+  );
+  return response.data.data;
+}
+
 /**
  * Get organization datasets (authenticated, shows all statuses including drafts)
  */

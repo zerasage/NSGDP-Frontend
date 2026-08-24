@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getGisFacilities, type GisFacility } from "@/lib/api/gis";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
@@ -142,6 +141,10 @@ export default function FacilitiesPage() {
     loadFacilities();
   }, [loadFacilities]);
 
+  useEffect(() => {
+    setWard("all");
+  }, [lga]);
+
   const lgaCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const f of allFacilities) counts.set(f.lga, (counts.get(f.lga) ?? 0) + 1);
@@ -268,7 +271,7 @@ export default function FacilitiesPage() {
 
       <div
         className={cn(
-          "absolute left-0 top-0 z-[1000] h-full w-80 transform border-r bg-background shadow-2xl transition-transform duration-300 overflow-y-auto thin-scrollbar",
+          "absolute left-0 top-0 z-[1000] flex h-full w-80 transform flex-col border-r bg-background shadow-2xl transition-transform duration-300",
           filterOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -276,7 +279,7 @@ export default function FacilitiesPage() {
           <div>
             <h2 className="font-semibold">Health Facility Finder</h2>
             <p className="text-xs text-muted-foreground">
-              {isLoading ? "Loading…" : `${filteredFacilities.length} Facilities`}
+              {isLoading ? "Loading…" : `${filteredFacilities.length.toLocaleString()} facilities`}
             </p>
           </div>
           <Button size="icon" variant="ghost" onClick={() => setFilterOpen(false)}>
@@ -284,96 +287,111 @@ export default function FacilitiesPage() {
           </Button>
         </div>
 
-        <Card className="m-4 border-0 shadow-none">
-          <CardHeader className="px-0 pt-0">
-            <CardTitle className="text-sm">
-              {isLoading ? "Loading…" : `${filteredFacilities.length} Facilities`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 px-0">
-            {error && <MapErrorBanner message={error} onRetry={loadFacilities} />}
+        <div className="flex-1 space-y-4 overflow-y-auto p-4 thin-scrollbar">
+          {error && <MapErrorBanner message={error} onRetry={loadFacilities} />}
 
-            {isLoading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-9 w-full" />
-                <Skeleton className="h-9 w-full" />
-                <Skeleton className="h-9 w-full" />
+          {isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ) : (
+            <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search facilities…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            ) : (
-              <>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search facilities…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
 
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">LGA</label>
-                  <Select
-                    value={lga}
-                    onValueChange={(v) => {
-                      if (v) setLga(v);
-                    }}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All LGAs ({allFacilities.length})</SelectItem>
-                      {NIGER_STATE_LGAS.map((name) => (
-                        <SelectItem key={name} value={name}>
-                          {name} ({lgaCounts.get(name) ?? 0})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">LGA</label>
+                <Select
+                  value={lga}
+                  onValueChange={(v) => v && setLga(v)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All LGAs">
+                      {lga === "all"
+                        ? `All LGAs (${allFacilities.length.toLocaleString()})`
+                        : `${lga} (${(lgaCounts.get(lga) ?? 0).toLocaleString()})`}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All LGAs ({allFacilities.length.toLocaleString()})</SelectItem>
+                    {NIGER_STATE_LGAS.map((name) => (
+                      <SelectItem key={name} value={name}>
+                        {name} ({(lgaCounts.get(name) ?? 0).toLocaleString()})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Ward</label>
-                  <Select value={ward} onValueChange={(v) => v && setWard(v)} disabled={lga === "all" || wardOptions.length === 0}>
-                    <SelectTrigger><SelectValue placeholder="All wards" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All wards</SelectItem>
-                      {wardOptions.map(([w, count]) => (
-                        <SelectItem key={w} value={w}>
-                          {w} ({count})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Ward</label>
+                <Select
+                  value={ward}
+                  onValueChange={(v) => v && setWard(v)}
+                  disabled={lga === "all" || wardOptions.length === 0}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All wards">
+                      {ward === "all"
+                        ? "All wards"
+                        : `${ward} (${(wardOptions.find(([w]) => w === ward)?.[1] ?? 0).toLocaleString()})`}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All wards</SelectItem>
+                    {wardOptions.map(([w, count]) => (
+                      <SelectItem key={w} value={w}>
+                        {w} ({count.toLocaleString()})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {lga === "all" && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">Select an LGA to filter by ward</p>
+                )}
+              </div>
 
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    Facility level
-                    <HelpTooltip content="Filter facilities by level. Blue = Primary, Purple = Secondary, Red = Tertiary." />
-                  </label>
-                  <Select
-                    value={level}
-                    onValueChange={(v) => v && setLevel(v as (typeof FACILITY_LEVELS)[number])}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {FACILITY_LEVELS.map((lvl) => (
-                        <SelectItem key={lvl} value={lvl}>
-                          {lvl === "all" ? "All Levels" : lvl}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  Facility level
+                  <HelpTooltip content="Filter facilities by level. Blue = Primary, Purple = Secondary, Red = Tertiary." />
+                </label>
+                <Select
+                  value={level}
+                  onValueChange={(v) => v && setLevel(v as (typeof FACILITY_LEVELS)[number])}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All levels">
+                      {level === "all" ? "All levels" : level}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FACILITY_LEVELS.map((lvl) => (
+                      <SelectItem key={lvl} value={lvl}>
+                        {lvl === "all" ? "All levels" : lvl}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <Button variant="outline" className="w-full" onClick={resetFilters}>
-                  <RotateCcw className="size-4 mr-2" />
-                  Reset Filters
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              <Button variant="outline" className="w-full" onClick={resetFilters}>
+                <RotateCcw className="size-4 mr-2" />
+                Reset filters
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <MapLegend

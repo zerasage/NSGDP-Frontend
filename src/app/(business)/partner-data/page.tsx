@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { statusPill } from "@/lib/constants/status-surfaces";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 import { useSubmitPartnerInterest } from "@/lib/hooks/usePartnerInterest";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { 
@@ -70,6 +71,12 @@ const ORG_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function PartnerDataPage() {
+  const { user, isAuthenticated } = useAuth();
+  const canUpload =
+    isAuthenticated &&
+    (user?.role === "contributor" || user?.role === "admin") &&
+    Boolean(user?.organisationId);
+
   const [formData, setFormData] = useState({
     organisationName: "",
     contactName: "",
@@ -109,10 +116,11 @@ export default function PartnerDataPage() {
         <Container className="py-8">
           <div className="flex items-center gap-3 mb-2">
             <Handshake className="size-7 text-primary" />
-            <h1 className="text-3xl font-bold">Partner Data Integration</h1>
+            <h1 className="text-3xl font-bold">Contribute Data</h1>
           </div>
           <p className="text-muted-foreground max-w-2xl">
-            A structured pathway for NGOs, development partners, research institutions, and government agencies to contribute and manage datasets on the NSPHCDA Data Portal.
+            Want your organisation to share health or geospatial datasets with NSPHCDA?
+            Start here to request access, get reviewed, and join the portal as a data partner.
           </p>
         </Container>
       </div>
@@ -120,7 +128,7 @@ export default function PartnerDataPage() {
       <Container className="py-12 space-y-12">
         {/* How it works */}
         <section>
-          <h2 className="text-xl font-bold mb-6">How the Partnership Process Works</h2>
+          <h2 className="text-xl font-bold mb-6">How contributing works</h2>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((step) => (
               <Card key={step.num} className="relative overflow-hidden">
@@ -386,20 +394,28 @@ export default function PartnerDataPage() {
 
         {/* Existing contributor CTA */}
         <section className="rounded-xl border bg-muted/40 p-8 text-center space-y-4">
-          <h2 className="text-2xl font-bold">Already a Partner?</h2>
+          <h2 className="text-2xl font-bold">Already approved to contribute?</h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            If you&apos;ve already been approved and received your account credentials, log in to start submitting datasets.
+            {canUpload
+              ? "Your organisation account can submit datasets from the dashboard."
+              : "If NSPHCDA has already invited your organisation, sign in with that account to open the upload wizard."}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/upload">
-              <Button size="lg">
-                Submit a Dataset
-                <Upload className="size-4 ml-1.5" />
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button variant="outline" size="lg">Sign In</Button>
-            </Link>
+            {canUpload ? (
+              <Link href="/upload">
+                <Button size="lg">
+                  Submit a Dataset
+                  <Upload className="size-4 ml-1.5" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href={`/login?returnTo=${encodeURIComponent("/upload")}`}>
+                <Button size="lg">
+                  Sign in to submit data
+                  <Upload className="size-4 ml-1.5" />
+                </Button>
+              </Link>
+            )}
           </div>
         </section>
       </Container>

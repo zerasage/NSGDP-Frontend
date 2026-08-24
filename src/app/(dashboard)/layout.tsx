@@ -31,7 +31,11 @@ export default function DashboardLayout({
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
-      router.push("/login?returnTo=/dashboard");
+      const returnTo =
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : "/dashboard";
+      router.push(`/login?returnTo=${encodeURIComponent(returnTo || "/dashboard")}`);
       return;
     }
     if (isAdminPortalOnly) {

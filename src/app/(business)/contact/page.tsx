@@ -1,8 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,21 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FormError } from "@/components/forms/form-error";
-import { contactSchema } from "@/lib/schemas/auth";
+import { contactSchema, type ContactFormData } from "@/lib/schemas/auth";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { useSubmitContact } from "@/lib/hooks/useSubmitContact";
+import { ApiError } from "@/lib/api/client";
 
 export const dynamic = "force-dynamic";
 
-type ContactFormData = {
-  name: string;
-  email: string;
-  subject: string;
-  message: string;
-};
+const CONTACT_EMAIL = "healthdata@nsphcda.ng.gov.ng";
+const CONTACT_PHONE = "+234 (0) 803 XXX XXXX";
 
 export default function ContactPage() {
-  const [loading, setLoading] = useState(false);
-
+  const mutation = useSubmitContact();
   const {
     register,
     handleSubmit,
@@ -32,14 +28,35 @@ export default function ContactPage() {
     formState: { errors },
   } = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      subject: "",
+      message: "",
+      website: "",
+    },
   });
 
-  const onSubmit = async () => {
-    setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast.success("Message sent successfully! We'll get back to you soon.");
-    reset();
-    setLoading(false);
+  const onSubmit = async (data: ContactFormData) => {
+    try {
+      await mutation.mutateAsync({
+        name: data.name,
+        email: data.email,
+        phone: data.phone || undefined,
+        subject: data.subject,
+        message: data.message,
+        website: data.website,
+      });
+      toast.success("Message sent. We'll get back to you if a reply is needed.");
+      reset();
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : "Couldn't send your message. Try again in a moment.";
+      toast.error(message);
+    }
   };
 
   return (
@@ -48,7 +65,7 @@ export default function ContactPage() {
         <Container className="py-8">
           <h1 className="text-3xl font-bold">Contact Us</h1>
           <p className="mt-2 text-muted-foreground">
-            Get in touch with the Niger State Open Data team
+            Get in touch with the NSPHCDA Data Portal team
           </p>
         </Container>
       </div>
@@ -61,32 +78,39 @@ export default function ContactPage() {
                 <CardTitle>Send us a message</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+                <form onSubmit={handleSubmit(onSubmit)} className="relative space-y-4" noValidate>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label htmlFor="name" className="block text-sm font-medium mb-1.5">
+                      <label htmlFor="name" className="mb-1.5 block text-sm font-medium">
                         Full Name
                       </label>
-                      <Input id="name" {...register("name")} />
+                      <Input id="name" autoComplete="name" {...register("name")} />
                       <FormError message={errors.name?.message} />
                     </div>
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium mb-1.5">
+                      <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
                         Email Address
                       </label>
-                      <Input id="email" type="email" {...register("email")} />
+                      <Input id="email" type="email" autoComplete="email" {...register("email")} />
                       <FormError message={errors.email?.message} />
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="subject" className="block text-sm font-medium mb-1.5">
+                    <label htmlFor="phone" className="mb-1.5 block text-sm font-medium">
+                      Phone <span className="font-normal text-muted-foreground">(optional)</span>
+                    </label>
+                    <Input id="phone" type="tel" autoComplete="tel" {...register("phone")} />
+                    <FormError message={errors.phone?.message} />
+                  </div>
+                  <div>
+                    <label htmlFor="subject" className="mb-1.5 block text-sm font-medium">
                       Subject
                     </label>
                     <Input id="subject" {...register("subject")} />
                     <FormError message={errors.subject?.message} />
                   </div>
                   <div>
-                    <label htmlFor="message" className="block text-sm font-medium mb-1.5">
+                    <label htmlFor="message" className="mb-1.5 block text-sm font-medium">
                       Message
                     </label>
                     <Textarea
@@ -97,8 +121,16 @@ export default function ContactPage() {
                     />
                     <FormError message={errors.message?.message} />
                   </div>
-                  <Button type="submit" disabled={loading}>
-                    {loading ? "Sending..." : "Send Message"}
+                  <input
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    className="absolute -left-[9999px] h-px w-px overflow-hidden"
+                    {...register("website")}
+                  />
+                  <Button type="submit" disabled={mutation.isPending}>
+                    {mutation.isPending ? "Sending..." : "Send Message"}
                   </Button>
                 </form>
               </CardContent>
@@ -107,32 +139,32 @@ export default function ContactPage() {
 
           <div className="space-y-6">
             <Card>
-              <CardContent className="pt-6 space-y-4">
+              <CardContent className="space-y-4 pt-6">
                 <div className="flex items-start gap-3">
-                  <Mail className="size-5 text-muted-foreground mt-0.5" aria-hidden />
+                  <Mail className="mt-0.5 size-5 text-muted-foreground" aria-hidden />
                   <div>
                     <p className="font-medium">Email</p>
                     <a
-                      href="mailto:opendata@niger.gov.ng"
+                      href={`mailto:${CONTACT_EMAIL}`}
                       className="text-sm text-muted-foreground hover:text-primary"
                     >
-                      opendata@niger.gov.ng
+                      {CONTACT_EMAIL}
                     </a>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Phone className="size-5 text-muted-foreground mt-0.5" aria-hidden />
+                  <Phone className="mt-0.5 size-5 text-muted-foreground" aria-hidden />
                   <div>
                     <p className="font-medium">Phone</p>
-                    <p className="text-sm text-muted-foreground">+234 (0) 803 XXX XXXX</p>
+                    <p className="text-sm text-muted-foreground">{CONTACT_PHONE}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <MapPin className="size-5 text-muted-foreground mt-0.5" aria-hidden />
+                  <MapPin className="mt-0.5 size-5 text-muted-foreground" aria-hidden />
                   <div>
                     <p className="font-medium">Address</p>
                     <p className="text-sm text-muted-foreground">
-                      Niger State Government Secretariat
+                      NSPHCDA, Niger State Government Secretariat
                       <br />
                       Minna, Niger State
                       <br />
@@ -145,7 +177,7 @@ export default function ContactPage() {
 
             <Card>
               <CardContent className="pt-6">
-                <h3 className="font-semibold mb-2">Office Hours</h3>
+                <h3 className="mb-2 font-semibold">Office Hours</h3>
                 <p className="text-sm text-muted-foreground">
                   Monday - Friday
                   <br />

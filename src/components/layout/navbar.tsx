@@ -12,7 +12,7 @@ import {
   X,
   Map,
   Database,
-  Upload,
+  Handshake,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell } from "@/components/layout/notification-bell";
@@ -36,17 +36,19 @@ const NAV_LINKS = [
   { href: "/about", label: "About" },
   { href: "/analytics", label: "Analytics Dashboard" },
   { href: "/programs", label: "Programs" },
-  { href: "/learning", label: "Tools & Learning" },
+  // Deferred to a later version — page kept at /learning
+  // { href: "/learning", label: "Tools & Learning" },
 ];
 
 const DATA_PORTAL_LINKS = [
   { href: "/dataportal", label: "Browse Datasets", icon: Database },
   { href: "/documents", label: "Document Library", icon: Database },
-  { href: "/partner-data", label: "Partner Data", icon: Database },
-  { href: "/upload", label: "Submit Dataset", icon: Upload },
+  // Public contribute entry — upload wizard stays in the signed-in dashboard only
+  { href: "/partner-data", label: "Contribute Data", icon: Handshake },
 ];
 
 const GIS_LINKS = [
+  { href: "/map", label: "Dataset Coverage Map", icon: Map },
   { href: "/population-map", label: "Population & Facility Map", icon: Map },
   { href: "/facilities", label: "Facility Finder", icon: Map },
   { href: "/settlements", label: "Settlement Access Map", icon: Map },

@@ -42,12 +42,12 @@ function LoginContent() {
         email: data.email,
         password: data.password,
       });
-      
-      // Login function in auth context handles redirect to /dashboard
-      // If we have a different returnTo, redirect there
-      if (returnTo !== "/dashboard") {
-        router.push(returnTo);
-      }
+
+      const safeReturnTo =
+        returnTo.startsWith("/") && !returnTo.startsWith("//")
+          ? returnTo
+          : "/dashboard";
+      router.push(safeReturnTo);
     } catch (error: unknown) {
       // Handle specific error messages from backend
       const errorMessage = error instanceof Error ? error.message : "Invalid credentials. Please try again.";
