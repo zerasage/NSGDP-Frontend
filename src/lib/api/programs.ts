@@ -233,8 +233,8 @@ export async function getProgramReports(slug: string): Promise<ProgramReport[]> 
 export async function createProgramReport(
   slug: string,
   data: { title: string; description: string }
-): Promise<{ id: string }> {
-  const response = await apiClient.post<ApiResponse<{ id: string }>>(
+): Promise<{ id: string; slug: string }> {
+  const response = await apiClient.post<ApiResponse<{ id: string; slug: string }>>(
     `/programs/${slug}/reports`,
     data
   );

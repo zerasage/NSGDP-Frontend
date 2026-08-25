@@ -22,6 +22,7 @@ import { FileUploadArea, type UploadedFile } from "@/components/forms/file-uploa
 import { FormError } from "@/components/forms/form-error";
 import { useOrganizationProgram, useCreateProgramReport } from "@/lib/hooks/usePrograms";
 import { uploadFile } from "@/lib/api/uploads";
+import { submitDocumentForReview } from "@/lib/api/documents";
 import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
 import { programReportSchema, type ProgramReportFormData } from "@/lib/schemas/program";
 import { toast } from "sonner";
@@ -89,8 +90,15 @@ export default function UploadProgrammeReportPage() {
         },
       });
       await uploadFile(file.file, undefined, report.id);
-      toast.success("Report uploaded — pending admin review before it appears publicly");
-      router.push("/my-programs");
+      try {
+        await submitDocumentForReview(report.slug);
+        toast.success("Report submitted for admin review");
+      } catch {
+        toast.success(
+          "Report uploaded as draft — submit it from My documents once the file finishes processing"
+        );
+      }
+      router.push(`/dashboard/documents/${report.slug}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to upload report");
     }

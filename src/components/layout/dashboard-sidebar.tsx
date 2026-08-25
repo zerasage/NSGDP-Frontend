@@ -12,6 +12,7 @@ import {
   X,
   Upload,
   ClipboardList,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,12 @@ const NAV_LINKS: NavLink[] = [
     href: "/datasets",
     label: "Datasets",
     icon: Database,
+    roles: ["contributor", "admin"],
+  },
+  {
+    href: "/dashboard/documents",
+    label: "My documents",
+    icon: FileText,
     roles: ["contributor", "admin"],
   },
   {
@@ -104,7 +111,9 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
       
       <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
         {visibleLinks.map((link) => {
-          const isActive = pathname === link.href;
+          const isActive =
+            pathname === link.href ||
+            (link.href !== "/dashboard" && pathname?.startsWith(link.href));
           const Icon = link.icon;
 
           return (
