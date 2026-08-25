@@ -28,21 +28,28 @@ function detectFormat(filename: string): string {
     csv: "CSV",
     xlsx: "XLSX",
     xls: "XLSX",
-    pdf: "PDF",
     json: "JSON",
-    geojson: "GeoJSON",
-    zip: "Shapefile",
-    kml: "KML",
-    kmz: "KML",
     gpkg: "GeoPackage",
   };
   return map[ext] ?? "Other";
 }
 
+const DEFAULT_DATASET_ACCEPT = ".csv,.xlsx,.xls,.json,.gpkg";
+
+function isAcceptedExtension(filename: string, accept: string): boolean {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  if (!ext) return false;
+  const allowed = accept
+    .split(",")
+    .map((part) => part.trim().replace(/^\./, "").toLowerCase())
+    .filter(Boolean);
+  return allowed.includes(ext);
+}
+
 export function FileUploadArea({
   files,
   onFilesChange,
-  accept = ".csv,.xlsx,.xls,.pdf,.json,.geojson,.zip,.kml,.kmz,.gpkg",
+  accept = DEFAULT_DATASET_ACCEPT,
   maxSizeMB = 50,
   className,
 }: FileUploadAreaProps) {
@@ -50,26 +57,34 @@ export function FileUploadArea({
 
   const simulateUpload = useCallback(
     (fileList: File[]) => {
-      // Build every entry up front and append them in one functional update —
-      // calling onFilesChange once per file with a stale `files` snapshot
-      // meant selecting several files at once silently kept only the last one.
-      const newEntries: UploadedFile[] = fileList.map((file) =>
-        file.size > maxSizeMB * 1024 * 1024
-          ? {
-              file,
-              name: file.name,
-              size: file.size,
-              progress: 0,
-              error: `File exceeds ${maxSizeMB}MB limit`,
-            }
-          : {
-              file,
-              name: file.name,
-              size: file.size,
-              progress: 0,
-              format: detectFormat(file.name),
-            }
-      );
+      const newEntries: UploadedFile[] = fileList.map((file) => {
+        if (file.size > maxSizeMB * 1024 * 1024) {
+          return {
+            file,
+            name: file.name,
+            size: file.size,
+            progress: 0,
+            error: `File exceeds ${maxSizeMB}MB limit`,
+          };
+        }
+        if (!isAcceptedExtension(file.name, accept)) {
+          return {
+            file,
+            name: file.name,
+            size: file.size,
+            progress: 0,
+            error:
+              "Not allowed for datasets. Use CSV, Excel, JSON, or GeoPackage (.gpkg). For PDF and other files, upload via Documents.",
+          };
+        }
+        return {
+          file,
+          name: file.name,
+          size: file.size,
+          progress: 0,
+          format: detectFormat(file.name),
+        };
+      });
 
       onFilesChange((prev) => [...prev, ...newEntries]);
 
@@ -88,7 +103,7 @@ export function FileUploadArea({
           }, 200);
         });
     },
-    [maxSizeMB, onFilesChange]
+    [accept, maxSizeMB, onFilesChange]
   );
 
   const handleDrop = (e: React.DragEvent) => {
@@ -131,7 +146,7 @@ export function FileUploadArea({
         <Upload className="mx-auto size-10 text-muted-foreground mb-3" aria-hidden="true" />
         <p className="text-sm font-medium">Drag and drop files here</p>
         <p className="text-xs text-muted-foreground mt-1">
-          or click to browse · Max {maxSizeMB}MB per file
+          CSV, Excel, JSON, or GeoPackage · max {maxSizeMB}MB · PDFs go under Documents
         </p>
         <input
           type="file"

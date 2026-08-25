@@ -14,21 +14,21 @@ import { useStatistics } from "@/lib/hooks/useStatistics";
 const trustFeatures = [
   {
     icon: Lock,
-    title: "Verified & Trustworthy",
+    title: "Verified and reviewed",
     description:
-      "All datasets are sourced from NSPHCDA, the Ministry of Health, and verified partner agencies.",
+      "Datasets are sourced from NSPHCDA, the Ministry of Health, and verified partners, then reviewed before publication.",
   },
   {
     icon: FileText,
-    title: "Open Licenses",
+    title: "Open licences",
     description:
-      "Health datasets are published under open licenses (CC BY, OGL) for free reuse in research and planning.",
+      "Health datasets are published under open licences (CC BY, OGL) for reuse in research and planning.",
   },
   {
     icon: BarChart3,
-    title: "Regularly Updated",
+    title: "Regularly updated",
     description:
-      "Surveillance, facility, and indicator datasets are maintained and refreshed to reflect the latest information.",
+      "Surveillance, facility, and indicator datasets are refreshed so the catalogue reflects the latest information.",
   },
 ];
 
@@ -45,13 +45,13 @@ export function HomeHeroSection() {
   };
 
   const statItems = [
-    { value: stats?.datasets, label: "Active Datasets" },
-    { value: stats?.organisations, label: "Organizations" },
+    { value: stats?.datasets, label: "Active datasets" },
+    { value: stats?.organisations, label: "Organisations" },
     {
       value: stats?.downloads != null ? stats.downloads.toLocaleString() : undefined,
       label: "Downloads",
     },
-    { value: stats?.lgasCovered, label: "LGAs Covered" },
+    { value: stats?.lgasCovered, label: "LGAs covered" },
   ];
 
   return (
@@ -138,7 +138,7 @@ export function HomeHeroSection() {
                     variant="onDarkSolid"
                     className="w-full sm:w-auto px-7 py-3 text-base"
                   >
-                    Browse Repository
+                    Browse repository
                     <ArrowRight className="size-4" />
                   </Button>
                 </Link>
@@ -149,7 +149,7 @@ export function HomeHeroSection() {
                     className="w-full sm:w-auto px-7 py-3 text-base"
                   >
                     <BarChart2 className="size-4" />
-                    Analytics Dashboard
+                    Analytics dashboard
                   </Button>
                 </Link>
               </div>
@@ -172,18 +172,16 @@ export function HomeHeroSection() {
         </Container>
       </section>
 
-      <section className="credibility-section border-b bg-muted/60 py-12 sm:py-16">
-        <Container>
-          <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-3">
+      <section className="credibility-section border-b bg-muted/40 py-6">
+        <Container size="wide">
+          <div className="grid gap-4 md:grid-cols-3">
             {trustFeatures.map((feature) => (
-              <div key={feature.title} className="trust-feature space-y-3 text-center md:text-left">
-                <div className="mx-auto flex size-10 items-center justify-center rounded-lg bg-primary/10 md:mx-0">
-                  <feature.icon className="size-5 text-primary" aria-hidden />
+              <div key={feature.title} className="rounded-2xl border bg-card p-4 sm:p-5">
+                <div className="flex size-9 items-center justify-center rounded-lg border border-primary/20 bg-primary/10">
+                  <feature.icon className="size-4 text-primary" aria-hidden />
                 </div>
-                <h3 className="font-semibold">{feature.title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {feature.description}
-                </p>
+                <h2 className="mt-3 text-base font-semibold leading-6">{feature.title}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{feature.description}</p>
               </div>
             ))}
           </div>

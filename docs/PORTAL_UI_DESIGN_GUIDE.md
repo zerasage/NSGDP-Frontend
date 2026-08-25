@@ -25,7 +25,7 @@ Do not invent page-specific hex colors. Use tokens from `src/app/globals.css`.
 2. Use a **4px spacing grid**: 4, 8, 12, 16, 20, 24, 32.
 3. Surfaces are **border-led**, not shadow-led. One 1px border defines a card/panel.
 4. Reserve shadows for overlays (menus, dialogs, popovers).
-5. Page title is **24px / bold** (`text-2xl font-bold leading-8`). Hierarchy comes from spacing, weight, and color tone — not oversized headlines.
+5. Page title is **24px / bold** (`text-2xl font-bold leading-8`) on **tool pages**. Hierarchy comes from spacing, weight, and color tone — not oversized headlines. The home landing hero is the exception (see §11).
 6. Body copy is **14px**. Dense tables and supporting metadata use **13px**.
 7. Every view must support **loading, empty, error, and populated** states with the same outer geometry.
 8. Desktop controls may be compact (`h-8` / `h-9`); touch targets should remain usable on mobile.
@@ -304,10 +304,12 @@ Do not hide essential filters on mobile — wrap or stack them.
 
 ### Current state
 
-Patterns for `MetricCard`, `Panel`, and `FieldLabel` currently live **page-local** on `/analytics`. When a second page needs them, extract to shared components, e.g.:
+Shared `MetricCard`, `Panel`, `FieldLabel`, `PageEyebrow`, and `EntityCard` live at:
 
 - `src/components/data/metric-card.tsx`
 - `src/components/layout/content-panel.tsx`
+
+`/analytics` still has page-local copies. Prefer the shared modules on new work; migrate analytics when that page is next touched.
 
 Keep tone maps in one module so KPI colors stay coordinated.
 
@@ -322,9 +324,10 @@ Keep tone maps in one module so KPI colors stay coordinated.
 
 ### Out of scope
 
-- Marketing landing / full-bleed brand marketing surfaces (follow marketing design rules separately).
 - Admin console pages (use `ADMIN_UI_DESIGN_GUIDE.md`).
 - Map chrome beyond token usage for markers/popups (map-specific guide can extend this later).
+
+The public **home page is in scope**. It is a marketing landing surface plus portal wayfinding — follow **§11**, not the analytics tool-page shell.
 
 ---
 
@@ -332,14 +335,15 @@ Keep tone maps in one module so KPI colors stay coordinated.
 
 - [ ] Uses semantic tokens only (no new page hex).
 - [ ] Border-led cards/panels at 16px radius; no static shadows.
-- [ ] Page title ≤ 24px; sentence case.
-- [ ] Primary KPIs: label → value → hint + toned icon well.
+- [ ] Page title ≤ 24px; sentence case. **Exception:** the home hero `h1` may exceed 24px (see §11).
+- [ ] Primary KPIs: label → value → hint + toned icon well. **Exception:** home shows live counts as hero chips, not a second MetricCard row.
 - [ ] Secondary stats are visually quieter (muted / dashed).
 - [ ] Tables: uppercase headers, tabular nums, nested `rounded-xl border` wrap.
 - [ ] Loading / empty / error geometries match populated layout.
 - [ ] Tabs / filters follow segmented + toolbar strip patterns when applicable.
 - [ ] Charts use CSS variables for series color.
 - [ ] Works at mobile width without losing primary actions.
+- [ ] Home (`/`): one stats row, one destination grid for catalogue/maps/analytics, GIS shortcuts are not a duplicate of the three doors, closing CTA includes contribute.
 
 ---
 
@@ -349,5 +353,71 @@ Keep tone maps in one module so KPI colors stay coordinated.
 | --- | --- |
 | This guide | `nsgdp-frontend/docs/PORTAL_UI_DESIGN_GUIDE.md` |
 | Tokens | `nsgdp-frontend/src/app/globals.css` |
-| Reference UI | `nsgdp-frontend/src/app/(business)/analytics/page.tsx` |
+| Reference UI (tools) | `nsgdp-frontend/src/app/(business)/analytics/page.tsx` |
+| Reference UI (landing) | `nsgdp-frontend/src/app/(business)/page.tsx` + `src/components/map/home-hero-section.tsx` |
+| Shared primitives | `src/components/data/metric-card.tsx`, `src/components/layout/content-panel.tsx` |
 | Admin counterpart | `nsgdp-admin/docs/ADMIN_UI_DESIGN_GUIDE.md` |
+
+---
+
+## 11. Portal landing (`/`)
+
+Home is the **public landing page**, not an analytics tool. Visitors need identity, trust, search, live scale, and clear doors into the catalogue, maps, and analytics. Do not collapse it into the §3.1 tool shell (eyebrow + 24px `h1` + filters).
+
+**Reference:** `src/app/(business)/page.tsx`, `src/components/map/home-hero-section.tsx`
+
+### 11.1 What the page must do
+
+Keep these jobs; do not stack the same job twice:
+
+| Job | Where |
+| --- | --- |
+| Agency identity + portal name | Hero `h1` on the photo |
+| Catalogue search | Hero search field |
+| Primary actions | Hero: Browse repository, Analytics dashboard. Closing strip: Browse repository, Contribute data |
+| Live scale | Hero stat chips only (datasets, organisations, downloads, LGAs) |
+| Trust | Strip immediately under the hero (verified, licences, updates) |
+| Time-sensitive notices | Outbreak alerts, when any are active |
+| Wayfinding | One three-door panel (browse / maps / analytics) |
+| GIS entry | One maps-and-facilities panel (facility finder, population map, settlements) |
+| Collections | Featured topic groups when the API returns any |
+| Why it matters | Use-case copy (surveillance, facility planning, population health) — **not** a third nav grid |
+| Proof of catalogue | Most-downloaded list (no repeated KPI row) |
+
+Do **not** repeat hero counts as MetricCards. Do **not** add a six-card “capabilities” grid that restates browse/maps/analytics plus access/QGIS. Access and review belong in trust copy.
+
+### 11.2 Hero (marketing exception)
+
+Allowed on `/` only:
+
+- Full-bleed photography with a dark vignette so type stays readable. Overlay may use a brand-green radial wash; do not add unrelated hex palettes.
+- One `h1`. Display size may exceed 24px (typically up to ~40–48px on large screens) because this is identity, not a tool title.
+- Search and CTAs use on-dark variants (`hero-input`, `hero-btn-solid`, `onDark` / `onDarkSolid`). Overlay controls may use a light fill for contrast; below-fold surfaces stay border-led with no static shadow.
+- Stat chips sit on the photo: `rounded-xl` light fill, **uppercase metric labels**, tabular values. Same four numbers must not appear again below the fold.
+
+Hero copy and buttons use **sentence case** except the official product name in the `h1`.
+
+Keep the hero tall enough that search, both CTAs, and the four chips are visible without scrolling on a typical desktop viewport.
+
+### 11.3 Below the fold
+
+From the trust strip downward, this guide’s normal rules apply:
+
+- `Container size="wide"` + `py-6` + `space-y-6`
+- `rounded-2xl border bg-card` panels and entity cards
+- Section titles `text-base font-semibold` (16px), body `text-sm`
+- Toned icon wells from `METRIC_TONE`
+- Sentence case for section titles and buttons
+- Semantic tokens only (outbreak alerts included — no raw `amber-50` / `blue-50` fills)
+
+Trust cards are three equal columns, not a centred marketing trio with oversized heading.
+
+Closing CTA is a single bordered card with Browse (primary) and Contribute (`/partner-data`, outline) — not a gradient marketing slab.
+
+### 11.4 Accessibility
+
+- Still one `h1` (the hero). Trust items and panels use `h2` / `h3`.
+- Hero search has an accessible name. Decorative photo: empty `alt` + `aria-hidden`.
+- Outbreak expand/dismiss controls have accessible names.
+
+---

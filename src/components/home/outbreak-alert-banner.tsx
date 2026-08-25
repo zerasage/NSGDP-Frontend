@@ -6,27 +6,34 @@ import type { OutbreakAlert, AlertSeverity } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
-const SEVERITY_CONFIG: Record<AlertSeverity, {
-  containerClass: string;
-  iconClass: string;
-  icon: typeof AlertTriangle;
-  label: string;
-}> = {
+const SEVERITY_CONFIG: Record<
+  AlertSeverity,
+  {
+    containerClass: string;
+    iconClass: string;
+    wellClass: string;
+    icon: typeof AlertTriangle;
+    label: string;
+  }
+> = {
   critical: {
-    containerClass: "bg-destructive/10 border-destructive/30 text-destructive",
+    containerClass: "border-destructive/20 bg-destructive/[0.05] text-foreground",
     iconClass: "text-destructive",
+    wellClass: "border-destructive/20 bg-destructive/10",
     icon: AlertTriangle,
-    label: "Critical Alert",
+    label: "Critical alert",
   },
   warning: {
-    containerClass: "bg-amber-50 border-amber-300 text-amber-900 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-100",
-    iconClass: "text-amber-600",
+    containerClass: "border-warning/30 bg-warning/[0.08] text-foreground",
+    iconClass: "text-amber-700 dark:text-warning",
+    wellClass: "border-warning/30 bg-warning/20",
     icon: AlertTriangle,
-    label: "Health Watch",
+    label: "Health watch",
   },
   info: {
-    containerClass: "bg-blue-50 border-blue-200 text-blue-900 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-100",
-    iconClass: "text-blue-600",
+    containerClass: "border-info/25 bg-info/[0.06] text-foreground",
+    iconClass: "text-info",
+    wellClass: "border-info/25 bg-info/15",
     icon: Info,
     label: "Information",
   },
@@ -42,28 +49,40 @@ function AlertItem({ alert }: { alert: OutbreakAlert }) {
   const Icon = config.icon;
 
   return (
-    <div className={cn("rounded-lg border px-4 py-3", config.containerClass)}>
+    <div className={cn("rounded-2xl border px-4 py-3", config.containerClass)}>
       <div className="flex items-start gap-3">
-        <Icon className={cn("size-5 shrink-0 mt-0.5", config.iconClass)} aria-hidden />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold uppercase tracking-wide opacity-70">{config.label}</span>
-            <span className="text-xs opacity-60">·</span>
-            <span className="text-xs opacity-60">
+        <div
+          className={cn(
+            "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border",
+            config.wellClass
+          )}
+        >
+          <Icon className={cn("size-4", config.iconClass)} aria-hidden />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {config.label}
+            </span>
+            <span className="text-xs text-muted-foreground">·</span>
+            <span className="text-xs text-muted-foreground">
               {formatDistanceToNow(new Date(alert.publishedAt), { addSuffix: true })}
             </span>
-            <span className="text-xs opacity-60">·</span>
-            <span className="text-xs font-medium">{alert.affectedLGAs.join(", ")} LGA{alert.affectedLGAs.length > 1 ? "s" : ""}</span>
+            <span className="text-xs text-muted-foreground">·</span>
+            <span className="text-[13px] font-medium">
+              {alert.affectedLGAs.join(", ")} LGA
+              {alert.affectedLGAs.length > 1 ? "s" : ""}
+            </span>
           </div>
-          <p className="font-semibold text-sm mt-0.5">{alert.title}</p>
+          <p className="mt-0.5 text-sm font-semibold">{alert.title}</p>
           {expanded && (
-            <p className="text-sm mt-1.5 opacity-85">{alert.summary}</p>
+            <p className="mt-1.5 text-sm text-muted-foreground">{alert.summary}</p>
           )}
         </div>
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="shrink-0 opacity-60 hover:opacity-100"
+          className="shrink-0 text-muted-foreground hover:text-foreground"
           aria-label={expanded ? "Collapse alert" : "Expand alert"}
         >
           {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
@@ -80,7 +99,7 @@ export function OutbreakAlertBanner({ alerts }: OutbreakAlertBannerProps) {
 
   return (
     <div className="relative">
-      <div className="space-y-2 py-3">
+      <div className="space-y-2">
         {active.map((alert) => (
           <AlertItem key={alert.id} alert={alert} />
         ))}
@@ -88,7 +107,7 @@ export function OutbreakAlertBanner({ alerts }: OutbreakAlertBannerProps) {
       <button
         type="button"
         onClick={() => setDismissed(true)}
-        className="absolute top-4 right-0 text-muted-foreground/40 hover:text-muted-foreground"
+        className="absolute -right-1 -top-1 text-muted-foreground/50 hover:text-muted-foreground"
         aria-label="Dismiss alerts"
       >
         <X className="size-4" />

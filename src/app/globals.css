@@ -261,16 +261,16 @@
   }
 
   .hero-stat-chip {
-    @apply rounded-lg border border-white/25 bg-white/90 px-4 py-3 text-center shadow-lg;
-    @apply dark:border-white/25 dark:bg-white/90;
+    @apply rounded-xl border border-white/30 bg-white/92 px-4 py-3 text-center;
+    @apply dark:border-white/30 dark:bg-white/92;
   }
 
   .hero-stat-value {
-    @apply text-2xl font-bold text-primary sm:text-3xl;
+    @apply text-xl font-bold tabular-nums text-primary sm:text-2xl;
   }
 
   .hero-stat-label {
-    @apply mt-0.5 text-xs text-neutral-600 sm:text-sm;
+    @apply mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-600;
   }
 
   .hero-control-outline {
