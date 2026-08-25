@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { FileUploadArea, type UploadedFile } from "@/components/forms/file-upload-area";
 import { FormError } from "@/components/forms/form-error";
-import { useCreateOrgDocument, useSubmitDocumentForReview } from "@/lib/hooks/useDocuments";
+import { useCreateOrgDocument, useSubmitDocumentForReview } from "@/lib/hooks/use-org-documents";
 import { uploadFile } from "@/lib/api/uploads";
 import { useAuth } from "@/lib/auth";
 import type { DocumentCategory } from "@/types";

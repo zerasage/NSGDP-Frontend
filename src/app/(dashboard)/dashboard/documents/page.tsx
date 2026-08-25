@@ -12,7 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   useOrgDocuments,
   useSubmitDocumentForReview,
-} from "@/lib/hooks/useDocuments";
+} from "@/lib/hooks/use-org-documents";
 import { useAuth } from "@/lib/auth";
 import type { OrgDocumentStatus } from "@/lib/api/documents";
 import { formatDate } from "@/lib/utils/date";
@@ -84,52 +84,60 @@ export default function MyDocumentsPage() {
   };
 
   return (
-    <main className="flex-1">
-      <Container className="py-8">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">My documents</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Upload SOPs, reports, and other files for admin review before they
-              appear in the public library.
-            </p>
+    <main className="flex-1 bg-muted/40">
+      <div className="border-b bg-background">
+        <Container size="wide" className="py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 space-y-0.5">
+              <h1 className="text-lg font-semibold tracking-tight">
+                My documents
+              </h1>
+              <p className="max-w-xl text-sm text-muted-foreground">
+                Upload SOPs, reports, and other files for admin review before
+                they appear in the public library.
+              </p>
+            </div>
+            {canContribute && (
+              <Link href="/dashboard/documents/upload">
+                <Button size="sm">
+                  <Plus className="size-4" />
+                  Upload document
+                </Button>
+              </Link>
+            )}
           </div>
-          {canContribute && (
-            <Link href="/dashboard/documents/upload">
-              <Button>
-                <Plus className="size-4" />
-                Upload document
-              </Button>
-            </Link>
-          )}
-        </div>
+        </Container>
+      </div>
 
-        <div className="mb-4 flex flex-wrap gap-2">
-          {statusFilters.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setStatusFilter(tab.value)}
-              className={cn(
-                "rounded-lg px-3 py-1.5 text-sm transition-colors",
-                statusFilter === tab.value
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <Container size="wide" className="space-y-4 py-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-1.5">
+            {statusFilters.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setStatusFilter(tab.value)}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                  statusFilter === tab.value
+                    ? "bg-primary text-primary-foreground"
+                    : "border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-        <div className="relative mb-6 max-w-md">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search documents"
-            className="pl-9"
-          />
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search documents…"
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
         </div>
 
         {error && (
@@ -139,85 +147,107 @@ export default function MyDocumentsPage() {
         )}
 
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <div className="space-y-2">
+            {[...Array(4)].map((_, i) => (
+              <div
+                key={i}
+                className="h-14 animate-pulse rounded-lg border bg-background"
+              />
+            ))}
+          </div>
         ) : documents.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title="No documents yet"
-            description="Upload a document to start the review workflow."
-            action={
-              canContribute
-                ? {
-                    label: "Upload document",
-                    href: "/dashboard/documents/upload",
-                  }
-                : undefined
-            }
-          />
+          <div className="rounded-lg border bg-background">
+            <EmptyState
+              icon={FileText}
+              title="No documents yet"
+              description="Upload a document to start the review workflow."
+              action={
+                canContribute
+                  ? {
+                      label: "Upload document",
+                      href: "/dashboard/documents/upload",
+                    }
+                  : undefined
+              }
+              className="py-10"
+            />
+          </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Document</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Updated</th>
-                  <th className="px-4 py-3 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map((doc) => {
-                  const canSubmit =
-                    (doc.status === "draft" || doc.status === "rejected") &&
-                    !!doc.fileName;
-                  return (
-                    <tr key={doc.id} className="border-t">
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{doc.title}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {doc.type} · {doc.fileName ?? "No file"}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          variant="secondary"
-                          className={cn("capitalize", statusTone[doc.status])}
-                        >
-                          {doc.status.replace("_", " ")}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(doc.updatedAt)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          <Link href={`/dashboard/documents/${doc.slug}`}>
-                            <Button variant="ghost" size="sm">
-                              <Eye className="size-4" />
-                              View
-                            </Button>
-                          </Link>
-                          {canSubmit && canContribute && (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                setSubmitTarget({
-                                  slug: doc.slug,
-                                  title: doc.title,
-                                })
-                              }
-                            >
-                              <Send className="size-4" />
-                              Submit
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="overflow-hidden rounded-lg border bg-background">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Document</th>
+                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="px-4 py-2.5 font-medium">Updated</th>
+                    <th className="px-4 py-2.5 font-medium text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.map((doc) => {
+                    const canSubmit =
+                      (doc.status === "draft" || doc.status === "rejected") &&
+                      !!doc.fileName;
+                    return (
+                      <tr
+                        key={doc.id}
+                        className="border-t transition-colors hover:bg-muted/30"
+                      >
+                        <td className="px-4 py-2.5 align-middle">
+                          <div className="font-medium leading-snug">
+                            {doc.title}
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            {doc.type} · {doc.fileName ?? "No file"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "capitalize",
+                              statusTone[doc.status]
+                            )}
+                          >
+                            {doc.status.replace("_", " ")}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle text-muted-foreground whitespace-nowrap">
+                          {formatDate(doc.updatedAt)}
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <div className="flex justify-end gap-1.5">
+                            <Link href={`/dashboard/documents/${doc.slug}`}>
+                              <Button variant="ghost" size="sm">
+                                <Eye className="size-3.5" />
+                                View
+                              </Button>
+                            </Link>
+                            {canSubmit && canContribute && (
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  setSubmitTarget({
+                                    slug: doc.slug,
+                                    title: doc.title,
+                                  })
+                                }
+                              >
+                                <Send className="size-3.5" />
+                                Submit
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

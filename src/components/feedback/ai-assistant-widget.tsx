@@ -1,110 +1,306 @@
 "use client";
 
-import { useState } from "react";
-import { MessageCircle, X, Send } from "lucide-react";
+import { useRef, useState } from "react";
+import Link from "next/link";
+import { MessageCircle, X, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import {
+  streamAssistantChat,
+  type AssistantSourceLink,
+} from "@/lib/api/assistant";
+import { ApiError } from "@/lib/api/client";
 
+/** Chips always go to the live assistant (except pure how-to FAQs). */
 const QUICK_QUESTIONS = [
+  "What datasets are on the portal?",
+  "Summarise the health data dashboard",
+  "Which LGAs have the highest malaria burden?",
+  "Which health facilities are in Bida?",
+  "How do I submit a dataset?",
+];
+
+/**
+ * Navigation / how-to answers that do not need Claude — keep these short and
+ * link to real portal routes. Anything about counts, burdens, or facilities
+ * must NOT be listed here (those go to /ai/chat).
+ */
+const LOCAL_FAQ: Array<{ match: RegExp; answer: string; links?: AssistantSourceLink[] }> = [
   {
-    q: "What is the malaria burden in Minna LGA?",
-    a: "In 2024, Minna LGA reported approximately 1,980 severe malaria cases, with an incidence of 6.4 per 1,000 population. Chanchaga and Bida LGAs show the highest burdens statewide.",
+    match: /how (do i|to) submit|upload (a )?dataset|contribute data/i,
+    answer:
+      "To submit a dataset: sign in, open Contribute Data / Upload at /upload (or Submit Data from the menu), fill in the metadata, then attach CSV, Excel, JSON, or GeoPackage. Your organisation’s submission goes to admin review before it appears on the public catalogue.",
+    links: [{ label: "Upload", href: "/upload" }],
   },
   {
-    q: "Which LGAs have the highest meningitis cases?",
-    a: "Top LGAs for meningitis in Niger State: Chanchaga (842 cases), Bida (691), Suleja (412), and Kontagora (378) in the 2024 surveillance period.",
+    match: /analytics page|where.*(analytics|dashboard)|find.*(analytics|trends)/i,
+    answer:
+      "Open Analytics for health indicators, ward-level burden, and programme monitoring. The home page also surfaces key portal stats.",
+    links: [{ label: "Analytics", href: "/analytics" }],
   },
   {
-    q: "How do I submit a dataset?",
-    a: "Visit Submit Data at /submit or use the Data Portal dropdown. Complete the form with dataset metadata and upload your file (CSV, Excel, JSON, or GeoJSON). Submissions are reviewed within 3–5 working days.",
+    match: /how (do i|to) (find|search) (a )?dataset|data portal|browse datasets/i,
+    answer:
+      "Browse and search published datasets at the Data Portal. Use filters and search, then open a dataset for preview and download (restricted datasets need an approved access request).",
+    links: [{ label: "Data Portal", href: "/dataportal" }],
   },
   {
-    q: "What health facilities are in Bida?",
-    a: "Bida LGA has 4 registered facilities including Bida General Hospital, Bida Secondary Health Centre, and 2 PHCs. View them on the Facility Finder at /facilities.",
+    match: /document library|find (a )?document|sops?|policies/i,
+    answer:
+      "Published documents (SOPs, policies, reports) are in the Document Library. Organisation users can also manage uploads under Dashboard → My documents.",
+    links: [
+      { label: "Documents", href: "/documents" },
+      { label: "My documents", href: "/dashboard/documents" },
+    ],
   },
   {
-    q: "Show me diphtheria trends 2020–2024",
-    a: "Diphtheria cases in Niger State rose from 142 (2020) to 287 (2024), with peaks during outbreak response periods. See the full trend on the Analytics Dashboard.",
+    match: /facilit(y|ies) (map|finder)|where.*facilit/i,
+    answer:
+      "Use the facility map / finder on the portal (Facilities). You can also ask me for facilities in a specific LGA (e.g. “facilities in Bida”) and I’ll look them up from the registry.",
+    links: [{ label: "Facilities", href: "/facilities" }],
   },
 ];
 
+type ChatMessage = {
+  role: "user" | "assistant";
+  text: string;
+  links?: AssistantSourceLink[];
+};
+
+function newConversationId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `c-${Date.now()}`;
+}
+
+function localFaqAnswer(text: string): { answer: string; links?: AssistantSourceLink[] } | null {
+  for (const item of LOCAL_FAQ) {
+    if (item.match.test(text)) {
+      return { answer: item.answer, links: item.links };
+    }
+  }
+  return null;
+}
+
+function SourceLinks({ links }: { links: AssistantSourceLink[] }) {
+  if (!links.length) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5 border-t border-border/60 pt-2">
+      {links.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          className="rounded-full border bg-background px-2 py-0.5 text-xs font-medium text-primary hover:bg-muted"
+        >
+          {link.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export function AiAssistantWidget() {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
+  const [conversationId] = useState(newConversationId);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const sendMessage = (text: string) => {
-    if (!text.trim()) return;
-    const match = QUICK_QUESTIONS.find((q) => q.q === text);
-    const reply =
-      match?.a ??
-      "This feature will be powered by the full AI backend in production. For now, try one of the quick questions below.";
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", text },
-      { role: "assistant", text: reply },
-    ]);
+  const sendMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || loading) return;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const nextMessages: ChatMessage[] = [
+      ...messages,
+      { role: "user", text: trimmed },
+    ];
+    setMessages(nextMessages);
     setInput("");
+    setStatusText(null);
+
+    const faq = localFaqAnswer(trimmed);
+    if (faq) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: faq.answer, links: faq.links },
+      ]);
+      return;
+    }
+
+    setLoading(true);
+    setMessages((prev) => [...prev, { role: "assistant", text: "" }]);
+
+    try {
+      const history = nextMessages.slice(-12).map((m) => ({
+        role: m.role,
+        content: m.text,
+      }));
+
+      await streamAssistantChat(
+        { messages: history, conversationId },
+        (event) => {
+          if (event.type === "delta") {
+            setStatusText(null);
+            setMessages((prev) => {
+              const copy = [...prev];
+              const last = copy[copy.length - 1];
+              if (last?.role === "assistant") {
+                copy[copy.length - 1] = {
+                  ...last,
+                  text: last.text + event.text,
+                };
+              }
+              return copy;
+            });
+          } else if (event.type === "status") {
+            setStatusText(event.text);
+          } else if (event.type === "done") {
+            setStatusText(null);
+            setMessages((prev) => {
+              const copy = [...prev];
+              const last = copy[copy.length - 1];
+              if (last?.role === "assistant") {
+                copy[copy.length - 1] = {
+                  role: "assistant",
+                  text: event.reply || last.text,
+                  links: event.links,
+                };
+              }
+              return copy;
+            });
+          } else if (event.type === "error") {
+            setStatusText(null);
+            setMessages((prev) => {
+              const copy = [...prev];
+              const last = copy[copy.length - 1];
+              if (last?.role === "assistant") {
+                copy[copy.length - 1] = {
+                  role: "assistant",
+                  text: `${event.message} You can still browse /dataportal, /analytics, and /facilities.`,
+                };
+              }
+              return copy;
+            });
+          }
+        },
+        controller.signal,
+      );
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong talking to the assistant.";
+      setMessages((prev) => {
+        const copy = [...prev];
+        const last = copy[copy.length - 1];
+        if (last?.role === "assistant" && !last.text) {
+          copy[copy.length - 1] = {
+            role: "assistant",
+            text: `${message} You can still browse /dataportal, /analytics, and /facilities.`,
+          };
+        } else {
+          copy.push({
+            role: "assistant",
+            text: `${message} You can still browse /dataportal, /analytics, and /facilities.`,
+          });
+        }
+        return copy;
+      });
+    } finally {
+      setLoading(false);
+      setStatusText(null);
+    }
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3" suppressHydrationWarning>
+    <div
+      className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3"
+      suppressHydrationWarning
+    >
       {open && (
         <div
-          className="w-[min(100vw-2rem,380px)] rounded-xl border bg-background shadow-2xl flex flex-col max-h-[min(70vh,520px)]"
+          className="flex max-h-[min(70vh,520px)] w-[min(100vw-2rem,380px)] flex-col rounded-xl border bg-background shadow-2xl"
           role="dialog"
           aria-label="AI Assistant"
         >
-          <div className="flex items-center justify-between border-b px-4 py-3 bg-primary text-primary-foreground rounded-t-xl">
-            <span className="font-semibold text-sm">Health Data Assistant</span>
+          <div className="flex items-center justify-between rounded-t-xl border-b bg-primary px-4 py-3 text-primary-foreground">
+            <span className="text-sm font-semibold">Health Data Assistant</span>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="p-1 rounded hover:bg-white/10"
+              className="rounded p-1 hover:bg-white/10"
               aria-label="Close assistant"
             >
               <X className="size-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
+          <div className="min-h-[200px] flex-1 space-y-3 overflow-y-auto p-4">
             {messages.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Hi! Ask me anything about Niger State health data…
+                Hi! Ask about Niger State health datasets, facilities, disease
+                burden, or portal analytics. How-to questions are answered
+                instantly; data questions use live portal tools.
               </p>
             )}
             {messages.map((m, i) => (
               <div
-                key={i}
+                key={`${m.role}-${i}`}
                 className={cn(
-                  "text-sm rounded-lg px-3 py-2 max-w-[90%]",
+                  "max-w-[90%] rounded-lg px-3 py-2 text-sm",
                   m.role === "user"
-                    ? "ml-auto bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
+                    ? "ml-auto bg-primary text-primary-foreground whitespace-pre-wrap"
+                    : "bg-muted text-foreground",
                 )}
               >
-                {m.text}
+                {m.role === "assistant" && !m.text && loading ? (
+                  <span className="text-muted-foreground">…</span>
+                ) : (
+                  <div className="whitespace-pre-wrap">{m.text}</div>
+                )}
+                {m.role === "assistant" && m.links?.length ? (
+                  <SourceLinks links={m.links} />
+                ) : null}
               </div>
             ))}
+            {loading && statusText && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                {statusText}
+              </div>
+            )}
           </div>
-          <div className="border-t p-3 space-y-2">
-            <div className="flex flex-wrap gap-1.5">
-              {QUICK_QUESTIONS.map((q) => (
-                <button
-                  key={q.q}
-                  type="button"
-                  onClick={() => sendMessage(q.q)}
-                  className="text-xs rounded-full border px-2 py-1 hover:bg-muted transition-colors text-left"
-                >
-                  {q.q.length > 40 ? `${q.q.slice(0, 40)}…` : q.q}
-                </button>
-              ))}
-            </div>
+          <div className="space-y-2 border-t p-3">
+            {messages.length === 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_QUESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => void sendMessage(q)}
+                    className="rounded-full border px-2 py-1 text-left text-xs transition-colors hover:bg-muted disabled:opacity-50"
+                  >
+                    {q.length > 40 ? `${q.slice(0, 40)}…` : q}
+                  </button>
+                ))}
+              </div>
+            )}
             <form
               className="flex gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                sendMessage(input);
+                void sendMessage(input);
               }}
             >
               <Input
@@ -112,23 +308,28 @@ export function AiAssistantWidget() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask a question…"
                 className="text-sm"
+                disabled={loading}
               />
-              <Button type="submit" size="icon-sm" aria-label="Send message">
+              <Button
+                type="submit"
+                size="icon-sm"
+                aria-label="Send message"
+                disabled={loading || !input.trim()}
+              >
                 <Send className="size-4" />
               </Button>
             </form>
           </div>
         </div>
       )}
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+      <Button
+        size="icon"
+        className="size-12 rounded-full shadow-lg"
+        onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close AI assistant" : "Open AI assistant"}
-        suppressHydrationWarning
       >
-        {open ? <X className="size-6" /> : <MessageCircle className="size-6" />}
-      </button>
+        {open ? <X className="size-5" /> : <MessageCircle className="size-5" />}
+      </Button>
     </div>
   );
 }

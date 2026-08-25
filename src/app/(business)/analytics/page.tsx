@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Activity,
   AlertTriangle,
@@ -219,6 +220,8 @@ function FieldLabel({ children }: { children: ReactNode }) {
 }
 
 export default function HealthAnalyticsPage() {
+  const searchParams = useSearchParams();
+  const indicatorFromUrl = searchParams.get("indicator");
   const [selectedIndicator, setSelectedIndicator] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [dataSource, setDataSource] = useState<AnalyticsDataSourceId>(ALL_SOURCES_ID);
@@ -259,10 +262,18 @@ export default function HealthAnalyticsPage() {
   );
 
   useEffect(() => {
-    if (indicators?.length && !selectedIndicator) {
+    if (!indicators?.length) return;
+    if (
+      indicatorFromUrl &&
+      indicators.some((i) => i.slug === indicatorFromUrl)
+    ) {
+      setSelectedIndicator(indicatorFromUrl);
+      return;
+    }
+    if (!selectedIndicator) {
       setSelectedIndicator(indicators[0].slug);
     }
-  }, [indicators, selectedIndicator]);
+  }, [indicators, selectedIndicator, indicatorFromUrl]);
 
   useEffect(() => {
     if (!wardLga && NIGER_STATE_LGAS.length) {

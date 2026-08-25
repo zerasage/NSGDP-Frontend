@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { Loader2, RotateCcw, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,6 +112,8 @@ function getFacilityLevelColor(level: string | null): string {
 }
 
 export default function FacilitiesPage() {
+  const searchParams = useSearchParams();
+  const lgaFromUrl = searchParams.get("lga");
   const [mapReady, setMapReady] = useState(false);
   const [filterOpen, setFilterOpen] = useState(true);
   const [query, setQuery] = useState("");
@@ -140,6 +143,14 @@ export default function FacilitiesPage() {
   useEffect(() => {
     loadFacilities();
   }, [loadFacilities]);
+
+  useEffect(() => {
+    if (!lgaFromUrl) return;
+    const match = NIGER_STATE_LGAS.find(
+      (name) => name.toLowerCase() === lgaFromUrl.toLowerCase(),
+    );
+    if (match) setLga(match);
+  }, [lgaFromUrl]);
 
   useEffect(() => {
     setWard("all");

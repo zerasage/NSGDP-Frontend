@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   useOrgDocumentBySlug,
   useSubmitDocumentForReview,
-} from "@/lib/hooks/useDocuments";
+} from "@/lib/hooks/use-org-documents";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
