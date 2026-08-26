@@ -62,11 +62,7 @@ export default function MyDocumentsPage() {
   );
 
   const submitMutation = useSubmitDocumentForReview();
-  const documents = (data?.data ?? []).filter((doc) => {
-    // List endpoint returns published + own-org; keep org-scoped view.
-    if (!user?.organisationId) return true;
-    return true;
-  });
+  const documents = data?.data ?? [];
 
   const canContribute =
     user && ["contributor", "admin"].includes(user.role);

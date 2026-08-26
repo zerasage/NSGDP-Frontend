@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { Loader2, RotateCcw, Search, X } from "lucide-react";
@@ -111,7 +111,7 @@ function getFacilityLevelColor(level: string | null): string {
   }
 }
 
-export default function FacilitiesPage() {
+function FacilitiesContent() {
   const searchParams = useSearchParams();
   const lgaFromUrl = searchParams.get("lga");
   const [mapReady, setMapReady] = useState(false);
@@ -411,5 +411,19 @@ export default function FacilitiesPage() {
         className="absolute bottom-4 right-4 z-[1000]"
       />
     </div>
+  );
+}
+
+export default function FacilitiesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <FacilitiesContent />
+    </Suspense>
   );
 }

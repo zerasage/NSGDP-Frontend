@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -219,7 +219,7 @@ function FieldLabel({ children }: { children: ReactNode }) {
   );
 }
 
-export default function HealthAnalyticsPage() {
+function HealthAnalyticsContent() {
   const searchParams = useSearchParams();
   const indicatorFromUrl = searchParams.get("indicator");
   const [selectedIndicator, setSelectedIndicator] = useState<string>("");
@@ -1256,5 +1256,13 @@ export default function HealthAnalyticsPage() {
         </>}
       </Container>
     </main>
+  );
+}
+
+export default function HealthAnalyticsPage() {
+  return (
+    <Suspense fallback={<PageHeaderSkeleton />}>
+      <HealthAnalyticsContent />
+    </Suspense>
   );
 }
