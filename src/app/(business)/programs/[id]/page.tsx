@@ -2,35 +2,49 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Target, TrendingUp, FileText, Download, CheckCircle2, Circle, Clock, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Target, TrendingUp, FileText, Download, Settings, Loader2 } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { getProgramById, deleteProgram } from "@/lib/mock/programs";
-import { DocumentCard } from "@/components/data/document-card";
-import { mockDocuments } from "@/lib/mock/documents";
-import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
-import { useRouter } from "next/navigation";
+import { useProgramBySlug, useProgramReports } from "@/lib/hooks/usePrograms";
+import { useDownloadDocument } from "@/lib/hooks/useDocuments";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const MOCK_MILESTONES = [
-  { id: "m1", title: "Microplanning complete",     targetDate: "2026-02-15", completedDate: "2026-02-12", status: "completed" as const },
-  { id: "m2", title: "LGA-level mobilisation",     targetDate: "2026-03-01", completedDate: "2026-02-28", status: "completed" as const },
-  { id: "m3", title: "Phase 1 vaccination days",   targetDate: "2026-03-15", completedDate: "2026-03-14", status: "completed" as const },
-  { id: "m4", title: "Mid-campaign LQAS survey",   targetDate: "2026-04-01", completedDate: undefined,    status: "pending" as const },
-  { id: "m5", title: "Phase 2 mop-up",             targetDate: "2026-04-20", completedDate: undefined,    status: "pending" as const },
-  { id: "m6", title: "Post-campaign coverage survey",targetDate:"2026-05-10",completedDate: undefined,    status: "pending" as const },
-];
-
 export default function ProgramDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const { canUpload, canEdit, canDelete } = useProgramPermissions();
-  const program = getProgramById(id);
+  const { user } = useAuth();
+  const { data: program, isLoading, error } = useProgramBySlug(id);
+  const { data: reports } = useProgramReports(id);
+  const downloadMutation = useDownloadDocument();
 
-  if (!program) {
+  const handleDownloadReport = (slug: string | undefined, title: string) => {
+    if (!slug) {
+      toast.error("This report has no downloadable file yet");
+      return;
+    }
+    downloadMutation.mutate(slug, {
+      onSuccess: (result) => {
+        window.open(result.downloadUrl, "_blank", "noopener,noreferrer");
+      },
+      onError: (err: unknown) => {
+        toast.error(err instanceof Error ? err.message : `Failed to download "${title}"`);
+      },
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <Container className="py-16 flex items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" />
+        Loading programme…
+      </Container>
+    );
+  }
+
+  if (error || !program) {
     return (
       <Container className="py-16 text-center text-muted-foreground">
         Programme not found.{" "}
@@ -39,16 +53,10 @@ export default function ProgramDetailPage() {
     );
   }
 
-  const linkedDocs = mockDocuments.filter((d) => d.programId === program.id);
-  const showEdit = canEdit(program.organisationId);
-  const coveragePct = Math.round((program.reachCount / program.targetCount) * 100);
-
-  const handleDelete = () => {
-    if (!window.confirm(`Delete "${program.name}"? This cannot be undone.`)) return;
-    deleteProgram(program.id);
-    toast.success("Programme deleted (mock)");
-    router.push("/programs");
-  };
+  const canManage = !!user?.organisationId && user.organisationId === program.organisationId;
+  const coveragePct = program.targetCount > 0
+    ? Math.round((program.reachCount / program.targetCount) * 100)
+    : 0;
 
   return (
     <main className="flex-1">
@@ -73,23 +81,17 @@ export default function ProgramDetailPage() {
               </div>
               <p className="text-sm text-muted-foreground mt-1">{program.description}</p>
             </div>
-            <div className="ml-auto flex flex-wrap gap-2">
-              {showEdit && (
+            {canManage && (
+              <div className="ml-auto flex flex-wrap gap-2">
                 <Link
-                  href={`/programs/${program.id}/edit`}
+                  href={`/my-programs/${program.slug}/edit`}
                   className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
                 >
-                  <Pencil className="size-3.5" />
-                  Edit
+                  <Settings className="size-3.5" />
+                  Manage in Dashboard
                 </Link>
-              )}
-              {canDelete && (
-                <Button size="sm" variant="outline" className="text-destructive" onClick={handleDelete}>
-                  <Trash2 className="size-3.5 mr-1.5" />
-                  Delete
-                </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </Container>
       </div>
@@ -137,74 +139,33 @@ export default function ProgramDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Milestones */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="size-4 text-muted-foreground" />
-              Milestone Timeline
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-3">
-              {MOCK_MILESTONES.map((m) => (
-                <li key={m.id} className="flex items-start gap-3">
-                  {m.status === "completed" ? (
-                    <CheckCircle2 className="size-5 shrink-0 text-emerald-500 mt-0.5" />
-                  ) : (
-                    <Circle className="size-5 shrink-0 text-muted-foreground/40 mt-0.5" />
-                  )}
-                  <div className="flex-1">
-                    <p className={cn("text-sm font-medium", m.status !== "completed" && "text-muted-foreground")}>
-                      {m.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Target: {new Date(m.targetDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                      {m.completedDate && ` · Completed: ${new Date(m.completedDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
-
         {/* Reports / Documents */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="size-4 text-muted-foreground" />
-                Programme Documents
-              </CardTitle>
-              {canUpload && (
-                <Link
-                  href={`/programs/${program.id}/upload`}
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-                >
-                  <Download className="size-3.5 rotate-180" />
-                  Upload Report
-                </Link>
-              )}
-            </div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="size-4 text-muted-foreground" />
+              Programme Documents
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {program.reports?.map((report) => (
+            {reports?.map((report) => (
               <div key={report.id} className="flex items-center gap-3 rounded-lg border p-3">
                 <FileText className="size-5 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{report.title}</p>
                   <p className="text-xs text-muted-foreground">{report.fileFormat} · {new Date(report.uploadedAt).toLocaleDateString()}</p>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => toast.success(`Downloading ${report.title} (mock)`)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleDownloadReport(report.slug, report.title)}
+                  disabled={downloadMutation.isPending}
+                >
                   <Download className="size-3.5" />
                 </Button>
               </div>
             ))}
-            {linkedDocs.map((doc) => (
-              <DocumentCard key={doc.id} doc={doc} />
-            ))}
-            {!program.reports?.length && !linkedDocs.length && (
+            {!reports?.length && (
               <p className="text-sm text-muted-foreground py-4 text-center">No documents yet.</p>
             )}
           </CardContent>

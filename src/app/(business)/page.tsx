@@ -3,97 +3,92 @@ import {
   Database,
   Map,
   BarChart3,
-  Shield,
-  Lock,
-  Layers,
   ArrowRight,
+  Hospital,
+  Users,
+  MapPin,
+  Activity,
 } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { HomeHeroSection } from "@/components/map/home-hero-section";
-import { OutbreakAlertBanner } from "@/components/home/outbreak-alert-banner";
+import { LiveOutbreakAlerts } from "@/components/home/live-outbreak-alerts";
 import { RepositoryDashboard } from "@/components/home/repository-dashboard";
-import { mockAlerts } from "@/lib/mock/alerts";
+import { FeaturedGroupsSection } from "@/components/home/featured-groups-section";
+import { EntityCard, Panel } from "@/components/layout/content-panel";
 
-const features = [
+const doors = [
   {
     icon: Database,
-    title: "Comprehensive Data Repository",
+    title: "Browse data",
     description:
-      "Access verified health datasets from NSPHCDA and partner organisations across all 25 LGAs. Browse disease surveillance, facility registry, and population data in one central portal.",
+      "Verified health datasets from NSPHCDA and partners across all 25 LGAs — surveillance, facilities, and population.",
+    href: "/dataportal",
+    tone: "primary" as const,
   },
   {
     icon: Map,
-    title: "Interactive Geospatial Maps",
+    title: "Maps",
     description:
-      "Visualise disease burden, health facility locations, and LGA-level indicators on interactive maps. Filter by metric, period, and geography for targeted analysis.",
+      "Visualise disease burden, facility locations, and LGA indicators. Filter by metric, period, and geography.",
+    href: "/map",
+    tone: "info" as const,
   },
   {
     icon: BarChart3,
-    title: "Real-time Analytics",
+    title: "Analytics",
     description:
-      "Track health trends with dashboards showing KPIs, time-series charts, and LGA burden summaries. Monitor outbreaks and immunisation coverage at a glance.",
-  },
-  {
-    icon: Shield,
-    title: "Multi-level Access",
-    description:
-      "Public, partner, and administrator access tiers ensure the right data reaches the right users. Role-based permissions protect sensitive health information.",
-  },
-  {
-    icon: Lock,
-    title: "Secure & Compliant",
-    description:
-      "Built to national health data governance standards with audit logging, access controls, and secure file handling. Your submissions are reviewed before publication.",
-  },
-  {
-    icon: Layers,
-    title: "QGIS Integration",
-    description:
-      "Download datasets in standard geospatial formats for use in QGIS, PostGIS, and other GIS tools. Seamlessly extend portal data into your own workflows.",
+      "Track trends with KPIs, time-series charts, and LGA summaries for outbreaks and immunisation coverage.",
+    href: "/analytics",
+    tone: "success" as const,
   },
 ];
 
-const healthFacilities = [
+const mapShortcuts = [
   {
-    title: "Primary Health Care Centers",
-    description:
-      "Over 800 PHC facilities serve communities across Niger State, providing essential maternal, child, and preventive health services at the grassroots level.",
-    gradient: "from-emerald-600/80 to-primary/90",
+    icon: Hospital,
+    title: "Facility finder",
+    description: "Search primary health facilities statewide and open them on the map.",
+    href: "/facilities",
+    tone: "primary" as const,
   },
   {
-    title: "Healthcare Professionals",
-    description:
-      "A dedicated workforce of doctors, nurses, midwives, and community health workers delivers care and collects routine health data for the portal.",
-    gradient: "from-teal-600/80 to-emerald-700/90",
+    icon: Users,
+    title: "Population and facility map",
+    description: "Compare population need with facility distribution at LGA level.",
+    href: "/population-map",
+    tone: "info" as const,
   },
   {
-    title: "Rural Health Facilities",
-    description:
-      "Outreach posts and rural clinics extend health services to hard-to-reach areas, ensuring equitable coverage for underserved populations.",
-    gradient: "from-primary/80 to-emerald-800/90",
+    icon: MapPin,
+    title: "Settlement access map",
+    description: "See settlements relative to nearby health facilities.",
+    href: "/settlements",
+    tone: "success" as const,
   },
 ];
 
 const applications = [
   {
-    emoji: "🦠",
-    title: "Disease Surveillance",
+    icon: Activity,
+    title: "Disease surveillance",
     description:
-      "Monitor malaria, meningitis, cholera, and other notifiable diseases in real time. Identify hotspots and trigger timely public health responses.",
+      "Monitor malaria, meningitis, cholera, and other notifiable diseases. Identify hotspots and support timely response.",
+    tone: "destructive" as const,
   },
   {
-    emoji: "🏥",
-    title: "Health Facility Planning",
+    icon: Hospital,
+    title: "Facility planning",
     description:
-      "Map facility distribution against population need to guide infrastructure investments. Optimise PHC placement and referral network design.",
+      "Map facility distribution against population need to guide infrastructure and referral network design.",
+    tone: "primary" as const,
   },
   {
-    emoji: "📊",
-    title: "Population Health Analytics",
+    icon: Users,
+    title: "Population health",
     description:
-      "Combine demographic and health outcome data to understand burden by LGA. Support evidence-based policy and resource allocation decisions.",
+      "Combine demographic and outcome data to understand burden by LGA and support resource allocation.",
+    tone: "info" as const,
   },
 ];
 
@@ -102,115 +97,75 @@ export default function HomePage() {
     <main className="flex-1">
       <HomeHeroSection />
 
-      {/* Outbreak / disease alerts */}
-      <Container>
-        <OutbreakAlertBanner alerts={mockAlerts} />
-      </Container>
+      <div className="py-6">
+        <Container size="wide" className="space-y-6">
+          <LiveOutbreakAlerts />
 
-      {/* Feature cards */}
-      <section className="py-16 sm:py-20">
-        <Container size="wide">
-          <div className="mb-10 text-center">
-            <h2 className="text-3xl font-bold sm:text-4xl">Platform Capabilities</h2>
-            <p className="mt-2 text-muted-foreground">
-              Everything you need to explore, analyse, and contribute Niger State health data
-            </p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature) => (
-              <Card key={feature.title} className="h-full">
-                <CardHeader>
-                  <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10">
-                    <feature.icon className="size-5 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-sm leading-relaxed">
-                    {feature.description}
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Panel
+            title="Explore the portal"
+            description="Three ways in: catalogue, maps, and analytics"
+          >
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {doors.map((item) => (
+                <EntityCard key={item.title} {...item} />
+              ))}
+            </div>
+          </Panel>
+
+          <Panel
+            title="Maps and facilities"
+            description="Open GIS tools for facilities, population, and settlement access"
+          >
+            <div className="grid gap-3 md:grid-cols-3">
+              {mapShortcuts.map((item) => (
+                <EntityCard key={item.title} {...item} />
+              ))}
+            </div>
+          </Panel>
+
+          <FeaturedGroupsSection />
+
+          <Panel
+            title="How the data is used"
+            description="How Niger State uses geospatial health data in practice"
+          >
+            <div className="grid gap-3 md:grid-cols-3">
+              {applications.map((item) => (
+                <EntityCard key={item.title} {...item} />
+              ))}
+            </div>
+          </Panel>
+
+          <RepositoryDashboard />
+
+          <section className="rounded-2xl border bg-card p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 max-w-xl space-y-1">
+                <h2 className="text-base font-semibold leading-6">
+                  Ready to explore health data?
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Browse datasets, open interactive maps, or contribute partner data
+                  for review and publication.
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <Link href="/dataportal">
+                  <Button className="h-9 w-full sm:w-auto">
+                    Browse repository
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </Link>
+                <Link href="/partner-data">
+                  <Button variant="outline" className="h-9 w-full sm:w-auto">
+                    Contribute data
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </section>
         </Container>
-      </section>
-
-      {/* Health facilities */}
-      <section className="bg-secondary/30 py-16 sm:py-20">
-        <Container size="wide">
-          <div className="mb-10 text-center">
-            <h2 className="text-3xl font-bold sm:text-4xl">Health Facilities</h2>
-            <p className="mt-2 text-muted-foreground">
-              Strengthening primary care and rural health infrastructure statewide
-            </p>
-          </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {healthFacilities.map((item) => (
-              <Card key={item.title} className="overflow-hidden pt-0">
-                <div className={`h-48 bg-gradient-to-br ${item.gradient}`} />
-                <CardHeader>
-                  <CardTitle>{item.title}</CardTitle>
-                  <CardDescription className="leading-relaxed">
-                    {item.description}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-        </Container>
-      </section>
-
-      {/* Real-world applications */}
-      <section className="py-16 sm:py-20">
-        <Container size="wide">
-          <div className="mb-10 text-center">
-            <h2 className="text-3xl font-bold sm:text-4xl">Real-World Applications</h2>
-            <p className="mt-2 text-muted-foreground">
-              How Niger State uses geospatial health data in practice
-            </p>
-          </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {applications.map((app) => (
-              <Card key={app.title} className="text-center">
-                <CardHeader className="items-center">
-                  <span className="text-4xl" role="img" aria-hidden="true">
-                    {app.emoji}
-                  </span>
-                  <CardTitle className="text-lg">{app.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="leading-relaxed">
-                    {app.description}
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </Container>
-      </section>
-
-      {/* CTA */}
-      <section className="pb-16 sm:pb-20">
-        <Container>
-          <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 to-accent/10 p-8 text-center sm:p-12">
-            <h2 className="text-2xl font-bold sm:text-3xl">Ready to Explore Health Data?</h2>
-            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Browse datasets, view interactive maps, and download health indicators for
-              research, planning, and programme monitoring.
-            </p>
-            <Link href="/dataportal" className="mt-6 inline-block">
-              <Button size="lg">
-                Browse Repository
-                <ArrowRight className="size-4" />
-              </Button>
-            </Link>
-          </div>
-        </Container>
-      </section>
-
-      {/* Public repository dashboard */}
-      <RepositoryDashboard />
+      </div>
     </main>
   );
 }

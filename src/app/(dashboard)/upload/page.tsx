@@ -254,10 +254,7 @@ export default function UploadDatasetPage() {
         'xlsx': 'excel',
         'xls': 'excel',
         'json': 'json',
-        'geojson': 'geojson',
-        'shp': 'shapefile',
-        'kml': 'kml',
-        'pdf': 'pdf',
+        'gpkg': 'geopackage',
       };
 
       // Step 1: Create dataset with appropriate status

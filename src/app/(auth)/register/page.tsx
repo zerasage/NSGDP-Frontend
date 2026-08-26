@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PasswordStrengthMeter } from "@/components/forms/password-strength-meter";
 import { FormError } from "@/components/forms/form-error";
@@ -17,6 +24,9 @@ import { GeoHealthLogo } from "@/components/layout/geohealth-logo";
 import { registerSchema, type RegisterFormData } from "@/lib/schemas/auth";
 import { register as registerUser } from "@/lib/api";
 import { storeTokens } from "@/lib/utils";
+import { NIGER_STATE_LGAS } from "@/lib/constants";
+import { getWardGisSummary } from "@/lib/api/gis";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 function RegisterForm() {
@@ -42,6 +52,16 @@ function RegisterForm() {
   });
 
   const password = watch("password", "");
+  const selectedLga = watch("lga");
+
+  const { data: wardSummary } = useQuery({
+    queryKey: ["register-ward-summary", selectedLga],
+    queryFn: () => getWardGisSummary(selectedLga),
+    enabled: !!selectedLga,
+  });
+  const wardOptions = Array.from(
+    new Set((wardSummary?.features ?? []).map((f) => f.properties.ward))
+  ).sort();
 
   // Redirect to invite page if token is present
   useEffect(() => {
@@ -75,6 +95,8 @@ function RegisterForm() {
         password: data.password,
         phoneNumber: data.phone,
         accessLevel: "public",
+        lga: data.lga || undefined,
+        ward: data.ward || undefined,
         reason: data.reason,
       });
 
@@ -151,6 +173,65 @@ function RegisterForm() {
                     {...register("phone")}
                   />
                   <FormError message={errors.phone?.message} />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="lga" className="block text-sm font-medium mb-1.5">
+                    LGA (Optional)
+                  </label>
+                  <Controller
+                    name="lga"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ?? ""}
+                        onValueChange={(v) => field.onChange(v ?? "")}
+                      >
+                        <SelectTrigger id="lga">
+                          <SelectValue placeholder="Select your LGA" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {NIGER_STATE_LGAS.map((lga) => (
+                            <SelectItem key={lga} value={lga}>
+                              {lga}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="ward" className="block text-sm font-medium mb-1.5">
+                    Ward (Optional)
+                  </label>
+                  <Controller
+                    name="ward"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ?? ""}
+                        onValueChange={(v) => field.onChange(v ?? "")}
+                        disabled={!selectedLga || wardOptions.length === 0}
+                      >
+                        <SelectTrigger id="ward">
+                          <SelectValue
+                            placeholder={selectedLga ? "Select your ward" : "Select an LGA first"}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {wardOptions.map((ward) => (
+                            <SelectItem key={ward} value={ward}>
+                              {ward}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                 </div>
               </div>
 

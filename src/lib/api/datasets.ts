@@ -188,6 +188,26 @@ export interface SubmitResponse {
   dataset: Dataset;
 }
 
+// Mirrors nsgdp-backend src/modules/datasets/dataset-insights.service.ts —
+// deterministic column profiling computed at upload time, not an AI feature.
+export interface DatasetMetricInsight {
+  column: string;
+  min: number;
+  max: number;
+  first: number;
+  latest: number;
+  percentChange: number | null;
+  trend: 'increasing' | 'decreasing' | 'stable';
+  series: Array<{ period: string; value: number }>;
+}
+
+export interface DatasetInsights {
+  generatedAt: string;
+  rowCount: number;
+  dateColumn: string;
+  metrics: DatasetMetricInsight[];
+}
+
 /**
  * Get all datasets with filters and pagination
  */
@@ -197,6 +217,30 @@ export async function getDatasets(
   const response = await apiClient.get<ApiResponse<PaginatedResponse<Dataset>>>(
     '/datasets',
     { params: params as Record<string, unknown> }
+  );
+  return response.data.data;
+}
+
+export interface DatasetMapCoverage {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  format: DatasetFormat;
+  visibility: DatasetVisibility;
+  hasSpatialData: boolean;
+  geographicCoverage: string[];
+  downloadCount: number;
+  organisationId: string | null;
+  organisationName: string | null;
+}
+
+/**
+ * Published catalogue datasets with LGA coverage for the public explorer map.
+ */
+export async function getDatasetMapCoverage(): Promise<DatasetMapCoverage[]> {
+  const response = await apiClient.get<ApiResponse<DatasetMapCoverage[]>>(
+    API_ROUTES.datasets.mapCoverage
   );
   return response.data.data;
 }
@@ -319,6 +363,13 @@ export async function getDatasetVersions(
 export async function getDatasetPreview(slug: string): Promise<DatasetPreview> {
   const response = await apiClient.get<ApiResponse<DatasetPreview>>(
     `/datasets/${slug}/preview`
+  );
+  return response.data.data;
+}
+
+export async function getDatasetInsights(slug: string): Promise<DatasetInsights | null> {
+  const response = await apiClient.get<ApiResponse<DatasetInsights | null>>(
+    `/datasets/${slug}/insights`
   );
   return response.data.data;
 }

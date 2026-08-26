@@ -6,10 +6,34 @@ import type {
 } from "@/types";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import type { AnalyticsDataSourceId } from "@/lib/constants/analytics-sources";
-import {
-  getAnalyticsFacilityShare,
-  getAnalyticsSourceShare,
-} from "@/lib/constants/analytics-sources";
+
+/** Mock-only org share weights for legacy mock analytics helpers. */
+const ORG_METRIC_SHARE: Partial<
+  Record<AnalyticsDataSourceId, Partial<Record<AnalyticsMetric, number>> & { _default?: number }>
+> = {
+  "org-1": { _default: 0.28, routine_immunisation: 0.22, anc_attendance: 0.2, delivery_sba: 0.19 },
+  "org-2": { _default: 0.18, anc_attendance: 0.24, delivery_sba: 0.22, u5_mortality: 0.2, death_cases: 0.21 },
+  "org-3": { _default: 0.2, routine_immunisation: 0.48, anc_attendance: 0.15 },
+  "org-6": { _default: 0.12, severe_malaria: 0.52, meningitis: 0.58, cholera: 0.49, diphtheria: 0.44, death_cases: 0.18 },
+  "org-7": { _default: 0.14, anc_attendance: 0.38, delivery_sba: 0.41, u5_mortality: 0.35 },
+  "org-8": { _default: 0.08 },
+};
+
+const ORG_FACILITY_SHARE: Partial<Record<AnalyticsDataSourceId, number>> = {
+  "org-1": 0.45, "org-2": 0.35, "org-3": 0.12, "org-6": 0.05, "org-7": 0.03, "org-8": 0,
+};
+
+function getAnalyticsSourceShare(sourceId: AnalyticsDataSourceId, metric: AnalyticsMetric): number {
+  if (sourceId === "all") return 1;
+  const profile = ORG_METRIC_SHARE[sourceId];
+  if (!profile) return 0.15;
+  return profile[metric] ?? profile._default ?? 0.15;
+}
+
+function getAnalyticsFacilityShare(sourceId: AnalyticsDataSourceId): number {
+  if (sourceId === "all") return 1;
+  return ORG_FACILITY_SHARE[sourceId] ?? 0.1;
+}
 
 export const mockPlatformKPIs = {
   totalUsers: 248,
@@ -130,6 +154,7 @@ export function getLGABurdenTable(
       rank: 0,
       lga: row.lga,
       totalCases: row.cases,
+      missingRows: 0,
       facilities: row.facilities,
       population: row.population,
       incidencePer1000: Math.round((row.cases / row.population) * 1000 * 10) / 10,

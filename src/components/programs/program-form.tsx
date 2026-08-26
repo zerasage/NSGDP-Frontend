@@ -3,7 +3,6 @@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { programFormSchema, type ProgramFormData } from "@/lib/schemas/program";
-import { mockOrganisations } from "@/lib/mock/organisations";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -32,8 +31,6 @@ interface ProgramFormProps {
   onSubmit: (data: ProgramFormData) => void | Promise<void>;
   submitLabel?: string;
   disabled?: boolean;
-  /** Limit org picker when org_admin */
-  organisationIds?: string[];
 }
 
 export function ProgramForm({
@@ -41,7 +38,6 @@ export function ProgramForm({
   onSubmit,
   submitLabel = "Save Programme",
   disabled,
-  organisationIds,
 }: ProgramFormProps) {
   const {
     register,
@@ -56,16 +52,9 @@ export function ProgramForm({
       targetCount: 1000,
       reachCount: 0,
       lgasCovered: 0,
-      organisationId: organisationIds?.[0] ?? "",
       ...defaultValues,
     },
   });
-
-  const orgOptions = organisationIds?.length
-    ? mockOrganisations.filter((o) => organisationIds.includes(o.id))
-    : mockOrganisations.filter((o) =>
-        ["org-1", "org-2", "org-3", "org-6", "org-7"].includes(o.id)
-      );
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
@@ -138,33 +127,6 @@ export function ProgramForm({
         <FormError message={errors.description?.message} />
       </div>
 
-      <div>
-        <label className="text-sm font-medium mb-1.5 block">Responsible Organisation</label>
-        <Controller
-          name="organisationId"
-          control={control}
-          render={({ field }) => (
-            <Select
-              value={field.value ?? ""}
-              onValueChange={field.onChange}
-              disabled={disabled || !!organisationIds?.length && organisationIds.length === 1}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select organisation" />
-              </SelectTrigger>
-              <SelectContent>
-                {orgOptions.map((o) => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.acronym ?? o.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-        <FormError message={errors.organisationId?.message} />
-      </div>
-
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <label className="text-sm font-medium mb-1.5 block" htmlFor="startDate">
@@ -235,6 +197,5 @@ export function programToFormDefaults(program: Program): Partial<ProgramFormData
     targetCount: program.targetCount,
     reachCount: program.reachCount,
     lgasCovered: program.lgasCovered,
-    organisationId: program.organisationId ?? "",
   };
 }

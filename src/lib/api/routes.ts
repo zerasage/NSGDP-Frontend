@@ -50,6 +50,7 @@ export const API_ROUTES = {
   // Dataset endpoints
   datasets: {
     list: '/datasets',
+    mapCoverage: '/datasets/map-coverage',
     myOrganization: '/datasets/my-organization', // Authenticated endpoint for org datasets list
     myOrganizationBySlug: (slug: string) => `/datasets/my-organization/${slug}`, // Authenticated endpoint for org dataset detail
     bySlug: (slug: string) => `/datasets/${slug}`,
@@ -95,5 +96,9 @@ export const API_ROUTES = {
   partnerData: {
     list: '/partner-data',
     stats: '/partner-data/stats',
+  },
+
+  contact: {
+    submit: '/contact',
   },
 } as const;

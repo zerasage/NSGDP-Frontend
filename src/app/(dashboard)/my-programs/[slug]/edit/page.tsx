@@ -1,74 +1,80 @@
 "use client";
 
-import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProgramForm, programToFormDefaults } from "@/components/programs/program-form";
-import { getProgramById, updateProgram, deleteProgram } from "@/lib/mock/programs";
+import { useOrganizationProgram, useUpdateProgram, useDeleteProgram } from "@/lib/hooks/usePrograms";
 import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
-import { useAuth } from "@/lib/auth";
 import type { ProgramFormData } from "@/lib/schemas/program";
 import { toast } from "sonner";
 
-export default function EditProgramPage() {
-  const { id } = useParams<{ id: string }>();
+export default function EditProgrammePage() {
+  const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { canEdit, canDelete } = useProgramPermissions();
-  const { user, isLoading } = useAuth();
-  const program = getProgramById(id);
+  const { can, canDelete } = useProgramPermissions();
+  const { data: programme, isLoading, error } = useOrganizationProgram(slug);
+  const updateMutation = useUpdateProgram();
+  const deleteMutation = useDeleteProgram();
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
-    }
-  }, [isLoading, router, user]);
-
-  if (isLoading || !user) {
-    return null;
+  if (isLoading) {
+    return (
+      <Container className="py-16 flex items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" />
+        Loading…
+      </Container>
+    );
   }
 
-  if (!program) {
+  if (error || !programme) {
     return (
       <Container className="py-16 text-center text-muted-foreground">
-        Programme not found.{" "}
-        <Link href="/programs" className="text-primary hover:underline">
-          Back to Programmes
+        Programme not found, or it doesn&apos;t belong to your organisation.{" "}
+        <Link href="/my-programs" className="text-primary hover:underline">
+          Back to My Programmes
         </Link>
       </Container>
     );
   }
 
-  const allowed = canEdit(program.organisationId);
-
-  if (!allowed) {
+  if (!can("edit")) {
     return (
       <Container className="py-16 text-center space-y-4">
         <p className="text-muted-foreground">
-          You do not have permission to edit this programme.
+          You do not have permission to edit programmes.
         </p>
-        <Link href={`/programs/${program.id}`}>
-          <Button variant="outline">View Programme</Button>
+        <Link href="/my-programs">
+          <Button variant="outline">Back to My Programmes</Button>
         </Link>
       </Container>
     );
   }
 
   const handleSubmit = async (data: ProgramFormData) => {
-    updateProgram(program.id, data);
-    toast.success("Programme updated");
-    router.push(`/programs/${program.id}`);
+    try {
+      await updateMutation.mutateAsync({ slug: programme.slug, data });
+      toast.success("Programme updated");
+      router.push("/my-programs");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update programme");
+    }
   };
 
   const handleDelete = () => {
     if (!canDelete) return;
-    if (!window.confirm(`Delete "${program.name}"? This cannot be undone.`)) return;
-    deleteProgram(program.id);
-    toast.success("Programme deleted");
-    router.push("/programs");
+    if (!window.confirm(`Archive "${programme.name}"? This can be reversed by an administrator.`)) return;
+    deleteMutation.mutate(programme.slug, {
+      onSuccess: () => {
+        toast.success("Programme archived");
+        router.push("/my-programs");
+      },
+      onError: (err: unknown) => {
+        toast.error(err instanceof Error ? err.message : "Failed to archive programme");
+      },
+    });
   };
 
   return (
@@ -76,19 +82,19 @@ export default function EditProgramPage() {
       <Container className="py-8 max-w-2xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link href={`/programs/${program.id}`}>
+            <Link href="/my-programs">
               <Button variant="ghost" size="icon" aria-label="Back">
                 <ArrowLeft className="size-4" />
               </Button>
             </Link>
             <div>
               <h1 className="text-2xl font-bold">Edit Programme</h1>
-              <p className="text-sm text-muted-foreground mt-1">{program.name}</p>
+              <p className="text-sm text-muted-foreground mt-1">{programme.name}</p>
             </div>
           </div>
           {canDelete && (
             <Button variant="destructive" size="sm" onClick={handleDelete}>
-              Delete
+              Archive
             </Button>
           )}
         </div>
@@ -99,12 +105,9 @@ export default function EditProgramPage() {
           </CardHeader>
           <CardContent>
             <ProgramForm
-              defaultValues={programToFormDefaults(program)}
+              defaultValues={programToFormDefaults(programme)}
               onSubmit={handleSubmit}
               submitLabel="Save Changes"
-              organisationIds={
-                user.role === "admin" && user.organisationId ? [user.organisationId] : undefined
-              }
             />
           </CardContent>
         </Card>

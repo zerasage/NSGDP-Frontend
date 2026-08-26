@@ -88,6 +88,21 @@ export const FACILITY_DENSITY_LEGEND: LegendItem[] = [
   { label: "Low (<50 facilities)",        color: "#bfdbfe" },
 ];
 
+/** Pre-built legend for the public dataset explorer choropleth */
+export const DATASET_COVERAGE_LEGEND: LegendItem[] = [
+  { label: "7+ datasets", color: "#1e3a8a" },
+  { label: "4–6 datasets", color: "#2563eb" },
+  { label: "2–3 datasets", color: "#60a5fa" },
+  { label: "1 dataset", color: "#bfdbfe" },
+  { label: "None in filter", color: "#e5e7eb" },
+];
+
+export const DATASET_MARKER_LEGEND: LegendItem[] = [
+  { label: "Spatial file", color: "#2563eb", description: "GeoJSON, shapefile, GeoPackage, or KML" },
+  { label: "Tabular file", color: "#0f766e", description: "CSV, Excel, or JSON" },
+  { label: "Other format", color: "#6b7280" },
+];
+
 /** Pre-built legend for the settlement accessibility map */
 export const SETTLEMENT_ACCESS_LEGEND: LegendItem[] = [
   { label: "Fully Accessible",     color: "#16a34a" },

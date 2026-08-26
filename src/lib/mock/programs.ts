@@ -1,7 +1,18 @@
 import type { Program, ProgramReport } from "@/types";
-import { PROGRAM_DATA_SOURCE } from "@/lib/constants/analytics-sources";
 import { mockOrganisations } from "./organisations";
 import type { ProgramFormData } from "@/lib/schemas/program";
+
+/** Mock-only map for seed programme → org linkage (analytics page uses real API). */
+const PROGRAM_DATA_SOURCE: Record<string, string> = {
+  "prog-1": "org-3",
+  "prog-2": "org-3",
+  "prog-3": "org-6",
+  "prog-4": "org-6",
+  "prog-5": "org-7",
+  "prog-6": "org-1",
+  "prog-7": "org-1",
+  "prog-8": "org-2",
+};
 
 const orgNameById = Object.fromEntries(mockOrganisations.map((o) => [o.id, o.name]));
 
@@ -247,7 +258,6 @@ export function createProgram(data: ProgramFormData): Program {
     targetCount: target,
     activeDays: 0,
     lgasCovered: data.lgasCovered ?? 0,
-    organisationId: data.organisationId,
     reports: [],
     linkedDatasetIds: [],
   });

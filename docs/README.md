@@ -4,6 +4,9 @@ This directory contains project-wide documentation including requirements, propo
 
 ## 📚 Documentation Index
 
+### UI design
+- **[PORTAL_UI_DESIGN_GUIDE.md](./PORTAL_UI_DESIGN_GUIDE.md)** — Public portal visual system (metrics, panels, tabs, tables, **home landing**); references: `/analytics`, `/`
+
 ### Current Documentation (v1.1)
 Located in `newdocs/`:
 

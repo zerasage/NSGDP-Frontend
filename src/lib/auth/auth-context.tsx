@@ -114,13 +114,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(response.user);
       toast.success("Logged in successfully");
-      router.push("/dashboard");
+      // Callers own the post-login redirect (login page uses ?returnTo=).
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Login failed";
       toast.error(errorMessage);
       throw error;
     }
-  }, [router]);
+  }, []);
 
   const register = useCallback(async (data: RegisterFormData): Promise<{ isPending: boolean }> => {
     try {

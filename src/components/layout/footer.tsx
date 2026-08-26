@@ -40,14 +40,16 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-primary-foreground/85">
               <li><Link href="/dataportal" className="hover:text-white">Explore Data</Link></li>
               <li><Link href="/analytics" className="hover:text-white">Analytics Dashboard</Link></li>
+              <li><Link href="/map" className="hover:text-white">Dataset Coverage Map</Link></li>
               <li><Link href="/population-map" className="hover:text-white">Population & Facility Map</Link></li>
               <li><Link href="/facilities" className="hover:text-white">Facility Finder</Link></li>
               <li><Link href="/settlements" className="hover:text-white">Settlement Access Map</Link></li>
               <li><Link href="/programs" className="hover:text-white">Programs</Link></li>
+              {/* Deferred to a later version — page kept at /learning
               <li><Link href="/learning" className="hover:text-white">Tools & Learning</Link></li>
+              */}
               <li><Link href="/documents" className="hover:text-white">Document Library</Link></li>
-              <li><Link href="/partner-data" className="hover:text-white">Partner Data</Link></li>
-              <li><Link href="/upload" className="hover:text-white">Submit Dataset</Link></li>
+              <li><Link href="/partner-data" className="hover:text-white">Contribute Data</Link></li>
             </ul>
           </div>
 
