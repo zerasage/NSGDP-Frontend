@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useOrganizationPrograms, useDeleteProgram } from "@/lib/hooks/usePrograms";
+import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
 import { useAuth } from "@/lib/auth";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
@@ -41,6 +42,7 @@ function statusBadge(status: RawStatus | undefined) {
 export default function MyProgrammesPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { canAccess, canCreate, canUpload, canDelete, can } = useProgramPermissions();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<RawStatus | "all">(
     (searchParams?.get("status") as RawStatus) || "all"
@@ -56,14 +58,14 @@ export default function MyProgrammesPage() {
       status: statusFilter !== "all" ? statusFilter : undefined,
       q: searchQuery || undefined,
     },
-    { enabled: !!user?.id }
+    { enabled: !!user?.id && canAccess }
   );
 
   // Separate unfiltered fetch, decoupled from the active tab, so switching
   // tabs doesn't collapse every other tab's count to 0.
   const { data: countsData } = useOrganizationPrograms(
     { page: 1, limit: 100 },
-    { enabled: !!user?.id }
+    { enabled: !!user?.id && canAccess }
   );
   const allForCounts = countsData?.data || [];
 
@@ -72,9 +74,8 @@ export default function MyProgrammesPage() {
   const programmes = data?.data || [];
   const meta = data?.meta;
 
-  const canEdit = user?.role === "admin" || user?.role === "contributor";
-  const canDelete = user?.role === "admin";
-  const canUploadReport = user?.role === "admin" || user?.role === "contributor";
+  const canEdit = can("edit");
+  const canUploadReport = canUpload;
 
   const handleDelete = (slug: string, name: string) => {
     setSelectedProgramme({ slug, name });
@@ -102,6 +103,21 @@ export default function MyProgrammesPage() {
     archived: allForCounts.filter((p) => p.rawStatus === "archived").length,
   };
 
+  if (!canAccess) {
+    return (
+      <main className="flex-1 bg-muted/40">
+        <Container size="wide" className="py-16">
+          <EmptyState
+            icon={LayoutGrid}
+            title="Programmes not available"
+            description="Your organisation has not been granted programme access. Contact a super administrator to request it via an Organisation Group."
+            action={{ label: "Back to dashboard", href: "/dashboard" }}
+          />
+        </Container>
+      </main>
+    );
+  }
+
   return (
     <main className="flex-1 bg-muted/40">
       <div className="border-b bg-background">
@@ -113,12 +129,14 @@ export default function MyProgrammesPage() {
                 Manage your organisation&apos;s programmes and campaigns
               </p>
             </div>
-            <Link href="/my-programs/new">
-              <Button>
-                <Plus className="size-4 mr-2" />
-                Create Programme
-              </Button>
-            </Link>
+            {canCreate && (
+              <Link href="/my-programs/new">
+                <Button>
+                  <Plus className="size-4 mr-2" />
+                  Create Programme
+                </Button>
+              </Link>
+            )}
           </div>
         </Container>
       </div>
@@ -186,7 +204,7 @@ export default function MyProgrammesPage() {
                 : "Create your first programme to get started."
             }
             action={
-              searchQuery
+              searchQuery || !canCreate
                 ? undefined
                 : { label: "Create Programme", href: "/my-programs/new" }
             }

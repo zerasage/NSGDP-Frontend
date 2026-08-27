@@ -30,7 +30,7 @@ import { toast } from "sonner";
 export default function UploadProgrammeReportPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { canUpload } = useProgramPermissions();
+  const { canUpload, canAccess } = useProgramPermissions();
   const { data: programme, isLoading } = useOrganizationProgram(slug);
   const createReportMutation = useCreateProgramReport();
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -54,23 +54,27 @@ export default function UploadProgrammeReportPage() {
     );
   }
 
-  if (!programme) {
+  if (!canAccess || !canUpload) {
     return (
-      <Container className="py-16 text-center text-muted-foreground">
-        Programme not found, or it doesn&apos;t belong to your organisation.
+      <Container className="py-16 text-center space-y-4">
+        <p className="text-muted-foreground">
+          {!canAccess
+            ? "Your organisation does not have permission to manage programmes."
+            : "You do not have permission to upload programme reports."}
+        </p>
+        <Link href={canAccess ? "/my-programs" : "/dashboard"}>
+          <Button variant="outline">
+            {canAccess ? "Back to My Programmes" : "Back to dashboard"}
+          </Button>
+        </Link>
       </Container>
     );
   }
 
-  if (!canUpload) {
+  if (!programme) {
     return (
-      <Container className="py-16 text-center space-y-4">
-        <p className="text-muted-foreground">
-          Upload requires the <strong>Upload Programme Reports</strong> permission.
-        </p>
-        <Link href="/my-programs">
-          <Button variant="outline">Back to My Programmes</Button>
-        </Link>
+      <Container className="py-16 text-center text-muted-foreground">
+        Programme not found, or it doesn&apos;t belong to your organisation.
       </Container>
     );
   }

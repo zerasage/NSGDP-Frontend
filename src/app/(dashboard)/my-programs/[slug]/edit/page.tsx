@@ -15,7 +15,7 @@ import { toast } from "sonner";
 export default function EditProgrammePage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { can, canDelete } = useProgramPermissions();
+  const { can, canDelete, canAccess } = useProgramPermissions();
   const { data: programme, isLoading, error } = useOrganizationProgram(slug);
   const updateMutation = useUpdateProgram();
   const deleteMutation = useDeleteProgram();
@@ -29,25 +29,29 @@ export default function EditProgrammePage() {
     );
   }
 
+  if (!canAccess || !can("edit")) {
+    return (
+      <Container className="py-16 text-center space-y-4">
+        <p className="text-muted-foreground">
+          {!canAccess
+            ? "Your organisation does not have permission to manage programmes."
+            : "You do not have permission to edit programmes."}
+        </p>
+        <Link href={canAccess ? "/my-programs" : "/dashboard"}>
+          <Button variant="outline">
+            {canAccess ? "Back to My Programmes" : "Back to dashboard"}
+          </Button>
+        </Link>
+      </Container>
+    );
+  }
+
   if (error || !programme) {
     return (
       <Container className="py-16 text-center text-muted-foreground">
         Programme not found, or it doesn&apos;t belong to your organisation.{" "}
         <Link href="/my-programs" className="text-primary hover:underline">
           Back to My Programmes
-        </Link>
-      </Container>
-    );
-  }
-
-  if (!can("edit")) {
-    return (
-      <Container className="py-16 text-center space-y-4">
-        <p className="text-muted-foreground">
-          You do not have permission to edit programmes.
-        </p>
-        <Link href="/my-programs">
-          <Button variant="outline">Back to My Programmes</Button>
         </Link>
       </Container>
     );

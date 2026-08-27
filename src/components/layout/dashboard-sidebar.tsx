@@ -25,6 +25,8 @@ interface NavLink {
   label: string;
   icon: React.ElementType;
   roles?: string[]; // If specified, show only for these roles
+  /** When set, also require this capability on the user's organisation. */
+  requiresOrgCapability?: string;
 }
 
 const NAV_LINKS: NavLink[] = [
@@ -50,6 +52,7 @@ const NAV_LINKS: NavLink[] = [
     label: "Programmes",
     icon: ClipboardList,
     roles: ["contributor", "admin"],
+    requiresOrgCapability: "create:programs",
   },
   {
     href: "/organisation",
@@ -78,7 +81,13 @@ function getVisibleNavLinks(links: NavLink[], user: UserProfile | null | undefin
   return links.filter((link) => {
     if (!link.roles) return true;
     if (!user) return false;
-    return link.roles.includes(user.role);
+    if (!link.roles.includes(user.role)) return false;
+    if (link.requiresOrgCapability) {
+      return (user.organisationCapabilities ?? []).includes(
+        link.requiresOrgCapability,
+      );
+    }
+    return true;
   });
 }
 

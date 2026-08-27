@@ -15,7 +15,7 @@ import { toast } from "sonner";
 
 export default function NewProgrammePage() {
   const router = useRouter();
-  const { canCreate } = useProgramPermissions();
+  const { canAccess, canCreate } = useProgramPermissions();
   const { user, isLoading } = useAuth();
   const createMutation = useCreateProgram();
 
@@ -23,14 +23,18 @@ export default function NewProgrammePage() {
     return null;
   }
 
-  if (!canCreate) {
+  if (!canAccess || !canCreate) {
     return (
       <Container className="py-16 text-center space-y-4">
         <p className="text-muted-foreground">
-          You do not have permission to create programmes. Contact your Organisation Admin.
+          {!canAccess
+            ? "Your organisation does not have permission to manage programmes."
+            : "You do not have permission to create programmes. Contact your Organisation Admin."}
         </p>
-        <Link href="/my-programs">
-          <Button variant="outline">Back to My Programmes</Button>
+        <Link href={canAccess ? "/my-programs" : "/dashboard"}>
+          <Button variant="outline">
+            {canAccess ? "Back to My Programmes" : "Back to dashboard"}
+          </Button>
         </Link>
       </Container>
     );

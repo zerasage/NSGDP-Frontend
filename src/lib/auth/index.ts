@@ -11,8 +11,10 @@ export type { DatasetAccessState } from "./mock-session";
 // Program permissions
 export {
   ROLE_PROGRAM_BASE,
+  ORG_PROGRAM_CAPABILITY,
   getEffectiveProgramPermissions,
   hasProgramPermission,
   canProgram,
+  canAccessPrograms,
 } from "./program-permissions";
 export type { ProgramCapability } from "./program-permissions";
