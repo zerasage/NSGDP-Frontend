@@ -1,27 +1,46 @@
 import type { UserRole } from "@/types";
 import type { ProgramPermissionAction } from "@/types/permissions";
 
-// Programme permissions are baked into role — never delegated. Only staff
-// accounts can be added to a permission group (backend-enforced), and staff
-// don't use this portal, so there's no delegated grant to fetch here.
+/** Org-group capability that unlocks My Programmes for contributor/admin. */
+export const ORG_PROGRAM_CAPABILITY = "create:programs" as const;
+
+// Role defines the *shape* of programme actions once the org is granted access.
+// CONTRIBUTOR/ADMIN still need `create:programs` on their organisation via an
+// Organisation Group — without that grant they get nothing in the portal.
 export const ROLE_PROGRAM_BASE: Record<UserRole, ProgramPermissionAction[]> = {
   public: [],
   registered: [],
-  // Contributors can edit their own organisation's programmes — the backend
-  // edit:programs decorator already allows CONTRIBUTOR, this just makes the
-  // UI consistent with that instead of hiding a capability the API grants.
   contributor: ["edit:programs", "upload:programs"],
   admin: ["create:programs", "edit:programs", "upload:programs"],
   staff: [],
   super_admin: ["create:programs", "edit:programs", "delete:programs", "upload:programs"],
 };
 
-export function getEffectiveProgramPermissions(role: UserRole): ProgramPermissionAction[] {
+function orgHasProgramAccess(
+  role: UserRole,
+  organisationCapabilities: string[] | undefined,
+): boolean {
+  if (role === "super_admin") return true;
+  if (role !== "contributor" && role !== "admin") return false;
+  return (organisationCapabilities ?? []).includes(ORG_PROGRAM_CAPABILITY);
+}
+
+export function getEffectiveProgramPermissions(
+  role: UserRole,
+  organisationCapabilities?: string[],
+): ProgramPermissionAction[] {
+  if (!orgHasProgramAccess(role, organisationCapabilities)) return [];
   return ROLE_PROGRAM_BASE[role] ?? [];
 }
 
-export function hasProgramPermission(role: UserRole, action: ProgramPermissionAction): boolean {
-  return getEffectiveProgramPermissions(role).includes(action);
+export function hasProgramPermission(
+  role: UserRole,
+  action: ProgramPermissionAction,
+  organisationCapabilities?: string[],
+): boolean {
+  return getEffectiveProgramPermissions(role, organisationCapabilities).includes(
+    action,
+  );
 }
 
 export type ProgramCapability = "create" | "edit" | "delete" | "upload";
@@ -33,6 +52,22 @@ const CAPABILITY_ACTION: Record<ProgramCapability, ProgramPermissionAction> = {
   upload: "upload:programs",
 };
 
-export function canProgram(role: UserRole, capability: ProgramCapability): boolean {
-  return hasProgramPermission(role, CAPABILITY_ACTION[capability]);
+export function canProgram(
+  role: UserRole,
+  capability: ProgramCapability,
+  organisationCapabilities?: string[],
+): boolean {
+  return hasProgramPermission(
+    role,
+    CAPABILITY_ACTION[capability],
+    organisationCapabilities,
+  );
+}
+
+/** True when the user may open My Programmes at all (nav + page gate). */
+export function canAccessPrograms(
+  role: UserRole,
+  organisationCapabilities?: string[],
+): boolean {
+  return orgHasProgramAccess(role, organisationCapabilities);
 }

@@ -3,28 +3,30 @@
 import { useMemo } from "react";
 import { useAuth } from "@/lib/auth";
 import {
+  canAccessPrograms,
   canProgram,
   getEffectiveProgramPermissions,
 } from "@/lib/auth/program-permissions";
 import type { ProgramCapability } from "@/lib/auth/program-permissions";
 
-// Org-scoping used to be handled here (canEditProgram compared the caller's
-// org to the programme's), but every programme-management page now sources
-// its data from an org-scoped endpoint (my-organization) and the backend
-// enforces ownership on every mutation — so these are plain role checks;
-// there is no longer a programme in scope that could belong to another org.
+// Org-scoping is enforced by my-organization endpoints and ownership checks.
+// Portal access additionally requires the organisation's `create:programs`
+// Organisation Group capability (surfaced on /auth/me).
 export function useProgramPermissions() {
   const { user } = useAuth();
   const role = user?.role ?? "public";
+  const organisationCapabilities = user?.organisationCapabilities;
 
   return useMemo(
     () => ({
-      permissions: getEffectiveProgramPermissions(role),
-      can: (capability: ProgramCapability) => canProgram(role, capability),
-      canCreate: canProgram(role, "create"),
-      canUpload: canProgram(role, "upload"),
-      canDelete: canProgram(role, "delete"),
+      permissions: getEffectiveProgramPermissions(role, organisationCapabilities),
+      canAccess: canAccessPrograms(role, organisationCapabilities),
+      can: (capability: ProgramCapability) =>
+        canProgram(role, capability, organisationCapabilities),
+      canCreate: canProgram(role, "create", organisationCapabilities),
+      canUpload: canProgram(role, "upload", organisationCapabilities),
+      canDelete: canProgram(role, "delete", organisationCapabilities),
     }),
-    [role]
+    [role, organisationCapabilities],
   );
 }

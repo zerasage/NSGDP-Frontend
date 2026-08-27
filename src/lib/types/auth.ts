@@ -26,6 +26,10 @@ export interface UserProfile {
   emailVerified: boolean;
   mfaEnabled: boolean;
   createdAt: string;
+  /** Delegated user permission-group actions (staff). */
+  permissions?: string[];
+  /** Organisation Group capabilities for the user's org (e.g. create:programs). */
+  organisationCapabilities?: string[];
 }
 
 export interface AuthResponse {
