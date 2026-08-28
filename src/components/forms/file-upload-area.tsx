@@ -34,7 +34,8 @@ function detectFormat(filename: string): string {
   return map[ext] ?? "Other";
 }
 
-const DEFAULT_DATASET_ACCEPT = ".csv,.xlsx,.xls,.json,.gpkg";
+const DEFAULT_DATASET_ACCEPT =
+  ".csv,.xlsx,.xls,.json,.geojson,.gpkg,.kml,.kmz,.pdf,.doc,.docx,.ppt,.pptx,.txt,.rtf,.md,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff";
 
 function isAcceptedExtension(filename: string, accept: string): boolean {
   const ext = filename.split(".").pop()?.toLowerCase();
