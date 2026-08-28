@@ -403,7 +403,7 @@ export default function MapExplorePage() {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
+        </div>
     );
   }
 
@@ -549,7 +549,7 @@ export default function MapExplorePage() {
           <Button size="icon" variant="ghost" onClick={() => setFilterOpen(false)}>
             <X className="size-4" />
           </Button>
-        </div>
+      </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="space-y-4 overflow-y-auto p-4 thin-scrollbar">
@@ -647,7 +647,7 @@ export default function MapExplorePage() {
             <div className="flex items-center gap-2 border-b px-4 py-2">
               <Database className="size-4 text-muted-foreground" />
               <p className="text-xs font-medium">
-                Datasets ({filteredDatasets.length})
+                  Datasets ({filteredDatasets.length})
               </p>
             </div>
             <div className="flex-1 overflow-y-auto p-2 thin-scrollbar">
@@ -656,15 +656,15 @@ export default function MapExplorePage() {
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
-                </div>
-              ) : filteredDatasets.length === 0 ? (
+                    </div>
+                  ) : filteredDatasets.length === 0 ? (
                 <p className="px-3 py-8 text-center text-sm text-muted-foreground">
                   No datasets match these filters.
                 </p>
-              ) : (
-                filteredDatasets.map((dataset) => (
-                  <button
-                    key={dataset.id}
+                  ) : (
+                    filteredDatasets.map((dataset) => (
+                      <button
+                        key={dataset.id}
                     type="button"
                     onClick={() => setSelectedId(dataset.id)}
                     className={cn(
@@ -677,10 +677,10 @@ export default function MapExplorePage() {
                       {dataset.organisationName ?? "Unknown organisation"} ·{" "}
                       {coverageLabel(dataset.geographicCoverage)}
                     </p>
-                  </button>
-                ))
-              )}
-            </div>
+                      </button>
+                    ))
+                  )}
+                </div>
             {selectedDataset && (
               <div className="border-t p-4">
                 <p className="text-sm font-medium line-clamp-2">{selectedDataset.title}</p>
@@ -695,10 +695,10 @@ export default function MapExplorePage() {
                     View details
                   </Link>
                   <Button size="sm" variant="outline" onClick={() => setSelectedId(null)}>
-                    Clear
-                  </Button>
-                </div>
-              </div>
+                      Clear
+                    </Button>
+                    </div>
+                  </div>
             )}
           </div>
         </div>

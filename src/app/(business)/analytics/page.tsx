@@ -46,6 +46,13 @@ import { useWardBurden } from "@/lib/hooks/useWardBurden";
 import { usePrograms } from "@/lib/hooks/usePrograms";
 import { downloadAnalyticsCsv } from "@/lib/api/analytics";
 import {
+  MEASURE_KIND_MODES,
+  measureKindChartNoun,
+  measureKindTotalLabel,
+  resolveMeasureKind,
+  type MeasureKind,
+} from "@/lib/utils/measure-kind";
+import {
   ALL_SOURCES_ID,
   getAnalyticsSourceLabel,
   type AnalyticsDataSourceId,
@@ -228,11 +235,26 @@ function HealthAnalyticsContent() {
   const [wardLga, setWardLga] = useState<string>("");
   const [trendMode, setTrendMode] = useState<TrendMode>("annual");
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("indicators");
+  const [measureKindMode, setMeasureKindMode] = useState<MeasureKind>("cases");
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [sortAsc, setSortAsc] = useState(true);
 
   const { data: dashboard } = useAnalyticsDashboard();
-  const { data: indicators, isLoading: indicatorsLoading } = useDiseaseIndicators();
+  const { data: allIndicators, isLoading: indicatorsLoading } =
+    useDiseaseIndicators();
+
+  const indicators = useMemo(() => {
+    if (!allIndicators?.length) return allIndicators;
+    return allIndicators.filter(
+      (ind) =>
+        resolveMeasureKind({
+          name: ind.name,
+          category: ind.category,
+          unit: ind.unit,
+        }) === measureKindMode
+    );
+  }, [allIndicators, measureKindMode]);
+
   const { data: dataSources = [] } = useAnalyticsDataSources();
   const { data: burdenData, isLoading: burdenLoading } =
     useDiseaseBurdenAnalytics(selectedIndicator || undefined, selectedYear);
@@ -262,7 +284,10 @@ function HealthAnalyticsContent() {
   );
 
   useEffect(() => {
-    if (!indicators?.length) return;
+    if (!indicators?.length) {
+      if (selectedIndicator) setSelectedIndicator("");
+      return;
+    }
     if (
       indicatorFromUrl &&
       indicators.some((i) => i.slug === indicatorFromUrl)
@@ -270,7 +295,10 @@ function HealthAnalyticsContent() {
       setSelectedIndicator(indicatorFromUrl);
       return;
     }
-    if (!selectedIndicator) {
+    if (
+      !selectedIndicator ||
+      !indicators.some((i) => i.slug === selectedIndicator)
+    ) {
       setSelectedIndicator(indicators[0].slug);
     }
   }, [indicators, selectedIndicator, indicatorFromUrl]);
@@ -280,6 +308,18 @@ function HealthAnalyticsContent() {
       setWardLga(NIGER_STATE_LGAS[0]);
     }
   }, [wardLga]);
+
+  const selectedIndicatorMeta = indicators?.find((i) => i.slug === selectedIndicator);
+  const activeMeasureKind = useMemo(
+    () =>
+      resolveMeasureKind({
+        name: selectedIndicatorMeta?.name,
+        category: selectedIndicatorMeta?.category,
+        unit: selectedIndicatorMeta?.unit,
+      }),
+    [selectedIndicatorMeta]
+  );
+  const isNonCasesMeasure = activeMeasureKind !== "cases";
 
   const lgaOptions = useMemo(() => {
     const fromCoverage = dashboard?.lgaCoverage.map((c) => c.lga) ?? [];
@@ -319,26 +359,15 @@ function HealthAnalyticsContent() {
     return [...merged].sort((a, b) => b - a);
   }, [burdenData?.trendsAnnual, selectedYear]);
 
-  const selectedIndicatorMeta = indicators?.find((i) => i.slug === selectedIndicator);
-
   const isPartialYear =
     selectedYear === new Date().getFullYear() &&
     (burdenData?.kpis.monthsReporting ?? 0) > 0 &&
     (burdenData?.kpis.monthsReporting ?? 0) < 12;
 
   const wardIncidenceHighlight = useMemo(() => {
-    const unit = selectedIndicatorMeta?.unit?.toLowerCase() ?? "";
-    const category = selectedIndicatorMeta?.category?.toLowerCase() ?? "";
-    if (
-      category === "completeness" ||
-      unit.includes("%") ||
-      unit.includes("rate") ||
-      unit.includes("proportion")
-    ) {
-      return null;
-    }
+    if (isNonCasesMeasure) return null;
     return 15;
-  }, [selectedIndicatorMeta]);
+  }, [isNonCasesMeasure]);
 
   const orgNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -795,6 +824,21 @@ function HealthAnalyticsContent() {
         )}
 
         {analyticsTab === "indicators" && <>
+        <div className="flex flex-wrap gap-2">
+          {MEASURE_KIND_MODES.map((mode) => (
+            <Button
+              key={mode.value}
+              type="button"
+              size="sm"
+              variant={measureKindMode === mode.value ? "default" : "outline"}
+              className="h-8"
+              onClick={() => setMeasureKindMode(mode.value)}
+            >
+              {mode.label}
+            </Button>
+          ))}
+        </div>
+
         <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
           <div className="space-y-1">
             <p className="text-[13px] font-medium">Indicator & year</p>
@@ -804,7 +848,15 @@ function HealthAnalyticsContent() {
                 : ""}
               {selectedIndicatorMeta?.unit
                 ? `Unit: ${selectedIndicatorMeta.unit}`
-                : "Unit: cases"}
+                : measureKindMode === "cases"
+                  ? "Unit: cases"
+                  : `Unit: ${
+                      measureKindMode === "stock"
+                        ? "units"
+                        : measureKindMode === "population"
+                          ? "persons"
+                          : "%"
+                    }`}
               {" · "}
               Latest publish wins when sources overlap.
             </p>
@@ -848,7 +900,9 @@ function HealthAnalyticsContent() {
 
         {!indicators?.length && (
           <div className="rounded-2xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-            No published disease indicators yet. They appear after datasets are ingested and published.
+            No published {measureKindChartNoun(measureKindMode)} indicators yet
+            for this mode. Confirm aliases with the matching category, or switch
+            measure kind above.
           </div>
         )}
 
@@ -863,7 +917,10 @@ function HealthAnalyticsContent() {
         {indicators?.length && burdenData?.kpis.found && <>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
-            label={`Total ${selectedIndicatorMeta?.unit ?? "cases"}`}
+            label={measureKindTotalLabel(
+              activeMeasureKind,
+              selectedIndicatorMeta?.unit
+            )}
             value={burdenData.kpis.totalCases.toLocaleString()}
             hint={`${burdenData.kpis.year}${isPartialYear ? " · year-to-date" : ""}`}
             icon={Activity}
@@ -888,8 +945,12 @@ function HealthAnalyticsContent() {
           />
           <MetricCard
             label="Facility outliers"
-            value={burdenData.outliers.length}
-            hint="This indicator only"
+            value={isNonCasesMeasure ? "—" : burdenData.outliers.length}
+            hint={
+              isNonCasesMeasure
+                ? "Not shown for rate/stock measures"
+                : "This indicator only"
+            }
             icon={AlertTriangle}
             tone="warning"
           />
@@ -1000,7 +1061,7 @@ function HealthAnalyticsContent() {
                 <span className="flex size-8 items-center justify-center rounded-lg border border-info/25 bg-info/15">
                   <BarChart3 className="size-4 text-info" aria-hidden />
                 </span>
-                Top 10 LGAs by cases
+                Top 10 LGAs by {measureKindChartNoun(activeMeasureKind)}
               </span>
             }
           >
@@ -1059,7 +1120,10 @@ function HealthAnalyticsContent() {
                       ["totalCases", "Total"],
                       ["missingRows", "Missing"],
                       ["population", "Population"],
-                      ["incidencePer1000", "Incidence / 1k"],
+                      [
+                        "incidencePer1000",
+                        isNonCasesMeasure ? "N/A" : "Incidence / 1k",
+                      ],
                       ["facilities", "Facilities"],
                     ] as const
                   ).map(([key, label]) => (
@@ -1085,7 +1149,9 @@ function HealthAnalyticsContent() {
                     key={row.lga}
                     className={cn(
                       "border-b last:border-0",
-                      row.incidencePer1000 > 7 && "bg-destructive/5"
+                      !isNonCasesMeasure &&
+                        row.incidencePer1000 > 7 &&
+                        "bg-destructive/5"
                     )}
                   >
                     <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
@@ -1102,7 +1168,9 @@ function HealthAnalyticsContent() {
                       {row.population != null ? row.population.toLocaleString() : "—"}
                     </td>
                     <td className="px-4 py-3.5 text-right tabular-nums">
-                      {row.incidencePer1000}
+                      {isNonCasesMeasure
+                        ? "—"
+                        : Math.round(row.incidencePer1000 * 10) / 10}
                     </td>
                     <td className="px-4 py-3.5 text-right tabular-nums text-muted-foreground">
                       {row.facilities}
