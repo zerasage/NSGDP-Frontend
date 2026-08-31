@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getWardBurden } from '../api/analytics';
 import { ALL_SOURCES_ID } from '../constants/analytics-sources';
 
@@ -22,5 +22,6 @@ export function useWardBurden(
       }),
     enabled: !!indicator && !!lga,
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }

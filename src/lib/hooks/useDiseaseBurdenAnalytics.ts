@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   getBurdenKpis,
   getBurdenLgaBurden,
@@ -41,5 +41,6 @@ export function useDiseaseBurdenAnalytics(
     },
     enabled: !!indicator,
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
