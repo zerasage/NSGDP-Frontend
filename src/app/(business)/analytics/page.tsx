@@ -14,6 +14,7 @@ import {
   MapPin,
   ArrowUpDown,
   Building,
+  Loader2,
 } from "lucide-react";
 import {
   LineChart,
@@ -151,12 +152,18 @@ function MetricCard({
   hint,
   icon: Icon,
   tone = "primary",
+  loading = false,
+  refreshing = false,
 }: {
   label: string;
   value: ReactNode;
   hint?: string;
   icon?: typeof Activity;
   tone?: MetricTone;
+  /** No data yet — show a value skeleton. */
+  loading?: boolean;
+  /** Refetch in flight — keep value visible, dim briefly. */
+  refreshing?: boolean;
 }) {
   const t = METRIC_TONE[tone];
   return (
@@ -176,19 +183,38 @@ function MetricCard({
           </div>
         ) : null}
       </div>
-      <p
-        className={cn(
-          "mt-2 text-xl font-bold tabular-nums tracking-tight sm:text-2xl",
-          t.value
-        )}
-      >
-        {value}
-      </p>
+      {loading ? (
+        <Skeleton className="mt-2 h-8 w-24 rounded-md" />
+      ) : (
+        <p
+          className={cn(
+            "mt-2 text-xl font-bold tabular-nums tracking-tight transition-opacity duration-300 sm:text-2xl",
+            t.value,
+            refreshing && "opacity-45",
+          )}
+        >
+          {value}
+        </p>
+      )}
       {hint ? (
         <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
       ) : null}
     </div>
   );
+}
+
+function MetricCardSkeleton({ tone = "primary" }: { tone?: MetricTone }) {
+  return (
+    <div className={cn("rounded-2xl border p-4", METRIC_TONE[tone].card)}>
+      <Skeleton className="h-3 w-24" />
+      <Skeleton className="mt-3 h-8 w-20" />
+      <Skeleton className="mt-2 h-3 w-32" />
+    </div>
+  );
+}
+
+function ChartPanelSkeleton() {
+  return <Skeleton className="h-56 w-full rounded-xl sm:h-72" />;
 }
 
 function Panel({
@@ -256,11 +282,11 @@ function HealthAnalyticsContent() {
   }, [allIndicators, measureKindMode]);
 
   const { data: dataSources = [] } = useAnalyticsDataSources();
-  const { data: burdenData, isLoading: burdenLoading } =
+  const { data: burdenData, isLoading: burdenLoading, isFetching: burdenFetching } =
     useDiseaseBurdenAnalytics(selectedIndicator || undefined, selectedYear);
 
   const orgFilterId = dataSource === ALL_SOURCES_ID ? undefined : dataSource;
-  const { data: wardBurden, isLoading: wardLoading } = useWardBurden(
+  const { data: wardBurden, isLoading: wardLoading, isFetching: wardFetching } = useWardBurden(
     selectedIndicator || undefined,
     wardLga || undefined,
     { organisationId: orgFilterId, year: selectedYear }
@@ -430,24 +456,10 @@ function HealthAnalyticsContent() {
     0
   );
 
-  const indicatorsLoadingState =
-    analyticsTab === "indicators" &&
-    (indicatorsLoading || (burdenLoading && !burdenData));
-
-  if (indicatorsLoadingState) {
-    return (
-      <main className="flex-1 py-6">
-        <Container size="wide" className="space-y-6">
-          <PageHeaderSkeleton />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-[96px] rounded-2xl" />
-            ))}
-          </div>
-        </Container>
-      </main>
-    );
-  }
+  const burdenPending = burdenLoading && !burdenData;
+  const burdenRefreshing = burdenFetching && !!burdenData;
+  const wardPending = wardLoading && !wardBurden;
+  const wardRefreshing = wardFetching && !!wardBurden;
 
   return (
     <main className="flex-1 py-6">
@@ -709,7 +721,15 @@ function HealthAnalyticsContent() {
                 </div>
               </div>
 
-              {!wardLoading && (wardBurden?.length ?? 0) === 0 && (
+              {wardPending && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[...Array(3)].map((_, i) => (
+                    <MetricCardSkeleton key={i} />
+                  ))}
+                </div>
+              )}
+
+              {!wardPending && !wardLoading && (wardBurden?.length ?? 0) === 0 && (
                 <div className="rounded-xl border border-dashed px-4 py-6 text-center text-[13px] text-muted-foreground">
                   No ward-level rows for <span className="font-medium text-foreground">{indicatorLabel}</span> in{" "}
                   <span className="font-medium text-foreground">{wardLga}</span> ({selectedYear}).
@@ -717,13 +737,19 @@ function HealthAnalyticsContent() {
                 </div>
               )}
 
-              {(wardBurden?.length ?? 0) > 0 && (
-                <div className="grid gap-3 sm:grid-cols-3">
+              {!wardPending && (wardBurden?.length ?? 0) > 0 && (
+                <div
+                  className={cn(
+                    "grid gap-3 sm:grid-cols-3 transition-opacity duration-300",
+                    wardRefreshing && "opacity-80",
+                  )}
+                >
                   <MetricCard
                     label="Wards with data"
                     value={wardBurden!.length}
                     icon={MapPin}
                     tone="info"
+                    refreshing={wardRefreshing}
                   />
                   <MetricCard
                     label="Total cases"
@@ -732,23 +758,30 @@ function HealthAnalyticsContent() {
                       .toLocaleString()}
                     icon={Activity}
                     tone="destructive"
+                    refreshing={wardRefreshing}
                   />
                   <MetricCard
                     label="Missing rows"
                     value={wardBurden!.reduce((s, r) => s + r.missingRows, 0)}
                     icon={AlertTriangle}
                     tone="warning"
+                    refreshing={wardRefreshing}
                   />
                 </div>
               )}
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div
+                className={cn(
+                  "grid gap-4 lg:grid-cols-2 transition-opacity duration-300",
+                  wardRefreshing && "opacity-80",
+                )}
+              >
                 <div className="space-y-3">
                   <p className="text-[13px] font-medium">Cases by ward</p>
                   <WardAnalyticsChart
                     metric="cases"
                     data={wardBurden}
-                    isLoading={wardLoading}
+                    isLoading={wardPending}
                     emptyMessage="No ward cases to chart for this selection."
                   />
                 </div>
@@ -766,7 +799,7 @@ function HealthAnalyticsContent() {
                   <WardAnalyticsChart
                     metric="incidencePer1000"
                     data={wardBurden}
-                    isLoading={wardLoading}
+                    isLoading={wardPending}
                     incidenceHighlightThreshold={wardIncidenceHighlight}
                     emptyMessage="No ward incidence to chart for this selection."
                   />
@@ -862,6 +895,12 @@ function HealthAnalyticsContent() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {burdenRefreshing ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                Updating…
+              </span>
+            ) : null}
             <Select
               value={selectedIndicator}
               onValueChange={(v) => v && setSelectedIndicator(v)}
@@ -898,7 +937,15 @@ function HealthAnalyticsContent() {
           </div>
         </div>
 
-        {!indicators?.length && (
+        {!indicators?.length && indicatorsLoading && (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <MetricCardSkeleton key={i} />
+            ))}
+          </div>
+        )}
+
+        {!indicators?.length && !indicatorsLoading && (
           <div className="rounded-2xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
             No published {measureKindChartNoun(measureKindMode)} indicators yet
             for this mode. Confirm aliases with the matching category, or switch
@@ -906,7 +953,26 @@ function HealthAnalyticsContent() {
           </div>
         )}
 
-        {indicators?.length && burdenData && !burdenData.kpis.found && (
+        {burdenPending && indicators?.length ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[...Array(4)].map((_, i) => (
+                <MetricCardSkeleton key={i} tone={i === 0 ? "destructive" : i === 1 ? "success" : "info"} />
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[...Array(4)].map((_, i) => (
+                <MetricCardSkeleton key={i} tone="muted" />
+              ))}
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <ChartPanelSkeleton />
+              <ChartPanelSkeleton />
+            </div>
+          </>
+        ) : null}
+
+        {indicators?.length && burdenData && !burdenData.kpis.found && !burdenPending && (
           <Alert variant="destructive">
             <AlertDescription>
               No data found for &ldquo;{indicatorLabel}&rdquo; in {burdenData.kpis.year}.
@@ -914,7 +980,13 @@ function HealthAnalyticsContent() {
           </Alert>
         )}
 
-        {indicators?.length && burdenData?.kpis.found && <>
+        {indicators?.length && burdenData?.kpis.found && !burdenPending && <>
+        <div
+          className={cn(
+            "space-y-6 transition-opacity duration-300",
+            burdenRefreshing && "opacity-80",
+          )}
+        >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label={measureKindTotalLabel(
@@ -925,12 +997,14 @@ function HealthAnalyticsContent() {
             hint={`${burdenData.kpis.year}${isPartialYear ? " · year-to-date" : ""}`}
             icon={Activity}
             tone="destructive"
+            refreshing={burdenRefreshing}
           />
           <MetricCard
             label="LGAs reporting"
             value={burdenData.kpis.lgasReporting}
             icon={BarChart3}
             tone="success"
+            refreshing={burdenRefreshing}
           />
           <MetricCard
             label="Data completeness"
@@ -942,6 +1016,7 @@ function HealthAnalyticsContent() {
             }
             icon={MapPin}
             tone="info"
+            refreshing={burdenRefreshing}
           />
           <MetricCard
             label="Facility outliers"
@@ -953,6 +1028,7 @@ function HealthAnalyticsContent() {
             }
             icon={AlertTriangle}
             tone="warning"
+            refreshing={burdenRefreshing}
           />
         </div>
 
@@ -1320,6 +1396,7 @@ function HealthAnalyticsContent() {
             </table>
             </div>
         </Panel>
+        </div>
         </>}
         </>}
       </Container>
