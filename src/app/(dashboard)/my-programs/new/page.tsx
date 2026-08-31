@@ -52,7 +52,7 @@ export default function NewProgrammePage() {
 
   return (
     <main className="flex-1">
-      <Container className="py-8 max-w-2xl">
+      <Container className="py-8 max-w-3xl">
         <div className="mb-6 flex items-center gap-3">
           <Link href="/my-programs">
             <Button variant="ghost" size="icon" aria-label="Back to My Programmes">

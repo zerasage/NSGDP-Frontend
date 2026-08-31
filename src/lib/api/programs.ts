@@ -1,7 +1,10 @@
 import { apiClient } from './client';
 import type { ApiResponse, PaginatedResponse } from '../types/common';
-import type { Program, ProgramType, ProgramStatus, ProgramReport } from '@/types';
-import type { ProgramFormData } from '@/lib/schemas/program';
+import type { Program, ProgramType, ProgramStatus, ProgramReport, ProgrammeProgressMode } from '@/types';
+import type { ProgramFormData, ProgramProgressUpdateData } from '@/lib/schemas/program';
+import { headlineProgressPercent } from '@/lib/constants/program-progress';
+import { objectivesFromEditorHtml, objectivesToEditorHtml } from '@/lib/objectives-html';
+import { daysActiveSince } from '@/lib/utils/date';
 
 export interface GetProgramsParams {
   page?: number;
@@ -14,8 +17,6 @@ export interface GetProgramsParams {
   sort?: 'recent' | 'alphabetical';
 }
 
-// Raw shape returned by the backend (snake_case — matches the TypeORM
-// entity columns directly, no camelCase conversion happens server-side).
 interface ProgrammeApiPayload {
   id: string;
   name: string;
@@ -29,7 +30,9 @@ interface ProgrammeApiPayload {
   organisation_id: string | null;
   manager_id: string | null;
   target_lgas: string[] | null;
+  covered_lgas: string[] | null;
   objectives: string[] | null;
+  progress_mode: ProgrammeProgressMode | null;
   primary_metric: string | null;
   target_count: number | null;
   reach_count: number | null;
@@ -49,49 +52,61 @@ interface DocumentApiPayload {
   created_at: string;
 }
 
-// The backend has no "planned" status — a programme's ACTIVE status covers
-// both "ongoing" and "not started yet". The distinction is derived from
-// start_date, which round-trips consistently: pick "planned" with a future
-// start date, it's stored ACTIVE, and reads back as "planned" again.
 function mapStatus(raw: ProgrammeApiPayload['status'], startDate: string | null): ProgramStatus {
   if (raw === 'completed') return 'completed';
   if (raw === 'active') {
     if (startDate && new Date(startDate) > new Date()) return 'planned';
     return 'ongoing';
   }
-  // suspended/archived: not expected to reach the public UI (filtered out
-  // server-side by default), fall back to the closest safe display state.
   return 'planned';
 }
 
-function activeDaysSince(startDate: string | null): number {
-  if (!startDate) return 0;
-  const start = new Date(startDate).getTime();
-  const now = Date.now();
-  if (start > now) return 0;
-  return Math.floor((now - start) / (1000 * 60 * 60 * 24));
+function parseOptionalCount(raw: string | undefined): number | undefined {
+  if (raw == null) return undefined;
+  const trimmed = raw.trim();
+  if (trimmed === '') return undefined;
+  const n = Number.parseInt(trimmed, 10);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 function mapProgramme(raw: ProgrammeApiPayload): Program {
   const targetCount = raw.target_count ?? 0;
   const reachCount = raw.reach_count ?? 0;
+  const targetLgas = raw.target_lgas ?? [];
+  const coveredLgas = raw.covered_lgas ?? [];
+  const progressMode = raw.progress_mode ?? 'lga_coverage';
+
+  const progressSource = {
+    progressMode,
+    primaryMetric: raw.primary_metric,
+    targetLgas,
+    coveredLgas,
+    lgasCovered: raw.lgas_covered_count,
+    targetCount: raw.target_count,
+    reachCount: raw.reach_count,
+  };
+
   return {
     id: raw.slug,
     slug: raw.slug,
     name: raw.name,
     type: (raw.type ?? 'other') as ProgramType,
     status: mapStatus(raw.status, raw.start_date),
+    rawStatus: raw.status,
     description: raw.description,
     startDate: raw.start_date ?? raw.created_at,
     endDate: raw.end_date ?? undefined,
+    progressMode,
+    targetLgas,
+    coveredLgas,
+    objectives: raw.objectives ?? [],
     primaryMetric: raw.primary_metric ?? '',
-    completionPercent: targetCount > 0 ? Math.round((reachCount / targetCount) * 100) : 0,
+    completionPercent: headlineProgressPercent(progressSource) ?? 0,
     reachCount,
     targetCount,
-    activeDays: activeDaysSince(raw.start_date),
-    lgasCovered: raw.lgas_covered_count ?? raw.target_lgas?.length ?? 0,
+    activeDays: daysActiveSince(raw.start_date ?? raw.created_at),
+    lgasCovered: raw.lgas_covered_count ?? coveredLgas.length,
     organisationId: raw.organisation_id ?? undefined,
-    rawStatus: raw.status,
     updatedAt: raw.updated_at,
   };
 }
@@ -111,28 +126,46 @@ function mapReport(raw: DocumentApiPayload): ProgramReport {
     uploadedBy: '',
     fileSizeBytes: raw.file_size ?? 0,
     fileFormat,
-    // Real download is fetched on demand (POST /documents/:slug/download)
-    // rather than a static link — see useDownloadDocument().
     url: '',
   };
 }
 
-function toCreatePayload(data: ProgramFormData) {
+function toFormPayload(data: Partial<ProgramFormData>) {
+  const payload: Record<string, unknown> = {};
+
+  if (data.name !== undefined) payload.name = data.name;
+  if (data.description !== undefined) payload.description = data.description;
+  if (data.type !== undefined) payload.type = data.type;
+  if (data.targetLgas !== undefined) payload.targetLgas = data.targetLgas;
+  if (data.startDate !== undefined) payload.startDate = data.startDate || undefined;
+  if (data.endDate !== undefined) payload.endDate = data.endDate || undefined;
+  if (data.progressMode !== undefined) payload.progressMode = data.progressMode;
+
+  if (data.objectives !== undefined) {
+    payload.objectives = objectivesFromEditorHtml(data.objectives);
+  }
+
+  if (data.progressMode && data.progressMode !== 'lga_coverage') {
+    if (data.primaryMetric !== undefined) {
+      payload.primaryMetric = data.primaryMetric.trim() || undefined;
+    }
+    if (data.targetCount !== undefined) {
+      payload.targetCount = parseOptionalCount(data.targetCount);
+    }
+  }
+
+  if (data.status !== undefined) {
+    payload.status = data.status === 'completed' ? 'completed' : 'active';
+  }
+
+  return payload;
+}
+
+function toProgressPayload(data: ProgramProgressUpdateData) {
   return {
-    name: data.name,
-    description: data.description,
-    type: data.type,
-    // organisationId is intentionally omitted — the backend derives it from
-    // the caller's own organisation for CONTRIBUTOR/ADMIN; this portal has
-    // no path for a caller to create/edit on behalf of another org.
-    targetLgas: undefined,
-    startDate: data.startDate || undefined,
-    endDate: data.endDate || undefined,
-    primaryMetric: data.primaryMetric || undefined,
-    targetCount: data.targetCount,
+    coveredLgas: data.coveredLgas,
     reachCount: data.reachCount,
-    lgasCoveredCount: data.lgasCovered,
-    status: data.status === 'completed' ? 'completed' : 'active',
+    status: data.status,
   };
 }
 
@@ -163,10 +196,6 @@ export async function getProgramBySlug(slug: string): Promise<Program> {
   return mapProgramme(response.data.data);
 }
 
-/**
- * Org-scoped list (authenticated) — shows every status, including
- * suspended/archived programmes the public endpoint hides.
- */
 export async function getOrganizationPrograms(
   params?: Omit<GetProgramsParams, 'organisationId'>
 ): Promise<PaginatedResponse<Program>> {
@@ -188,11 +217,6 @@ export async function getOrganizationPrograms(
   return { ...paginated, data: paginated.data.map(mapProgramme) };
 }
 
-/**
- * Org-scoped single lookup (authenticated) — 404s if the slug belongs to a
- * different organisation, so a caller can never load another org's
- * programme into a management form.
- */
 export async function getOrganizationProgramBySlug(slug: string): Promise<Program> {
   const response = await apiClient.get<ApiResponse<ProgrammeApiPayload>>(
     `/programs/my-organization/${slug}`
@@ -203,7 +227,7 @@ export async function getOrganizationProgramBySlug(slug: string): Promise<Progra
 export async function createProgramApi(data: ProgramFormData): Promise<Program> {
   const response = await apiClient.post<ApiResponse<ProgrammeApiPayload>>(
     '/programs',
-    toCreatePayload(data)
+    toFormPayload(data)
   );
   return mapProgramme(response.data.data);
 }
@@ -214,7 +238,18 @@ export async function updateProgramApi(
 ): Promise<Program> {
   const response = await apiClient.patch<ApiResponse<ProgrammeApiPayload>>(
     `/programs/${slug}`,
-    toCreatePayload(data as ProgramFormData)
+    toFormPayload(data)
+  );
+  return mapProgramme(response.data.data);
+}
+
+export async function updateProgramProgressApi(
+  slug: string,
+  data: ProgramProgressUpdateData
+): Promise<Program> {
+  const response = await apiClient.patch<ApiResponse<ProgrammeApiPayload>>(
+    `/programs/${slug}`,
+    toProgressPayload(data)
   );
   return mapProgramme(response.data.data);
 }
@@ -244,3 +279,5 @@ export async function createProgramReport(
 export async function deleteProgramReportApi(slug: string, reportId: string): Promise<void> {
   await apiClient.delete(`/programs/${slug}/reports/${reportId}`);
 }
+
+export { objectivesToEditorHtml };

@@ -2,7 +2,17 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Target, TrendingUp, FileText, Download, Settings, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Target,
+  TrendingUp,
+  FileText,
+  Download,
+  Settings,
+  Loader2,
+} from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +20,18 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { useProgramBySlug, useProgramReports } from "@/lib/hooks/usePrograms";
 import { useDownloadDocument } from "@/lib/hooks/useDocuments";
 import { useAuth } from "@/lib/auth";
+import { RichHtmlContent } from "@/components/programs/rich-html-content";
+import { objectivesToEditorHtml } from "@/lib/api/programs";
+import {
+  headlineProgressSummary,
+  lgaCoverageCounts,
+  lgaCoveragePercent,
+  outcomeMetricPercent,
+  tracksLgaCoverage,
+  tracksOutcomeMetric,
+  PROGRESS_MODE_OPTIONS,
+} from "@/lib/constants/program-progress";
+import { daysActiveSince, daysUntilStart } from "@/lib/utils/date";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -54,9 +76,16 @@ export default function ProgramDetailPage() {
   }
 
   const canManage = !!user?.organisationId && user.organisationId === program.organisationId;
-  const coveragePct = program.targetCount > 0
-    ? Math.round((program.reachCount / program.targetCount) * 100)
-    : 0;
+  const mode = program.progressMode ?? "lga_coverage";
+  const lga = lgaCoverageCounts(program);
+  const lgaPct = lgaCoveragePercent(program);
+  const outcomePct = outcomeMetricPercent(program);
+  const headline = headlineProgressSummary(program);
+  const modeLabel = PROGRESS_MODE_OPTIONS.find((o) => o.value === mode)?.label ?? mode;
+  const untilStart = daysUntilStart(program.startDate);
+  const activeDays = daysActiveSince(program.startDate);
+  const timelineLabel = untilStart > 0 ? "Starts in" : "Active days";
+  const timelineValue = untilStart > 0 ? untilStart : activeDays;
 
   return (
     <main className="flex-1">
@@ -73,22 +102,30 @@ export default function ProgramDetailPage() {
                   variant="secondary"
                   className={cn(
                     program.status === "completed" && "bg-emerald-100 text-emerald-800",
-                    program.status === "ongoing"   && "bg-amber-100 text-amber-800"
+                    program.status === "ongoing" && "bg-amber-100 text-amber-800",
                   )}
                 >
                   {program.status}
                 </Badge>
+                <Badge variant="outline" className="capitalize">{program.type}</Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-1">{program.description}</p>
             </div>
             {canManage && (
               <div className="ml-auto flex flex-wrap gap-2">
                 <Link
+                  href={`/my-programs/${program.slug}/edit?progress=1`}
+                  className={cn(buttonVariants({ variant: "default", size: "sm" }), "gap-1.5")}
+                >
+                  <TrendingUp className="size-3.5" />
+                  Update progress
+                </Link>
+                <Link
                   href={`/my-programs/${program.slug}/edit`}
                   className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
                 >
                   <Settings className="size-3.5" />
-                  Manage in Dashboard
+                  Manage
                 </Link>
               </div>
             )}
@@ -97,49 +134,131 @@ export default function ProgramDetailPage() {
       </div>
 
       <Container className="py-8 space-y-8">
-        {/* KPI cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { icon: TrendingUp,  label: "Coverage",          value: `${coveragePct}%` },
-            { icon: Target,      label: "Reached / Target",  value: `${(program.reachCount/1000).toFixed(0)}K / ${(program.targetCount/1000).toFixed(0)}K` },
-            { icon: MapPin,      label: "LGAs Covered",      value: String(program.lgasCovered) },
-            { icon: Calendar,    label: "Active Days",        value: String(program.activeDays) },
-          ].map((kpi) => (
-            <Card key={kpi.label}>
+          {headline.percent != null && (
+            <Card>
               <CardContent className="pt-5 flex items-center gap-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <kpi.icon className="size-5 text-primary" />
+                  <TrendingUp className="size-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{kpi.value}</p>
-                  <p className="text-xs text-muted-foreground">{kpi.label}</p>
+                  <p className="text-2xl font-bold">{headline.percent}%</p>
+                  <p className="text-xs text-muted-foreground">{headline.basis ?? "Progress"}</p>
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )}
+          {tracksLgaCoverage(mode) && lga.target > 0 && (
+            <Card>
+              <CardContent className="pt-5 flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <MapPin className="size-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{lga.reach} / {lga.target}</p>
+                  <p className="text-xs text-muted-foreground">LGAs covered</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {tracksOutcomeMetric(mode) && program.targetCount > 0 && (
+            <Card>
+              <CardContent className="pt-5 flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Target className="size-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {program.reachCount.toLocaleString()} / {program.targetCount.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{program.primaryMetric || "Outcome"}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          <Card>
+            <CardContent className="pt-5 flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <Calendar className="size-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{timelineValue}</p>
+                <p className="text-xs text-muted-foreground">{timelineLabel}</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Progress bar */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Progress — {program.primaryMetric}</CardTitle>
+            <CardTitle className="text-base">Progress overview</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>{program.reachCount.toLocaleString()} reached</span>
-              <span className="font-bold text-lg text-primary">{coveragePct}%</span>
-              <span className="text-muted-foreground">{program.targetCount.toLocaleString()} target</span>
-            </div>
-            <div className="h-4 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${Math.min(100, coveragePct)}%` }}
-              />
-            </div>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">Tracking: {modeLabel}</p>
+
+            {tracksLgaCoverage(mode) && lgaPct != null && (
+              <div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="font-medium">LGA coverage</span>
+                  <span className="text-muted-foreground">{lga.reach} / {lga.target} LGAs</span>
+                </div>
+                <div className="h-4 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${lgaPct}%` }} />
+                </div>
+              </div>
+            )}
+
+            {tracksOutcomeMetric(mode) && outcomePct != null && (
+              <div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="font-medium">{program.primaryMetric || "Outcome"}</span>
+                  <span className="text-muted-foreground">
+                    {program.reachCount.toLocaleString()} / {program.targetCount.toLocaleString()}
+                  </span>
+                </div>
+                <div className="h-4 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${outcomePct}%` }} />
+                </div>
+              </div>
+            )}
+
+            {headline.percent == null && (
+              <p className="text-sm text-muted-foreground">No progress recorded yet.</p>
+            )}
           </CardContent>
         </Card>
 
-        {/* Reports / Documents */}
+        {program.objectives?.length ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Objectives</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RichHtmlContent html={objectivesToEditorHtml(program.objectives)} />
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {(program.targetLgas?.length ?? 0) > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Target LGAs ({program.targetLgas!.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {program.targetLgas!.map((name) => (
+                  <Badge
+                    key={name}
+                    variant={program.coveredLgas?.includes(name) ? "default" : "secondary"}
+                  >
+                    {name}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -153,7 +272,9 @@ export default function ProgramDetailPage() {
                 <FileText className="size-5 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{report.title}</p>
-                  <p className="text-xs text-muted-foreground">{report.fileFormat} · {new Date(report.uploadedAt).toLocaleDateString()}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {report.fileFormat} · {new Date(report.uploadedAt).toLocaleDateString()}
+                  </p>
                 </div>
                 <Button
                   size="sm"

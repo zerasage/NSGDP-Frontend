@@ -20,6 +20,9 @@ function enrichProgram(p: Program): Program {
   const orgId = p.organisationId ?? PROGRAM_DATA_SOURCE[p.id] ?? "org-1";
   return {
     ...p,
+    targetLgas: p.targetLgas ?? [],
+    coveredLgas: p.coveredLgas ?? [],
+    objectives: p.objectives ?? [],
     organisationId: orgId,
     organisationName: orgNameById[orgId] ?? "NSPHCDA",
   };
@@ -241,8 +244,7 @@ function slugify(name: string) {
 
 export function createProgram(data: ProgramFormData): Program {
   const id = `prog-${Date.now()}`;
-  const reach = data.reachCount ?? 0;
-  const target = data.targetCount;
+  const target = parseOptionalCount(data.targetCount) ?? 0;
   const program: Program = enrichProgram({
     id,
     slug: slugify(data.name),
@@ -252,12 +254,16 @@ export function createProgram(data: ProgramFormData): Program {
     description: data.description,
     startDate: data.startDate,
     endDate: data.endDate || undefined,
+    progressMode: data.progressMode,
+    targetLgas: data.targetLgas,
+    coveredLgas: [],
+    objectives: data.objectives ? [data.objectives] : [],
     primaryMetric: data.primaryMetric,
-    completionPercent: target > 0 ? Math.min(100, Math.round((reach / target) * 100)) : 0,
-    reachCount: reach,
+    completionPercent: target > 0 ? 0 : 0,
+    reachCount: 0,
     targetCount: target,
     activeDays: 0,
-    lgasCovered: data.lgasCovered ?? 0,
+    lgasCovered: 0,
     reports: [],
     linkedDatasetIds: [],
   });
@@ -265,21 +271,38 @@ export function createProgram(data: ProgramFormData): Program {
   return program;
 }
 
+function parseOptionalCount(raw: string | undefined): number | undefined {
+  if (raw == null) return undefined;
+  const trimmed = raw.trim();
+  if (trimmed === "") return undefined;
+  const n = Number.parseInt(trimmed, 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 export function updateProgram(id: string, data: Partial<ProgramFormData>): Program | undefined {
   const idx = runtimePrograms.findIndex((p) => p.id === id);
   if (idx === -1) return undefined;
   const current = runtimePrograms[idx];
-  const reach = data.reachCount ?? current.reachCount;
-  const target = data.targetCount ?? current.targetCount;
+  const target = data.targetCount !== undefined
+    ? (parseOptionalCount(data.targetCount) ?? current.targetCount)
+    : current.targetCount;
+  const reach = current.reachCount;
   const updated: Program = enrichProgram({
     ...current,
-    ...data,
+    name: data.name ?? current.name,
+    type: data.type ?? current.type,
+    status: data.status ?? current.status,
+    description: data.description ?? current.description,
+    startDate: data.startDate ?? current.startDate,
     slug: data.name ? slugify(data.name) : current.slug,
     endDate: data.endDate || undefined,
+    progressMode: data.progressMode ?? current.progressMode,
+    targetLgas: data.targetLgas ?? current.targetLgas,
+    primaryMetric: data.primaryMetric ?? current.primaryMetric,
     completionPercent: target > 0 ? Math.min(100, Math.round((reach / target) * 100)) : 0,
     reachCount: reach,
     targetCount: target,
-    lgasCovered: data.lgasCovered ?? current.lgasCovered,
+    lgasCovered: current.lgasCovered,
   });
   runtimePrograms = runtimePrograms.map((p, i) => (i === idx ? updated : p));
   return updated;
