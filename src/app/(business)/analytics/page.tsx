@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -153,17 +153,17 @@ function MetricCard({
   icon: Icon,
   tone = "primary",
   loading = false,
-  refreshing = false,
+  valueKey,
 }: {
   label: string;
   value: ReactNode;
   hint?: string;
   icon?: typeof Activity;
   tone?: MetricTone;
-  /** No data yet — show a value skeleton. */
+  /** Show a value skeleton instead of a number. */
   loading?: boolean;
-  /** Refetch in flight — keep value visible, dim briefly. */
-  refreshing?: boolean;
+  /** Changes trigger a short fade-in when the figure updates. */
+  valueKey?: string;
 }) {
   const t = METRIC_TONE[tone];
   return (
@@ -187,10 +187,10 @@ function MetricCard({
         <Skeleton className="mt-2 h-8 w-24 rounded-md" />
       ) : (
         <p
+          key={valueKey}
           className={cn(
-            "mt-2 text-xl font-bold tabular-nums tracking-tight transition-opacity duration-300 sm:text-2xl",
+            "mt-2 text-xl font-bold tabular-nums tracking-tight animate-in fade-in-0 duration-300 sm:text-2xl",
             t.value,
-            refreshing && "opacity-45",
           )}
         >
           {value}
@@ -215,6 +215,17 @@ function MetricCardSkeleton({ tone = "primary" }: { tone?: MetricTone }) {
 
 function ChartPanelSkeleton() {
   return <Skeleton className="h-56 w-full rounded-xl sm:h-72" />;
+}
+
+function TablePanelSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="space-y-2 rounded-xl border p-4">
+      <Skeleton className="h-4 w-40" />
+      {[...Array(rows)].map((_, i) => (
+        <Skeleton key={i} className="h-10 w-full rounded-md" />
+      ))}
+    </div>
+  );
 }
 
 function Panel({
@@ -265,7 +276,7 @@ function HealthAnalyticsContent() {
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [sortAsc, setSortAsc] = useState(true);
 
-  const { data: dashboard } = useAnalyticsDashboard();
+  const { data: dashboard, isPending: dashboardPending } = useAnalyticsDashboard();
   const { data: allIndicators, isLoading: indicatorsLoading } =
     useDiseaseIndicators();
 
@@ -281,13 +292,46 @@ function HealthAnalyticsContent() {
     );
   }, [allIndicators, measureKindMode]);
 
-  const { data: dataSources = [] } = useAnalyticsDataSources();
-  const { data: burdenData, isLoading: burdenLoading, isFetching: burdenFetching } =
-    useDiseaseBurdenAnalytics(selectedIndicator || undefined, selectedYear);
+  /** Valid indicator for the current mode — resolved synchronously (no useEffect gap). */
+  const resolvedIndicator = useMemo(() => {
+    if (
+      indicatorFromUrl &&
+      indicators?.some((i) => i.slug === indicatorFromUrl)
+    ) {
+      return indicatorFromUrl;
+    }
+    if (
+      selectedIndicator &&
+      indicators?.some((i) => i.slug === selectedIndicator)
+    ) {
+      return selectedIndicator;
+    }
+    return indicators?.[0]?.slug ?? "";
+  }, [indicators, selectedIndicator, indicatorFromUrl]);
+
+  useEffect(() => {
+    if (resolvedIndicator && resolvedIndicator !== selectedIndicator) {
+      setSelectedIndicator(resolvedIndicator);
+    }
+    if (!resolvedIndicator && selectedIndicator) {
+      setSelectedIndicator("");
+    }
+  }, [resolvedIndicator, selectedIndicator]);
 
   const orgFilterId = dataSource === ALL_SOURCES_ID ? undefined : dataSource;
-  const { data: wardBurden, isLoading: wardLoading, isFetching: wardFetching } = useWardBurden(
-    selectedIndicator || undefined,
+  const { data: dataSources = [] } = useAnalyticsDataSources();
+  const {
+    data: burdenData,
+    isPending: burdenPending,
+    isFetching: burdenFetching,
+    isPlaceholderData: burdenIsPlaceholder,
+  } = useDiseaseBurdenAnalytics(resolvedIndicator || undefined, selectedYear);
+  const {
+    data: wardBurden,
+    isPending: wardPending,
+    isPlaceholderData: wardIsPlaceholder,
+  } = useWardBurden(
+    resolvedIndicator || undefined,
     wardLga || undefined,
     { organisationId: orgFilterId, year: selectedYear }
   );
@@ -310,32 +354,14 @@ function HealthAnalyticsContent() {
   );
 
   useEffect(() => {
-    if (!indicators?.length) {
-      if (selectedIndicator) setSelectedIndicator("");
-      return;
-    }
-    if (
-      indicatorFromUrl &&
-      indicators.some((i) => i.slug === indicatorFromUrl)
-    ) {
-      setSelectedIndicator(indicatorFromUrl);
-      return;
-    }
-    if (
-      !selectedIndicator ||
-      !indicators.some((i) => i.slug === selectedIndicator)
-    ) {
-      setSelectedIndicator(indicators[0].slug);
-    }
-  }, [indicators, selectedIndicator, indicatorFromUrl]);
-
-  useEffect(() => {
     if (!wardLga && NIGER_STATE_LGAS.length) {
       setWardLga(NIGER_STATE_LGAS[0]);
     }
   }, [wardLga]);
 
-  const selectedIndicatorMeta = indicators?.find((i) => i.slug === selectedIndicator);
+  const selectedIndicatorMeta = indicators?.find(
+    (i) => i.slug === resolvedIndicator
+  );
   const activeMeasureKind = useMemo(
     () =>
       resolveMeasureKind({
@@ -447,7 +473,7 @@ function HealthAnalyticsContent() {
     }
   };
 
-  const indicatorLabel = selectedIndicatorMeta?.name ?? selectedIndicator;
+  const indicatorLabel = selectedIndicatorMeta?.name ?? resolvedIndicator;
 
   const sourceLabel = getAnalyticsSourceLabel(dataSource, dataSources);
 
@@ -456,10 +482,49 @@ function HealthAnalyticsContent() {
     0
   );
 
-  const burdenPending = burdenLoading && !burdenData;
-  const burdenRefreshing = burdenFetching && !!burdenData;
-  const wardPending = wardLoading && !wardBurden;
-  const wardRefreshing = wardFetching && !!wardBurden;
+  const showIndicatorLayout =
+    analyticsTab === "indicators" &&
+    (indicatorsLoading || (allIndicators?.length ?? 0) > 0);
+  const hasModeIndicators = (indicators?.length ?? 0) > 0;
+  const burdenFiguresLoading =
+    hasModeIndicators &&
+    !!resolvedIndicator &&
+    (burdenPending || burdenIsPlaceholder);
+  const burdenFetchingSelection =
+    hasModeIndicators && burdenFetching && burdenFiguresLoading;
+  const burdenReady =
+    !!burdenData && !burdenIsPlaceholder && !burdenPending;
+  const burdenContent =
+    hasModeIndicators && burdenReady && burdenData ? burdenData : null;
+  const burdenHasData = burdenContent?.kpis.found ?? false;
+
+  const indicatorMetricsLoading =
+    indicatorsLoading ||
+    !hasModeIndicators ||
+    burdenFiguresLoading;
+  const metricsBundleReady =
+    !!dashboard &&
+    (!hasModeIndicators || !resolvedIndicator || burdenReady);
+  const metricsRevealedRef = useRef(false);
+  if (metricsBundleReady && showIndicatorLayout) {
+    metricsRevealedRef.current = true;
+  }
+  /** First paint: wait for dashboard + indicator figures before revealing any card row. */
+  const syncMetricsLoading =
+    showIndicatorLayout &&
+    !metricsRevealedRef.current &&
+    (indicatorMetricsLoading || dashboardPending || !dashboard);
+  const indicatorCardsLoading = syncMetricsLoading || indicatorMetricsLoading;
+  const platformCardsLoading = syncMetricsLoading || !dashboard;
+  const chartsLoading = indicatorCardsLoading;
+
+  const wardFiguresLoading =
+    !!resolvedIndicator && !!wardLga && (wardPending || wardIsPlaceholder);
+  const wardReady = !!wardBurden && !wardIsPlaceholder && !wardPending;
+  const wardContent =
+    !!selectedIndicator && !!wardLga && wardReady ? wardBurden : null;
+
+  const burdenValueKey = `${resolvedIndicator}-${selectedYear}`;
 
   return (
     <main className="flex-1 py-6">
@@ -481,7 +546,7 @@ function HealthAnalyticsContent() {
               figures are state-wide context, not tied to the selected indicator.
             </p>
           </div>
-          {analyticsTab === "indicators" && burdenData?.kpis.found ? (
+          {analyticsTab === "indicators" && burdenHasData ? (
             <Button variant="outline" size="sm" className="h-9" onClick={downloadAnalyticsCsv}>
               <Download className="size-4" />
               Export CSV
@@ -721,15 +786,36 @@ function HealthAnalyticsContent() {
                 </div>
               </div>
 
-              {wardPending && (
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {[...Array(3)].map((_, i) => (
-                    <MetricCardSkeleton key={i} />
-                  ))}
-                </div>
-              )}
+              <div className="grid gap-3 sm:grid-cols-3">
+                <MetricCard
+                  label="Wards with data"
+                  value={wardContent?.length ?? 0}
+                  icon={MapPin}
+                  tone="info"
+                  loading={wardFiguresLoading}
+                  valueKey={burdenValueKey}
+                />
+                <MetricCard
+                  label="Total cases"
+                  value={(wardContent ?? [])
+                    .reduce((s, r) => s + r.totalCases, 0)
+                    .toLocaleString()}
+                  icon={Activity}
+                  tone="destructive"
+                  loading={wardFiguresLoading}
+                  valueKey={burdenValueKey}
+                />
+                <MetricCard
+                  label="Missing rows"
+                  value={(wardContent ?? []).reduce((s, r) => s + r.missingRows, 0)}
+                  icon={AlertTriangle}
+                  tone="warning"
+                  loading={wardFiguresLoading}
+                  valueKey={burdenValueKey}
+                />
+              </div>
 
-              {!wardPending && !wardLoading && (wardBurden?.length ?? 0) === 0 && (
+              {!wardFiguresLoading && (wardContent?.length ?? 0) === 0 && (
                 <div className="rounded-xl border border-dashed px-4 py-6 text-center text-[13px] text-muted-foreground">
                   No ward-level rows for <span className="font-medium text-foreground">{indicatorLabel}</span> in{" "}
                   <span className="font-medium text-foreground">{wardLga}</span> ({selectedYear}).
@@ -737,51 +823,13 @@ function HealthAnalyticsContent() {
                 </div>
               )}
 
-              {!wardPending && (wardBurden?.length ?? 0) > 0 && (
-                <div
-                  className={cn(
-                    "grid gap-3 sm:grid-cols-3 transition-opacity duration-300",
-                    wardRefreshing && "opacity-80",
-                  )}
-                >
-                  <MetricCard
-                    label="Wards with data"
-                    value={wardBurden!.length}
-                    icon={MapPin}
-                    tone="info"
-                    refreshing={wardRefreshing}
-                  />
-                  <MetricCard
-                    label="Total cases"
-                    value={wardBurden!
-                      .reduce((s, r) => s + r.totalCases, 0)
-                      .toLocaleString()}
-                    icon={Activity}
-                    tone="destructive"
-                    refreshing={wardRefreshing}
-                  />
-                  <MetricCard
-                    label="Missing rows"
-                    value={wardBurden!.reduce((s, r) => s + r.missingRows, 0)}
-                    icon={AlertTriangle}
-                    tone="warning"
-                    refreshing={wardRefreshing}
-                  />
-                </div>
-              )}
-
-              <div
-                className={cn(
-                  "grid gap-4 lg:grid-cols-2 transition-opacity duration-300",
-                  wardRefreshing && "opacity-80",
-                )}
-              >
+              <div className="grid gap-4 lg:grid-cols-2">
                 <div className="space-y-3">
                   <p className="text-[13px] font-medium">Cases by ward</p>
                   <WardAnalyticsChart
                     metric="cases"
-                    data={wardBurden}
-                    isLoading={wardPending}
+                    data={wardFiguresLoading ? undefined : wardContent ?? undefined}
+                    isLoading={wardFiguresLoading}
                     emptyMessage="No ward cases to chart for this selection."
                   />
                 </div>
@@ -798,38 +846,54 @@ function HealthAnalyticsContent() {
                   </p>
                   <WardAnalyticsChart
                     metric="incidencePer1000"
-                    data={wardBurden}
-                    isLoading={wardPending}
+                    data={wardFiguresLoading ? undefined : wardContent ?? undefined}
+                    isLoading={wardFiguresLoading}
                     incidenceHighlightThreshold={wardIncidenceHighlight}
                     emptyMessage="No ward incidence to chart for this selection."
                   />
                 </div>
               </div>
 
-              {(wardBurden?.length ?? 0) > 0 && (
-                <div className="overflow-x-auto rounded-xl border">
-                  <table className="w-full text-[13px]">
-                    <thead>
-                      <tr className="border-b bg-muted/30 text-left">
-                        <th className="h-11 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Ward
-                        </th>
-                        <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Cases
-                        </th>
-                        <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Population
-                        </th>
-                        <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Incidence / 1k
-                        </th>
-                        <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Missing
-                        </th>
+              <div className="overflow-x-auto rounded-xl border">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b bg-muted/30 text-left">
+                      <th className="h-11 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Ward
+                      </th>
+                      <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Cases
+                      </th>
+                      <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Population
+                      </th>
+                      <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Incidence / 1k
+                      </th>
+                      <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Missing
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {wardFiguresLoading ? (
+                      [...Array(6)].map((_, i) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="px-4 py-3.5"><Skeleton className="h-4 w-28" /></td>
+                          <td className="px-4 py-3.5"><Skeleton className="ml-auto h-4 w-12" /></td>
+                          <td className="px-4 py-3.5"><Skeleton className="ml-auto h-4 w-16" /></td>
+                          <td className="px-4 py-3.5"><Skeleton className="ml-auto h-4 w-10" /></td>
+                          <td className="px-4 py-3.5"><Skeleton className="ml-auto h-4 w-8" /></td>
+                        </tr>
+                      ))
+                    ) : (wardContent?.length ?? 0) === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                          No ward rows for this selection.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {[...(wardBurden ?? [])]
+                    ) : (
+                      [...(wardContent ?? [])]
                         .sort((a, b) => b.totalCases - a.totalCases)
                         .map((row) => (
                           <tr key={row.wardId} className="border-b last:border-0">
@@ -847,11 +911,11 @@ function HealthAnalyticsContent() {
                               {row.missingRows}
                             </td>
                           </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </Panel>
         )}
@@ -895,14 +959,14 @@ function HealthAnalyticsContent() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {burdenRefreshing ? (
+            {burdenFetchingSelection ? (
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Loader2 className="size-3.5 animate-spin" aria-hidden />
                 Updating…
               </span>
             ) : null}
             <Select
-              value={selectedIndicator}
+              value={resolvedIndicator}
               onValueChange={(v) => v && setSelectedIndicator(v)}
               disabled={!indicators?.length}
             >
@@ -937,387 +1001,411 @@ function HealthAnalyticsContent() {
           </div>
         </div>
 
-        {!indicators?.length && indicatorsLoading && (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <MetricCardSkeleton key={i} />
-            ))}
+        {!showIndicatorLayout && !indicatorsLoading && (
+          <div className="rounded-2xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+            No published disease indicators in the warehouse yet.
           </div>
         )}
 
-        {!indicators?.length && !indicatorsLoading && (
-          <div className="rounded-2xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        {showIndicatorLayout && !hasModeIndicators && !indicatorsLoading && (
+          <div className="rounded-2xl border border-dashed bg-card px-6 py-8 text-center text-sm text-muted-foreground">
             No published {measureKindChartNoun(measureKindMode)} indicators yet
             for this mode. Confirm aliases with the matching category, or switch
             measure kind above.
           </div>
         )}
 
-        {burdenPending && indicators?.length ? (
+        {showIndicatorLayout ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[...Array(4)].map((_, i) => (
-                <MetricCardSkeleton key={i} tone={i === 0 ? "destructive" : i === 1 ? "success" : "info"} />
-              ))}
+              <MetricCard
+                label={measureKindTotalLabel(
+                  activeMeasureKind,
+                  selectedIndicatorMeta?.unit
+                )}
+                value={burdenContent?.kpis.totalCases.toLocaleString() ?? "—"}
+                hint={
+                  burdenContent
+                    ? `${burdenContent.kpis.year}${isPartialYear ? " · year-to-date" : ""}`
+                    : undefined
+                }
+                icon={Activity}
+                tone="destructive"
+                loading={indicatorCardsLoading}
+                valueKey={burdenValueKey}
+              />
+              <MetricCard
+                label="LGAs reporting"
+                value={burdenContent?.kpis.lgasReporting ?? "—"}
+                icon={BarChart3}
+                tone="success"
+                loading={indicatorCardsLoading}
+                valueKey={burdenValueKey}
+              />
+              <MetricCard
+                label="Data completeness"
+                value={
+                  burdenContent
+                    ? formatCompleteness(burdenContent.kpis.completeness)
+                    : "—"
+                }
+                hint={
+                  burdenContent && isPartialYear
+                    ? `${burdenContent.kpis.monthsReporting} months reported`
+                    : undefined
+                }
+                icon={MapPin}
+                tone="info"
+                loading={indicatorCardsLoading}
+                valueKey={burdenValueKey}
+              />
+              <MetricCard
+                label="Facility outliers"
+                value={
+                  burdenContent
+                    ? isNonCasesMeasure
+                      ? "—"
+                      : burdenContent.outliers.length
+                    : "—"
+                }
+                hint={
+                  isNonCasesMeasure
+                    ? "Not shown for rate/stock measures"
+                    : "This indicator only"
+                }
+                icon={AlertTriangle}
+                tone="warning"
+                loading={indicatorCardsLoading}
+                valueKey={burdenValueKey}
+              />
             </div>
+
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[...Array(4)].map((_, i) => (
-                <MetricCardSkeleton key={i} tone="muted" />
-              ))}
+              <MetricCard
+                label="State health facilities"
+                value={stateHealthFacilities?.toLocaleString() ?? "—"}
+                hint="Platform GIS registry"
+                icon={Hospital}
+                tone="muted"
+                loading={platformCardsLoading}
+              />
+              <MetricCard
+                label="Published datasets"
+                value={dashboard?.platformStats.totalDatasets.toLocaleString() ?? "—"}
+                hint="Contributing to analytics"
+                icon={Database}
+                tone="muted"
+                loading={platformCardsLoading}
+              />
+              <MetricCard
+                label="LGAs with map coverage"
+                value={dashboard?.platformStats.lgasCovered ?? "—"}
+                hint="Population & facility layers"
+                icon={Globe2}
+                tone="muted"
+                loading={platformCardsLoading}
+              />
+              <MetricCard
+                label="Platform downloads"
+                value={dashboard?.platformStats.totalDownloads.toLocaleString() ?? "—"}
+                hint="All-time downloads"
+                icon={Download}
+                tone="muted"
+                loading={platformCardsLoading}
+              />
             </div>
+
+            {!burdenFiguresLoading && burdenContent && !burdenHasData && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  No data found for &ldquo;{indicatorLabel}&rdquo; in {burdenContent.kpis.year}.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="grid gap-4 lg:grid-cols-2">
-              <ChartPanelSkeleton />
-              <ChartPanelSkeleton />
+              <Panel
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    <span className="flex size-8 items-center justify-center rounded-lg border border-primary/20 bg-primary/10">
+                      <Activity className="size-4 text-primary" aria-hidden />
+                    </span>
+                    Trends over time
+                  </span>
+                }
+                description={
+                  burdenContent && isPartialYear
+                    ? `${selectedYear} is partial (${burdenContent.kpis.monthsReporting} months)`
+                    : undefined
+                }
+                action={
+                  <div className="flex rounded-lg border bg-muted/30 p-0.5">
+                    <Button
+                      size="sm"
+                      variant={trendMode === "annual" ? "default" : "ghost"}
+                      className="h-8 px-3"
+                      onClick={() => setTrendMode("annual")}
+                    >
+                      Annual
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={trendMode === "seasonal" ? "default" : "ghost"}
+                      className="h-8 px-3"
+                      onClick={() => setTrendMode("seasonal")}
+                    >
+                      Seasonal
+                    </Button>
+                  </div>
+                }
+              >
+                <div className="h-56 w-full sm:h-72">
+                  {chartsLoading ? (
+                    <ChartPanelSkeleton />
+                  ) : trendData.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-[13px] text-muted-foreground">
+                      No trend data for this indicator.
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={trendData}
+                        margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="cases"
+                          stroke="var(--primary)"
+                          strokeWidth={2.5}
+                          dot={{ r: 3, fill: "var(--primary)" }}
+                          activeDot={{ r: 5 }}
+                          name="State total"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </Panel>
+
+              <Panel
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    <span className="flex size-8 items-center justify-center rounded-lg border border-info/25 bg-info/15">
+                      <BarChart3 className="size-4 text-info" aria-hidden />
+                    </span>
+                    Top 10 LGAs by {measureKindChartNoun(activeMeasureKind)}
+                  </span>
+                }
+              >
+                <div className="h-56 w-full sm:h-72">
+                  {chartsLoading ? (
+                    <ChartPanelSkeleton />
+                  ) : topLGAs.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-[13px] text-muted-foreground">
+                      No LGA data for this indicator.
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={topLGAs}
+                        layout="vertical"
+                        margin={{ top: 5, right: 20, left: 60, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis type="number" tick={{ fontSize: 11 }} />
+                        <YAxis
+                          type="category"
+                          dataKey="lga"
+                          tick={{ fontSize: 10 }}
+                          width={55}
+                        />
+                        <Tooltip />
+                        <Bar
+                          dataKey="cases"
+                          fill="var(--info)"
+                          name="Cases"
+                          radius={[0, 6, 6, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </Panel>
             </div>
+
+            <Panel
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <span className="flex size-8 items-center justify-center rounded-lg border border-border bg-muted/50">
+                    <MapPin className="size-4 text-muted-foreground" aria-hidden />
+                  </span>
+                  LGA burden summary
+                </span>
+              }
+            >
+              <div className="overflow-x-auto rounded-xl border">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b bg-muted/30 text-left">
+                      {(
+                        [
+                          ["rank", "Rank"],
+                          ["lga", "LGA"],
+                          ["totalCases", "Total"],
+                          ["missingRows", "Missing"],
+                          ["population", "Population"],
+                          [
+                            "incidencePer1000",
+                            isNonCasesMeasure ? "N/A" : "Incidence / 1k",
+                          ],
+                          ["facilities", "Facilities"],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <th
+                          key={key}
+                          className="h-11 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                        >
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 hover:text-foreground"
+                            onClick={() => handleSort(key)}
+                            disabled={burdenFiguresLoading}
+                          >
+                            {label}
+                            <ArrowUpDown className="size-3" />
+                          </button>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {burdenFiguresLoading || syncMetricsLoading ? (
+                      [...Array(8)].map((_, i) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="px-4 py-3.5"><Skeleton className="h-4 w-6" /></td>
+                          <td className="px-4 py-3.5"><Skeleton className="h-4 w-24" /></td>
+                          <td className="px-4 py-3.5"><Skeleton className="ml-auto h-4 w-12" /></td>
+                          <td className="px-4 py-3.5"><Skeleton className="ml-auto h-4 w-8" /></td>
+                          <td className="px-4 py-3.5"><Skeleton className="ml-auto h-4 w-16" /></td>
+                          <td className="px-4 py-3.5"><Skeleton className="ml-auto h-4 w-10" /></td>
+                          <td className="px-4 py-3.5"><Skeleton className="ml-auto h-4 w-8" /></td>
+                        </tr>
+                      ))
+                    ) : sortedBurden.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                          No LGA data for this indicator.
+                        </td>
+                      </tr>
+                    ) : (
+                      sortedBurden.map((row) => (
+                        <tr
+                          key={row.lga}
+                          className={cn(
+                            "border-b last:border-0",
+                            !isNonCasesMeasure &&
+                              row.incidencePer1000 > 7 &&
+                              "bg-destructive/5"
+                          )}
+                        >
+                          <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
+                            {row.rank}
+                          </td>
+                          <td className="px-4 py-3.5 font-medium">{row.lga}</td>
+                          <td className="px-4 py-3.5 text-right tabular-nums">
+                            {row.totalCases.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3.5 text-right tabular-nums">
+                            {row.missingRows}
+                          </td>
+                          <td className="px-4 py-3.5 text-right tabular-nums">
+                            {row.population != null ? row.population.toLocaleString() : "—"}
+                          </td>
+                          <td className="px-4 py-3.5 text-right tabular-nums">
+                            {isNonCasesMeasure
+                              ? "—"
+                              : Math.round(row.incidencePer1000 * 10) / 10}
+                          </td>
+                          <td className="px-4 py-3.5 text-right tabular-nums text-muted-foreground">
+                            {row.facilities}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+
+            <Panel
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <span className="flex size-8 items-center justify-center rounded-lg border border-warning/30 bg-warning/20">
+                    <AlertTriangle className="size-4 text-amber-700 dark:text-warning" aria-hidden />
+                  </span>
+                  Facility outliers
+                  <HelpTooltip content="Facilities whose case count sits 2+ standard deviations from their LGA mean." />
+                </span>
+              }
+              description="z-score ≥ 2.0 for this indicator"
+            >
+              {indicatorCardsLoading ? (
+                <TablePanelSkeleton rows={4} />
+              ) : (burdenContent?.outliers.length ?? 0) === 0 ? (
+                <p className="py-6 text-center text-[13px] text-muted-foreground">
+                  No facility outliers detected for this indicator.
+                </p>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="border-b bg-muted/30 text-left">
+                        <th className="h-11 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Facility
+                        </th>
+                        <th className="h-11 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          LGA
+                        </th>
+                        <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Cases
+                        </th>
+                        <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Z-score
+                        </th>
+                        <th className="h-11 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Interpretation
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {burdenContent!.outliers.map((row) => (
+                        <tr key={row.facility_id} className="border-b last:border-0">
+                          <td className="px-4 py-3.5 font-medium">{row.facility_name}</td>
+                          <td className="px-4 py-3.5">{row.lga_name}</td>
+                          <td className="px-4 py-3.5 text-right tabular-nums">
+                            {Number(row.total_cases).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3.5 text-right tabular-nums">
+                            {Number(row.z_score).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3.5 text-muted-foreground">
+                            {outlierInterpretation(Number(row.z_score))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Panel>
           </>
         ) : null}
 
-        {indicators?.length && burdenData && !burdenData.kpis.found && !burdenPending && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              No data found for &ldquo;{indicatorLabel}&rdquo; in {burdenData.kpis.year}.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {indicators?.length && burdenData?.kpis.found && !burdenPending && <>
-        <div
-          className={cn(
-            "space-y-6 transition-opacity duration-300",
-            burdenRefreshing && "opacity-80",
-          )}
-        >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label={measureKindTotalLabel(
-              activeMeasureKind,
-              selectedIndicatorMeta?.unit
-            )}
-            value={burdenData.kpis.totalCases.toLocaleString()}
-            hint={`${burdenData.kpis.year}${isPartialYear ? " · year-to-date" : ""}`}
-            icon={Activity}
-            tone="destructive"
-            refreshing={burdenRefreshing}
-          />
-          <MetricCard
-            label="LGAs reporting"
-            value={burdenData.kpis.lgasReporting}
-            icon={BarChart3}
-            tone="success"
-            refreshing={burdenRefreshing}
-          />
-          <MetricCard
-            label="Data completeness"
-            value={formatCompleteness(burdenData.kpis.completeness)}
-            hint={
-              isPartialYear
-                ? `${burdenData.kpis.monthsReporting} months reported`
-                : undefined
-            }
-            icon={MapPin}
-            tone="info"
-            refreshing={burdenRefreshing}
-          />
-          <MetricCard
-            label="Facility outliers"
-            value={isNonCasesMeasure ? "—" : burdenData.outliers.length}
-            hint={
-              isNonCasesMeasure
-                ? "Not shown for rate/stock measures"
-                : "This indicator only"
-            }
-            icon={AlertTriangle}
-            tone="warning"
-            refreshing={burdenRefreshing}
-          />
-        </div>
-
-        {dashboard && (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard
-              label="State health facilities"
-              value={stateHealthFacilities?.toLocaleString() ?? "—"}
-              hint="Platform GIS registry"
-              icon={Hospital}
-              tone="muted"
-            />
-            <MetricCard
-              label="Published datasets"
-              value={dashboard.platformStats.totalDatasets.toLocaleString()}
-              hint="Contributing to analytics"
-              icon={Database}
-              tone="muted"
-            />
-            <MetricCard
-              label="LGAs with map coverage"
-              value={dashboard.platformStats.lgasCovered}
-              hint="Population & facility layers"
-              icon={Globe2}
-              tone="muted"
-            />
-            <MetricCard
-              label="Platform downloads"
-              value={dashboard.platformStats.totalDownloads.toLocaleString()}
-              hint="All-time downloads"
-              icon={Download}
-              tone="muted"
-            />
-          </div>
-        )}
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Panel
-            title={
-              <span className="inline-flex items-center gap-2">
-                <span className="flex size-8 items-center justify-center rounded-lg border border-primary/20 bg-primary/10">
-                  <Activity className="size-4 text-primary" aria-hidden />
-                </span>
-                Trends over time
-              </span>
-            }
-            description={
-              isPartialYear
-                ? `${selectedYear} is partial (${burdenData.kpis.monthsReporting} months)`
-                : undefined
-            }
-            action={
-              <div className="flex rounded-lg border bg-muted/30 p-0.5">
-                <Button
-                  size="sm"
-                  variant={trendMode === "annual" ? "default" : "ghost"}
-                  className="h-8 px-3"
-                  onClick={() => setTrendMode("annual")}
-                >
-                  Annual
-                </Button>
-                <Button
-                  size="sm"
-                  variant={trendMode === "seasonal" ? "default" : "ghost"}
-                  className="h-8 px-3"
-                  onClick={() => setTrendMode("seasonal")}
-                >
-                  Seasonal
-                </Button>
-              </div>
-            }
-          >
-              <div className="h-56 w-full sm:h-72">
-                {trendData.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-[13px] text-muted-foreground">
-                    No trend data for this indicator.
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={trendData}
-                      margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="cases"
-                        stroke="var(--primary)"
-                        strokeWidth={2.5}
-                        dot={{ r: 3, fill: "var(--primary)" }}
-                        activeDot={{ r: 5 }}
-                        name="State total"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-          </Panel>
-
-          <Panel
-            title={
-              <span className="inline-flex items-center gap-2">
-                <span className="flex size-8 items-center justify-center rounded-lg border border-info/25 bg-info/15">
-                  <BarChart3 className="size-4 text-info" aria-hidden />
-                </span>
-                Top 10 LGAs by {measureKindChartNoun(activeMeasureKind)}
-              </span>
-            }
-          >
-              <div className="h-56 w-full sm:h-72">
-                {topLGAs.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-[13px] text-muted-foreground">
-                    No LGA data for this indicator.
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={topLGAs}
-                      layout="vertical"
-                      margin={{ top: 5, right: 20, left: 60, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis
-                        type="category"
-                        dataKey="lga"
-                        tick={{ fontSize: 10 }}
-                        width={55}
-                      />
-                      <Tooltip />
-                      <Bar
-                        dataKey="cases"
-                        fill="var(--info)"
-                        name="Cases"
-                        radius={[0, 6, 6, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-          </Panel>
-        </div>
-
-        <Panel
-          title={
-            <span className="inline-flex items-center gap-2">
-              <span className="flex size-8 items-center justify-center rounded-lg border border-border bg-muted/50">
-                <MapPin className="size-4 text-muted-foreground" aria-hidden />
-              </span>
-              LGA burden summary
-            </span>
-          }
-        >
-            <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b bg-muted/30 text-left">
-                  {(
-                    [
-                      ["rank", "Rank"],
-                      ["lga", "LGA"],
-                      ["totalCases", "Total"],
-                      ["missingRows", "Missing"],
-                      ["population", "Population"],
-                      [
-                        "incidencePer1000",
-                        isNonCasesMeasure ? "N/A" : "Incidence / 1k",
-                      ],
-                      ["facilities", "Facilities"],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <th
-                      key={key}
-                      className="h-11 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
-                    >
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-foreground"
-                        onClick={() => handleSort(key)}
-                      >
-                        {label}
-                        <ArrowUpDown className="size-3" />
-                      </button>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedBurden.map((row) => (
-                  <tr
-                    key={row.lga}
-                    className={cn(
-                      "border-b last:border-0",
-                      !isNonCasesMeasure &&
-                        row.incidencePer1000 > 7 &&
-                        "bg-destructive/5"
-                    )}
-                  >
-                    <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
-                      {row.rank}
-                    </td>
-                    <td className="px-4 py-3.5 font-medium">{row.lga}</td>
-                    <td className="px-4 py-3.5 text-right tabular-nums">
-                      {row.totalCases.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3.5 text-right tabular-nums">
-                      {row.missingRows}
-                    </td>
-                    <td className="px-4 py-3.5 text-right tabular-nums">
-                      {row.population != null ? row.population.toLocaleString() : "—"}
-                    </td>
-                    <td className="px-4 py-3.5 text-right tabular-nums">
-                      {isNonCasesMeasure
-                        ? "—"
-                        : Math.round(row.incidencePer1000 * 10) / 10}
-                    </td>
-                    <td className="px-4 py-3.5 text-right tabular-nums text-muted-foreground">
-                      {row.facilities}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-        </Panel>
-
-        <Panel
-          title={
-            <span className="inline-flex items-center gap-2">
-              <span className="flex size-8 items-center justify-center rounded-lg border border-warning/30 bg-warning/20">
-                <AlertTriangle className="size-4 text-amber-700 dark:text-warning" aria-hidden />
-              </span>
-              Facility outliers
-              <HelpTooltip content="Facilities whose case count sits 2+ standard deviations from their LGA mean." />
-            </span>
-          }
-          description="z-score ≥ 2.0 for this indicator"
-        >
-            {burdenData.outliers.length === 0 ? (
-              <p className="py-6 text-center text-[13px] text-muted-foreground">
-                No facility outliers detected for this indicator.
-              </p>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b bg-muted/30 text-left">
-                    <th className="h-11 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Facility
-                    </th>
-                    <th className="h-11 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      LGA
-                    </th>
-                    <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Cases
-                    </th>
-                    <th className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Z-score
-                    </th>
-                    <th className="h-11 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Interpretation
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {burdenData.outliers.map((row) => (
-                    <tr key={row.facility_id} className="border-b last:border-0">
-                      <td className="px-4 py-3.5 font-medium">{row.facility_name}</td>
-                      <td className="px-4 py-3.5">{row.lga_name}</td>
-                      <td className="px-4 py-3.5 text-right tabular-nums">
-                        {Number(row.total_cases).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3.5 text-right tabular-nums">
-                        {Number(row.z_score).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3.5 text-muted-foreground">
-                        {outlierInterpretation(Number(row.z_score))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            )}
-        </Panel>
-
+        {showIndicatorLayout ? (
         <Panel
           title={
             <span className="inline-flex items-center gap-2">
@@ -1328,14 +1416,23 @@ function HealthAnalyticsContent() {
               <HelpTooltip content="State-wide population density and facility-count anomalies — not related to the selected disease indicator." />
             </span>
           }
-          description={`${dashboard?.anomalies.length ?? 0} LGA anomalies from the nightly platform scan`}
+          description={
+            dashboard
+              ? `${dashboard.anomalies.length ?? 0} LGA anomalies from the nightly platform scan`
+              : undefined
+          }
           action={
-            <Button variant="outline" size="sm" className="h-8" onClick={downloadAnalyticsCsv}>
-              <Download className="size-3.5" />
-              Export CSV
-            </Button>
+            burdenHasData ? (
+              <Button variant="outline" size="sm" className="h-8" onClick={downloadAnalyticsCsv}>
+                <Download className="size-3.5" />
+                Export CSV
+              </Button>
+            ) : undefined
           }
         >
+          {platformCardsLoading ? (
+            <TablePanelSkeleton rows={5} />
+          ) : (
             <div className="overflow-x-auto rounded-xl border">
             <table className="w-full text-[13px]">
               <thead>
@@ -1395,9 +1492,9 @@ function HealthAnalyticsContent() {
               </tbody>
             </table>
             </div>
+          )}
         </Panel>
-        </div>
-        </>}
+        ) : null}
         </>}
       </Container>
     </main>
