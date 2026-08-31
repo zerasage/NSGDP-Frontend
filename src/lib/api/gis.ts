@@ -182,3 +182,19 @@ export async function getDiseaseBurdenSimplified(
   );
   return response.data.data;
 }
+
+export interface LgaOption {
+  name: string;
+  code: string | null;
+}
+
+export function lgaOptionsFromSummary(
+  summary: LgaGisFeatureCollection,
+): LgaOption[] {
+  return summary.features
+    .map((feature) => ({
+      name: feature.properties.lga,
+      code: feature.properties.lgaCode,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}

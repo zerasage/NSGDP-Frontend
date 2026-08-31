@@ -1,12 +1,13 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProgramForm, programToFormDefaults } from "@/components/programs/program-form";
+import { ProgramProgressPanel } from "@/components/programs/program-progress-panel";
 import { useOrganizationProgram, useUpdateProgram, useDeleteProgram } from "@/lib/hooks/usePrograms";
 import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
 import type { ProgramFormData } from "@/lib/schemas/program";
@@ -15,6 +16,8 @@ import { toast } from "sonner";
 export default function EditProgrammePage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const showProgress = searchParams.get("progress") === "1";
   const { can, canDelete, canAccess } = useProgramPermissions();
   const { data: programme, isLoading, error } = useOrganizationProgram(slug);
   const updateMutation = useUpdateProgram();
@@ -83,7 +86,7 @@ export default function EditProgrammePage() {
 
   return (
     <main className="flex-1">
-      <Container className="py-8 max-w-2xl">
+      <Container className="py-8 max-w-3xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link href="/my-programs">
@@ -103,18 +106,28 @@ export default function EditProgrammePage() {
           )}
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Programme Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProgramForm
-              defaultValues={programToFormDefaults(programme)}
-              onSubmit={handleSubmit}
-              submitLabel="Save Changes"
+        <div className="space-y-6">
+          {showProgress && (
+            <ProgramProgressPanel
+              programme={programme}
+              onSuccess={() => router.refresh()}
             />
-          </CardContent>
-        </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Programme Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProgramForm
+                defaultValues={programToFormDefaults(programme)}
+                onSubmit={handleSubmit}
+                submitLabel="Save Changes"
+                isEditing
+              />
+            </CardContent>
+          </Card>
+        </div>
       </Container>
     </main>
   );

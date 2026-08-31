@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Plus, Edit, Trash2, Eye, Search, Upload } from "lucide-react";
+import { LayoutGrid, Plus, Edit, Trash2, Eye, Search, Upload, TrendingUp } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { useOrganizationPrograms, useDeleteProgram } from "@/lib/hooks/useProgra
 import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
 import { useAuth } from "@/lib/auth";
 import { formatDate } from "@/lib/utils/date";
+import { headlineProgressSummary, lgaCoverageCounts } from "@/lib/constants/program-progress";
 import { toast } from "sonner";
 
 type RawStatus = "active" | "completed" | "suspended" | "archived";
@@ -219,13 +220,17 @@ export default function MyProgrammesPage() {
                       <th className="px-6 py-3 text-left text-sm font-medium">Programme</th>
                       <th className="px-6 py-3 text-left text-sm font-medium">Status</th>
                       <th className="px-6 py-3 text-left text-sm font-medium">Type</th>
-                      <th className="px-6 py-3 text-left text-sm font-medium">Completion</th>
+                      <th className="px-6 py-3 text-left text-sm font-medium">Progress</th>
+                      <th className="px-6 py-3 text-left text-sm font-medium">LGAs covered</th>
                       <th className="px-6 py-3 text-left text-sm font-medium">Last Updated</th>
                       <th className="px-6 py-3 text-right text-sm font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {programmes.map((programme) => (
+                    {programmes.map((programme) => {
+                      const progress = headlineProgressSummary(programme);
+                      const lga = lgaCoverageCounts(programme);
+                      return (
                       <tr key={programme.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-start gap-3">
@@ -238,7 +243,8 @@ export default function MyProgrammesPage() {
                                 {programme.name}
                               </Link>
                               <p className="text-sm text-muted-foreground line-clamp-1">
-                                {programme.description}
+                                {(programme.targetLgas?.length ?? 0)} target LGAs
+                                {programme.description ? ` · ${programme.description}` : ""}
                               </p>
                             </div>
                           </div>
@@ -248,7 +254,19 @@ export default function MyProgrammesPage() {
                           <span className="text-sm text-muted-foreground capitalize">{programme.type}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-muted-foreground">{programme.completionPercent}%</span>
+                          {progress.percent !== null ? (
+                            <div>
+                              <span className="text-sm font-medium tabular-nums">{progress.percent}%</span>
+                              {progress.basis && (
+                                <p className="text-xs text-muted-foreground line-clamp-1">{progress.basis}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 tabular-nums text-sm">
+                          {lga.target > 0 ? `${lga.reach} / ${lga.target}` : "—"}
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-sm text-muted-foreground">
@@ -266,6 +284,13 @@ export default function MyProgrammesPage() {
                               <Link href={`/my-programs/${programme.slug}/upload`}>
                                 <Button size="sm" variant="ghost" title="Upload report">
                                   <Upload className="size-4" />
+                                </Button>
+                              </Link>
+                            )}
+                            {canEdit && (
+                              <Link href={`/my-programs/${programme.slug}/edit?progress=1`}>
+                                <Button size="sm" variant="ghost" title="Update progress">
+                                  <TrendingUp className="size-4" />
                                 </Button>
                               </Link>
                             )}
@@ -290,7 +315,8 @@ export default function MyProgrammesPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>

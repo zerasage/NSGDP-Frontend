@@ -69,6 +69,11 @@ export type ProgramType =
   | "research"
   | "other";
 
+export type ProgrammeProgressMode =
+  | "lga_coverage"
+  | "outcome_metric"
+  | "combined";
+
 export type FacilityType = "PHC" | "Secondary" | "General Hospital";
 
 export type AnalyticsMetric =
@@ -236,6 +241,10 @@ export interface Program {
   description: string;
   startDate: string;
   endDate?: string;
+  progressMode?: ProgrammeProgressMode | null;
+  targetLgas?: string[];
+  coveredLgas?: string[];
+  objectives?: string[];
   primaryMetric: string;
   completionPercent: number;
   reachCount: number;

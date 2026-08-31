@@ -40,6 +40,8 @@ interface GroupApiPayload {
   is_featured: boolean;
   dataset_ids: string[] | null;
   document_ids: string[] | null;
+  dataset_count?: number;
+  document_count?: number;
   created_at: string;
 }
 
@@ -55,8 +57,8 @@ function mapGroup(raw: GroupApiPayload): PortalGroup {
     slug: raw.slug,
     description: raw.description,
     isFeatured: raw.is_featured,
-    datasetCount: raw.dataset_ids?.length ?? 0,
-    documentCount: raw.document_ids?.length ?? 0,
+    datasetCount: raw.dataset_count ?? raw.dataset_ids?.length ?? 0,
+    documentCount: raw.document_count ?? raw.document_ids?.length ?? 0,
     createdAt: raw.created_at,
   };
 }

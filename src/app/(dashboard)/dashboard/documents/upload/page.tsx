@@ -28,7 +28,7 @@ import type { DocumentCategory } from "@/types";
 import { toast } from "sonner";
 
 const DOCUMENT_ACCEPT =
-  ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt,.csv,.json,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff,.svg,.geojson,.gpkg,.kml,.kmz,.zip";
+  ".pdf,.doc,.docx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt,.json,.png,.jpg,.jpeg,.gif,.webp,.tif,.tiff,.svg,.geojson,.gpkg,.kml,.kmz,.zip";
 
 const schema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
@@ -137,6 +137,7 @@ export default function UploadOrgDocumentPage() {
             </CardTitle>
             <CardDescription>
               PDF, Office, images, GeoJSON/GPKG, and related formats are accepted.
+              CSV and Excel health data belong under Upload Dataset, not Documents.
             </CardDescription>
           </CardHeader>
           <CardContent>

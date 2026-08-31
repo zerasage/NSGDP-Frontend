@@ -6,13 +6,14 @@ import {
   getOrganizationProgramBySlug,
   createProgramApi,
   updateProgramApi,
+  updateProgramProgressApi,
   deleteProgramApi,
   getProgramReports,
   createProgramReport,
   deleteProgramReportApi,
   type GetProgramsParams,
 } from '../api/programs';
-import type { ProgramFormData } from '@/lib/schemas/program';
+import type { ProgramFormData, ProgramProgressUpdateData } from '@/lib/schemas/program';
 
 export function usePrograms(
   params?: GetProgramsParams,
@@ -88,6 +89,20 @@ export function useUpdateProgram() {
   return useMutation({
     mutationFn: ({ slug, data }: { slug: string; data: Partial<ProgramFormData> }) =>
       updateProgramApi(slug, data),
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['programs'] });
+      queryClient.invalidateQueries({ queryKey: ['program', variables.slug] });
+      queryClient.invalidateQueries({ queryKey: ['organization-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-program', variables.slug] });
+    },
+  });
+}
+
+export function useUpdateProgramProgress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ slug, data }: { slug: string; data: ProgramProgressUpdateData }) =>
+      updateProgramProgressApi(slug, data),
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['programs'] });
       queryClient.invalidateQueries({ queryKey: ['program', variables.slug] });

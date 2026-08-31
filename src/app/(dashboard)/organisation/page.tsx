@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
@@ -714,10 +715,25 @@ export default function OrganisationManagementPage() {
                           className="flex items-start justify-between gap-4 p-4 border rounded-lg"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium">{request.dataset_title}</p>
+                            {request.dataset_slug ? (
+                              <Link
+                                href={`/datasets/${request.dataset_slug}`}
+                                className="font-medium hover:underline"
+                              >
+                                {request.dataset_title}
+                              </Link>
+                            ) : (
+                              <p className="font-medium">{request.dataset_title}</p>
+                            )}
                             <p className="text-sm text-muted-foreground mt-0.5">
-                              Requested by {request.requester_name || request.requester_email} (
-                              {request.requester_email}) ·{" "}
+                              Requested by{" "}
+                              <a
+                                href={`mailto:${request.requester_email}`}
+                                className="hover:underline"
+                              >
+                                {request.requester_name || request.requester_email}
+                              </a>{" "}
+                              ({request.requester_email}) ·{" "}
                               {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
                             </p>
                             <p className="text-sm mt-2">{request.reason}</p>

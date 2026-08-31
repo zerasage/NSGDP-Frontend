@@ -103,7 +103,7 @@ export default function GroupPage({ params }: GroupPageProps) {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {group.datasets.map((dataset) => (
-                <Link key={dataset.id} href={`/datasets/${dataset.slug}`}>
+                <Link key={dataset.id} href={`/dataportal/${dataset.slug}`}>
                   <Card className="h-full transition-colors hover:border-primary">
                     <CardContent className="flex h-full flex-col gap-2 pt-6">
                       <p className="line-clamp-2 font-medium leading-snug">{dataset.title}</p>
