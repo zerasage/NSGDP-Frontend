@@ -205,7 +205,7 @@ export function ProgramForm({
         </div>
         <div>
           <label className="text-sm font-medium mb-1.5 block" htmlFor="endDate">
-            End Date (optional)
+            End Date <span className="text-destructive">*</span>
           </label>
           <Input
             id="endDate"

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Plus, Edit, Trash2, Eye, Search, Upload, TrendingUp } from "lucide-react";
+import { LayoutGrid, Plus, Edit, Trash2, Search, Upload, TrendingUp } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,7 @@ export default function MyProgrammesPage() {
 
   const canEdit = can("edit");
   const canUploadReport = canUpload;
+  const showRowActions = canUploadReport || canEdit || canDelete;
 
   const handleDelete = (slug: string, name: string) => {
     setSelectedProgramme({ slug, name });
@@ -202,7 +203,9 @@ export default function MyProgrammesPage() {
             description={
               searchQuery
                 ? "Try adjusting your search or filters"
-                : "Create your first programme to get started."
+                : canCreate
+                  ? "Create your first programme to get started."
+                  : "No programmes match your filters yet."
             }
             action={
               searchQuery || !canCreate
@@ -223,7 +226,9 @@ export default function MyProgrammesPage() {
                       <th className="px-6 py-3 text-left text-sm font-medium">Progress</th>
                       <th className="px-6 py-3 text-left text-sm font-medium">LGAs covered</th>
                       <th className="px-6 py-3 text-left text-sm font-medium">Last Updated</th>
-                      <th className="px-6 py-3 text-right text-sm font-medium">Actions</th>
+                      {showRowActions && (
+                        <th className="px-6 py-3 text-right text-sm font-medium">Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -273,13 +278,9 @@ export default function MyProgrammesPage() {
                             {programme.updatedAt ? formatDate(programme.updatedAt) : "—"}
                           </span>
                         </td>
+                        {showRowActions && (
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2">
-                            <Link href={`/programs/${programme.slug}`}>
-                              <Button size="sm" variant="ghost">
-                                <Eye className="size-4" />
-                              </Button>
-                            </Link>
                             {canUploadReport && (
                               <Link href={`/my-programs/${programme.slug}/upload`}>
                                 <Button size="sm" variant="ghost" title="Upload report">
@@ -314,6 +315,7 @@ export default function MyProgrammesPage() {
                             )}
                           </div>
                         </td>
+                        )}
                       </tr>
                     );
                     })}

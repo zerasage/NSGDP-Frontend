@@ -20,6 +20,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { useProgramBySlug, useProgramReports } from "@/lib/hooks/usePrograms";
 import { useDownloadDocument } from "@/lib/hooks/useDocuments";
 import { useAuth } from "@/lib/auth";
+import { useProgramPermissions } from "@/lib/hooks/useProgramPermissions";
 import { RichHtmlContent } from "@/components/programs/rich-html-content";
 import { objectivesToEditorHtml } from "@/lib/api/programs";
 import {
@@ -38,6 +39,7 @@ import { cn } from "@/lib/utils";
 export default function ProgramDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { canAccess, can } = useProgramPermissions();
   const { data: program, isLoading, error } = useProgramBySlug(id);
   const { data: reports } = useProgramReports(id);
   const downloadMutation = useDownloadDocument();
@@ -75,7 +77,10 @@ export default function ProgramDetailPage() {
     );
   }
 
-  const canManage = !!user?.organisationId && user.organisationId === program.organisationId;
+  const ownsProgramme =
+    !!user?.organisationId && user.organisationId === program.organisationId;
+  const canEdit = canAccess && ownsProgramme && can("edit");
+  const canUploadReport = canAccess && ownsProgramme && can("upload");
   const mode = program.progressMode ?? "lga_coverage";
   const lga = lgaCoverageCounts(program);
   const lgaPct = lgaCoveragePercent(program);
@@ -111,22 +116,35 @@ export default function ProgramDetailPage() {
               </div>
               <p className="text-sm text-muted-foreground mt-1">{program.description}</p>
             </div>
-            {canManage && (
+            {(canEdit || canUploadReport) && (
               <div className="ml-auto flex flex-wrap gap-2">
-                <Link
-                  href={`/my-programs/${program.slug}/edit?progress=1`}
-                  className={cn(buttonVariants({ variant: "default", size: "sm" }), "gap-1.5")}
-                >
-                  <TrendingUp className="size-3.5" />
-                  Update progress
-                </Link>
-                <Link
-                  href={`/my-programs/${program.slug}/edit`}
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-                >
-                  <Settings className="size-3.5" />
-                  Manage
-                </Link>
+                {canEdit && (
+                  <>
+                    <Link
+                      href={`/my-programs/${program.slug}/edit?progress=1`}
+                      className={cn(buttonVariants({ variant: "default", size: "sm" }), "gap-1.5")}
+                    >
+                      <TrendingUp className="size-3.5" />
+                      Update progress
+                    </Link>
+                    <Link
+                      href={`/my-programs/${program.slug}/edit`}
+                      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+                    >
+                      <Settings className="size-3.5" />
+                      Manage
+                    </Link>
+                  </>
+                )}
+                {canUploadReport && (
+                  <Link
+                    href={`/my-programs/${program.slug}/upload`}
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+                  >
+                    <FileText className="size-3.5" />
+                    Upload report
+                  </Link>
+                )}
               </div>
             )}
           </div>
