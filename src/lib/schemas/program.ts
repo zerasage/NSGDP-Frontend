@@ -44,7 +44,7 @@ export const programFormSchema = z
       .array(z.string())
       .min(1, "Select at least one target LGA"),
     startDate: z.string().min(1, "Start date is required"),
-    endDate: z.string().optional(),
+    endDate: z.string().min(1, "End date is required"),
     objectives: z.string(),
     progressMode: progressModeEnum,
     primaryMetric: z.string(),

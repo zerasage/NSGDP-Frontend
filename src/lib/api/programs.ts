@@ -137,8 +137,8 @@ function toFormPayload(data: Partial<ProgramFormData>) {
   if (data.description !== undefined) payload.description = data.description;
   if (data.type !== undefined) payload.type = data.type;
   if (data.targetLgas !== undefined) payload.targetLgas = data.targetLgas;
-  if (data.startDate !== undefined) payload.startDate = data.startDate || undefined;
-  if (data.endDate !== undefined) payload.endDate = data.endDate || undefined;
+  if (data.startDate !== undefined) payload.startDate = data.startDate;
+  if (data.endDate !== undefined) payload.endDate = data.endDate;
   if (data.progressMode !== undefined) payload.progressMode = data.progressMode;
 
   if (data.objectives !== undefined) {
