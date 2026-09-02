@@ -128,7 +128,9 @@ export default function MyProgrammesPage() {
             <div>
               <h1 className="text-3xl font-bold">My Programmes</h1>
               <p className="mt-2 text-muted-foreground">
-                Manage your organisation&apos;s programmes and campaigns
+                {canCreate
+                  ? "Manage your organisation's programmes and campaigns"
+                  : "Upload reports to your organisation's programmes"}
               </p>
             </div>
             {canCreate && (
