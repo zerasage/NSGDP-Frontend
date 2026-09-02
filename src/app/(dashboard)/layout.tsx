@@ -9,7 +9,8 @@ import {
   DashboardMobileSidebar,
 } from "@/components/layout/dashboard-sidebar";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth, isOrgMember } from "@/lib/auth";
 
 export default function DashboardLayout({
   children,
@@ -79,19 +80,25 @@ export default function DashboardLayout({
         {/* Main Content - Scrollable */}
         <div className="flex-1 flex flex-col overflow-y-auto">
           {/* Mobile Menu Button */}
-          <div className="lg:hidden border-b bg-background px-4 py-3">
+          <div className="sticky top-0 z-30 border-b bg-background/95 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/80 lg:hidden">
             <Button
-              variant="ghost"
-              size="sm"
+              variant="outline"
               onClick={() => setMobileOpen(true)}
-              className="gap-2"
+              className="h-11 w-full justify-between gap-3 rounded-xl px-4 text-sm font-medium"
             >
-              <Menu className="size-5" />
-              Dashboard Menu
+              <span className="flex items-center gap-2.5">
+                <Menu className="size-5 shrink-0" />
+                <span className="truncate">
+                  {user?.organisationName && isOrgMember(user?.role)
+                    ? user.organisationName
+                    : "Open menu"}
+                </span>
+              </span>
+              <span className="text-xs text-muted-foreground">Menu</span>
             </Button>
           </div>
 
-          {children}
+          <TooltipProvider delay={200}>{children}</TooltipProvider>
         </div>
       </div>
     </div>

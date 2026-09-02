@@ -77,9 +77,11 @@ export function useCreateProgram() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: ProgramFormData) => createProgramApi(data),
-    onSuccess: () => {
+    onSuccess: (program) => {
       queryClient.invalidateQueries({ queryKey: ['programs'] });
       queryClient.invalidateQueries({ queryKey: ['organization-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-program', program.slug] });
+      queryClient.invalidateQueries({ queryKey: ['program', program.slug] });
     },
   });
 }

@@ -61,6 +61,22 @@ import {
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { WardAnalyticsChart } from "@/components/charts/ward-analytics-chart";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
+import {
+  ANALYTICS_FACILITY_OUTLIERS_TIP,
+  ANALYTICS_GIS_ANOMALIES_TIP,
+  ANALYTICS_INDICATOR_FILTER_TIP,
+  ANALYTICS_INDICATOR_KPIS_TIP,
+  ANALYTICS_LGA_BURDEN_TIP,
+  ANALYTICS_MEASURE_KIND_TIP,
+  ANALYTICS_ORG_FILTER_TIP,
+  ANALYTICS_PAGE_TIP,
+  ANALYTICS_PLATFORM_CONTEXT_TIP,
+  ANALYTICS_PROGRAMMES_TIP,
+  ANALYTICS_TOP_LGA_TIP,
+  ANALYTICS_TRENDS_TIP,
+  ANALYTICS_WARD_BURDEN_TIP,
+  ANALYTICS_WARD_INCIDENCE_TIP,
+} from "@/lib/constants/analytics-tooltips";
 import { formatDate } from "@/lib/utils/date";
 import type { LGABurden } from "@/types";
 import { cn } from "@/lib/utils";
@@ -538,8 +554,9 @@ function HealthAnalyticsContent() {
                 Surveillance
               </span>
             </div>
-            <h1 className="text-2xl font-bold leading-8 tracking-tight">
+            <h1 className="flex items-center gap-2 text-2xl font-bold leading-8 tracking-tight">
               Health analytics
+              <HelpTooltip content={ANALYTICS_PAGE_TIP} />
             </h1>
             <p className="max-w-2xl text-sm text-muted-foreground">
               Published disease-burden insights across Niger State. Platform GIS
@@ -577,7 +594,10 @@ function HealthAnalyticsContent() {
         {analyticsTab !== "indicators" && (
           <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
             <div className="space-y-1">
-              <p className="text-[13px] font-medium">Organisation filter</p>
+              <p className="inline-flex items-center gap-1.5 text-[13px] font-medium">
+                Organisation filter
+                <HelpTooltip content={ANALYTICS_ORG_FILTER_TIP} />
+              </p>
               <p className="text-xs text-muted-foreground">
                 {analyticsTab === "ward"
                   ? "Limit ward burden to datasets published by one organisation."
@@ -611,8 +631,9 @@ function HealthAnalyticsContent() {
 
         {analyticsTab === "programmes" && (
           <div className="space-y-4">
-            <p className="text-[13px] text-muted-foreground">
+            <p className="inline-flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
               Self-reported programme progress (reach / target from programme owners).
+              <HelpTooltip content={ANALYTICS_PROGRAMMES_TIP} />
               {dataSource === ALL_SOURCES_ID
                 ? " Showing active programmes across organisations."
                 : ` Filtered to programmes owned by ${sourceLabel}.`}
@@ -725,7 +746,7 @@ function HealthAnalyticsContent() {
                   <Building className="size-4 text-primary" aria-hidden />
                 </span>
                 Ward-level disease burden
-                <HelpTooltip content="Ward totals come from published burden rows with a ward_id. Many indicators are LGA-only — an empty chart usually means no ward disaggregation, not a missing LGA total." />
+                <HelpTooltip content={ANALYTICS_WARD_BURDEN_TIP} />
               </span>
             }
             description="Drill into ward counts for a selected LGA and year."
@@ -839,8 +860,8 @@ function HealthAnalyticsContent() {
                     <HelpTooltip
                       content={
                         wardIncidenceHighlight != null
-                          ? `Bars above ${wardIncidenceHighlight} are highlighted.`
-                          : "Highlighting is off for rate/completeness indicators."
+                          ? `Bars above ${wardIncidenceHighlight} are highlighted. ${ANALYTICS_WARD_INCIDENCE_TIP}`
+                          : ANALYTICS_WARD_INCIDENCE_TIP
                       }
                     />
                   </p>
@@ -921,7 +942,11 @@ function HealthAnalyticsContent() {
         )}
 
         {analyticsTab === "indicators" && <>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
+            Measure kind
+            <HelpTooltip content={ANALYTICS_MEASURE_KIND_TIP} />
+          </p>
           {MEASURE_KIND_MODES.map((mode) => (
             <Button
               key={mode.value}
@@ -938,7 +963,10 @@ function HealthAnalyticsContent() {
 
         <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
           <div className="space-y-1">
-            <p className="text-[13px] font-medium">Indicator & year</p>
+            <p className="inline-flex items-center gap-1.5 text-[13px] font-medium">
+              Indicator & year
+              <HelpTooltip content={ANALYTICS_INDICATOR_FILTER_TIP} />
+            </p>
             <p className="text-xs text-muted-foreground">
               {selectedIndicatorMeta?.category
                 ? `${selectedIndicatorMeta.category} · `
@@ -1017,6 +1045,10 @@ function HealthAnalyticsContent() {
 
         {showIndicatorLayout ? (
           <>
+            <p className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
+              Indicator summary
+              <HelpTooltip content={ANALYTICS_INDICATOR_KPIS_TIP} />
+            </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <MetricCard
                 label={measureKindTotalLabel(
@@ -1080,6 +1112,10 @@ function HealthAnalyticsContent() {
               />
             </div>
 
+            <p className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
+              Platform context
+              <HelpTooltip content={ANALYTICS_PLATFORM_CONTEXT_TIP} />
+            </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <MetricCard
                 label="State health facilities"
@@ -1131,6 +1167,7 @@ function HealthAnalyticsContent() {
                       <Activity className="size-4 text-primary" aria-hidden />
                     </span>
                     Trends over time
+                    <HelpTooltip content={ANALYTICS_TRENDS_TIP} />
                   </span>
                 }
                 description={
@@ -1198,6 +1235,7 @@ function HealthAnalyticsContent() {
                       <BarChart3 className="size-4 text-info" aria-hidden />
                     </span>
                     Top 10 LGAs by {measureKindChartNoun(activeMeasureKind)}
+                    <HelpTooltip content={ANALYTICS_TOP_LGA_TIP} />
                   </span>
                 }
               >
@@ -1244,6 +1282,7 @@ function HealthAnalyticsContent() {
                     <MapPin className="size-4 text-muted-foreground" aria-hidden />
                   </span>
                   LGA burden summary
+                  <HelpTooltip content={ANALYTICS_LGA_BURDEN_TIP} />
                 </span>
               }
             >
@@ -1348,7 +1387,7 @@ function HealthAnalyticsContent() {
                     <AlertTriangle className="size-4 text-amber-700 dark:text-warning" aria-hidden />
                   </span>
                   Facility outliers
-                  <HelpTooltip content="Facilities whose case count sits 2+ standard deviations from their LGA mean." />
+                  <HelpTooltip content={ANALYTICS_FACILITY_OUTLIERS_TIP} />
                 </span>
               }
               description="z-score ≥ 2.0 for this indicator"
@@ -1413,7 +1452,7 @@ function HealthAnalyticsContent() {
                 <Globe2 className="size-4 text-info" aria-hidden />
               </span>
               Platform GIS health
-              <HelpTooltip content="State-wide population density and facility-count anomalies — not related to the selected disease indicator." />
+              <HelpTooltip content={ANALYTICS_GIS_ANOMALIES_TIP} />
             </span>
           }
           description={

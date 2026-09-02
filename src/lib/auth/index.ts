@@ -18,3 +18,19 @@ export {
   canAccessPrograms,
 } from "./program-permissions";
 export type { ProgramCapability } from "./program-permissions";
+
+// Portal org-member access
+export {
+  ORG_MEMBER_ROLES,
+  isOrgMember,
+  isOrgAdmin,
+} from "./portal-access";
+export type { OrgMemberRole } from "./portal-access";
+
+// Dataset row actions (org admin vs contributor)
+export {
+  canEditDataset,
+  canDeleteDataset,
+  canSubmitDataset,
+} from "./dataset-permissions";
+export type { DatasetPermissionFields } from "./dataset-permissions";

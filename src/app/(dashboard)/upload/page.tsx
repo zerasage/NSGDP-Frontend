@@ -1,21 +1,29 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Upload, FileText, MapPin, Scale, Settings, X, Search } from "lucide-react";
-import { useAuth } from "@/lib/auth";
-import { Container } from "@/components/layout/container";
+import { Upload, FileText, MapPin, Scale, Settings, X, Search, Loader2, ArrowLeft } from "lucide-react";
+import { useAuth, isOrgMember } from "@/lib/auth";
 import { Stepper } from "@/components/forms/stepper";
 import { FileUploadArea, type UploadedFile } from "@/components/forms/file-upload-area";
 import { FieldLabelTooltip } from "@/components/forms/field-label-tooltip";
 import { FormError } from "@/components/forms/form-error";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
+import { HelpTip } from "@/components/ui/help-tip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DashboardPage,
+  DashboardPageContent,
+} from "@/components/layout/dashboard-page-header";
+import { DashboardPanel } from "@/components/dashboard/portal-dashboard-ui";
+import { PORTAL_DATASET_UPLOAD_PAGE_TIP } from "@/lib/constants/portal-tooltips";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { useCreateDataset } from "@/lib/hooks/useDatasets";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
@@ -38,6 +46,14 @@ const steps = [
   { id: 5, name: "Contact & Settings", icon: Settings },
 ];
 
+const STEP_DESCRIPTIONS: Record<number, string> = {
+  1: "Provide essential details about your dataset.",
+  2: "Where and when this data applies, and what it measures.",
+  3: "Attach CSV, Excel, JSON, or geospatial files.",
+  4: "Usage rights and data quality notes for reviewers.",
+  5: "Contact details and who can access the dataset.",
+};
+
 const LICENSE_OPTIONS = [
   "CC-BY-4.0",
   "CC-BY-SA-4.0",
@@ -53,7 +69,9 @@ export default function UploadDatasetPage() {
   const { data: categoriesData } = useCategories();
   const [currentStep, setCurrentStep] = useState(1);
   const [uploading, setUploading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
+  const isBusy = uploading || isRedirecting;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -134,7 +152,7 @@ export default function UploadDatasetPage() {
   // Role guard - only contributor and admin can upload
   // Must be after all hooks
   if (!isLoading && user) {
-    if (user.role !== "contributor" && user.role !== "admin") {
+    if (!isOrgMember(user.role)) {
       router.replace("/dashboard");
       return null;
     }
@@ -292,8 +310,9 @@ export default function UploadDatasetPage() {
       toast.success(
         isDraft
           ? "Dataset saved as draft"
-          : `Dataset submitted for review with ${uploadedFiles.length} file${uploadedFiles.length !== 1 ? "s" : ""}!`
+          : `Dataset submitted for review with ${uploadedFiles.length} file${uploadedFiles.length !== 1 ? "s" : ""}!`,
       );
+      setIsRedirecting(true);
       router.push("/datasets");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to create dataset";
@@ -304,18 +323,56 @@ export default function UploadDatasetPage() {
     }
   };
 
+  const activeStep = steps.find((step) => step.id === currentStep);
+  const ActiveIcon = activeStep?.icon ?? Upload;
+
+  if (isLoading) {
+    return (
+      <DashboardPage>
+        <div className="border-b bg-background px-4 py-5 sm:px-6">
+          <Skeleton className="h-8 w-2/3" />
+          <Skeleton className="mt-2 h-4 w-1/2" />
+        </div>
+        <DashboardPageContent className="mx-auto max-w-3xl space-y-4">
+          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-[28rem] rounded-2xl" />
+        </DashboardPageContent>
+      </DashboardPage>
+    );
+  }
+
   return (
-    <main className="flex-1 bg-muted/40">
-      <div className="border-b bg-background">
-        <Container size="wide" className="py-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold">Upload New Dataset</h1>
-              <p className="mt-2 text-muted-foreground">
-                Share your data with the Niger State community
+    <DashboardPage>
+      <div className="border-b bg-background px-4 py-5 sm:px-6 sm:py-6">
+        <div className="flex flex-col gap-4">
+          <Link
+            href="/datasets"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "h-10 w-fit gap-2 px-0 hover:bg-transparent",
+            )}
+          >
+            <ArrowLeft className="size-4" />
+            Back to datasets
+          </Link>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-lg border border-success/25 bg-success/[0.06] px-2.5 py-1">
+                <Upload className="size-3.5 text-success" aria-hidden />
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-success">
+                  New dataset
+                </span>
+              </div>
+              <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight sm:text-2xl">
+                Upload dataset
+                <HelpTip content={PORTAL_DATASET_UPLOAD_PAGE_TIP} label="Upload dataset help" />
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Share data with the Niger State community
+                {user?.organisationName ? ` · ${user.organisationName}` : ""}.
               </p>
             </div>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 cursor-pointer">
+            <label className="flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-3 text-xs text-muted-foreground sm:h-10">
               <Checkbox
                 checked={prefillTestData}
                 onCheckedChange={(checked) => togglePrefill(!!checked)}
@@ -323,27 +380,24 @@ export default function UploadDatasetPage() {
               Prefill test data
             </label>
           </div>
-        </Container>
+        </div>
       </div>
 
-      <Container size="wide" className="py-8">
+      <DashboardPageContent className="mx-auto w-full max-w-3xl space-y-4 sm:space-y-6">
         <Stepper
           steps={steps}
           currentStep={currentStep}
           onStepClick={(step) => step < currentStep && setCurrentStep(step)}
-          className="mb-8"
         />
 
-        <Card className="max-w-3xl mx-auto p-4 sm:p-8">
+        <DashboardPanel
+          title={activeStep?.name ?? "Upload"}
+          description={STEP_DESCRIPTIONS[currentStep]}
+          icon={ActiveIcon}
+          tone="success"
+        >
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Basic Information</h2>
-                <p className="text-muted-foreground">
-                  Provide essential details about your dataset
-                </p>
-              </div>
-
+            <div className="space-y-5">
               <div>
                 <FieldLabelTooltip
                   htmlFor="title"
@@ -353,9 +407,11 @@ export default function UploadDatasetPage() {
                 />
                 <Input
                   id="title"
+                  className="h-11"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g., Niger State Health Facilities 2024"
+                  disabled={isBusy}
                 />
                 <FormError message={stepErrors.title} />
               </div>
@@ -452,25 +508,20 @@ export default function UploadDatasetPage() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
                 <Button
+                  className="h-11 w-full sm:w-auto"
                   onClick={() => validateStep1() && setCurrentStep(2)}
+                  disabled={isBusy}
                 >
-                  Next: Coverage & Indicators
+                  Next: Coverage & indicators
                 </Button>
               </div>
             </div>
           )}
 
           {currentStep === 2 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Coverage & Indicators</h2>
-                <p className="text-muted-foreground">
-                  Where and when this data applies, and what it measures
-                </p>
-              </div>
-
+            <div className="space-y-5">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <FieldLabelTooltip label="LGA Coverage" required tooltip={UPLOAD_FIELD_TOOLTIPS.lgas} />
@@ -496,7 +547,7 @@ export default function UploadDatasetPage() {
                     value={lgaFilter}
                     onChange={(e) => setLgaFilter(e.target.value)}
                     placeholder="Filter LGAs…"
-                    className="pl-9 h-9"
+                    className="pl-9 h-11"
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-4 rounded-lg border">
@@ -603,32 +654,29 @@ export default function UploadDatasetPage() {
                 )}
               </div>
 
-              <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(1)}>
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
+                <Button variant="outline" className="h-11 w-full sm:w-auto" onClick={() => setCurrentStep(1)} disabled={isBusy}>
                   Back
                 </Button>
-                <Button onClick={() => validateStep2() && setCurrentStep(3)}>
-                  Next: Upload Files
+                <Button className="h-11 w-full sm:w-auto" onClick={() => validateStep2() && setCurrentStep(3)} disabled={isBusy}>
+                  Next: Upload files
                 </Button>
               </div>
             </div>
           )}
 
           {currentStep === 3 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Upload Files</h2>
-                <p className="text-muted-foreground">{UPLOAD_FIELD_TOOLTIPS.files}</p>
-              </div>
+            <div className="space-y-5">
+              <p className="text-sm text-muted-foreground">{UPLOAD_FIELD_TOOLTIPS.files}</p>
 
               <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
               <FormError message={stepErrors.files} />
 
-              <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(2)}>
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
+                <Button variant="outline" className="h-11 w-full sm:w-auto" onClick={() => setCurrentStep(2)} disabled={isBusy}>
                   Back
                 </Button>
-                <Button onClick={() => validateStep3() && setCurrentStep(4)}>
+                <Button className="h-11 w-full sm:w-auto" onClick={() => validateStep3() && setCurrentStep(4)} disabled={isBusy}>
                   Next: Governance
                 </Button>
               </div>
@@ -636,14 +684,7 @@ export default function UploadDatasetPage() {
           )}
 
           {currentStep === 4 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Governance</h2>
-                <p className="text-muted-foreground">
-                  Usage rights and data quality notes
-                </p>
-              </div>
-
+            <div className="space-y-5">
               <div>
                 <FieldLabelTooltip
                   htmlFor="license"
@@ -696,26 +737,19 @@ export default function UploadDatasetPage() {
                 />
               </div>
 
-              <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(3)}>
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
+                <Button variant="outline" className="h-11 w-full sm:w-auto" onClick={() => setCurrentStep(3)} disabled={isBusy}>
                   Back
                 </Button>
-                <Button onClick={() => validateStep4() && setCurrentStep(5)}>
-                  Next: Contact & Settings
+                <Button className="h-11 w-full sm:w-auto" onClick={() => validateStep4() && setCurrentStep(5)} disabled={isBusy}>
+                  Next: Contact & settings
                 </Button>
               </div>
             </div>
           )}
 
           {currentStep === 5 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Contact & Settings</h2>
-                <p className="text-muted-foreground">
-                  Who to contact about this dataset, and who can access it
-                </p>
-              </div>
-
+            <div className="space-y-5">
               <div className="space-y-4">
                 <p className="text-sm font-medium text-muted-foreground">
                   Additional Information <span className="font-normal">(optional)</span>
@@ -818,33 +852,54 @@ export default function UploadDatasetPage() {
                 <FormError message={stepErrors.visibility} />
               </div>
 
-              <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(4)}>
+              <div className="flex flex-col gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="h-11 w-full sm:w-auto sm:self-start"
+                  onClick={() => setCurrentStep(4)}
+                  disabled={isBusy}
+                >
                   Back
                 </Button>
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <Button
                     variant="outline"
+                    className="h-11 w-full sm:w-auto"
                     onClick={() => handleSubmit(true)}
-                    disabled={uploading || uploadedFiles.length === 0}
+                    disabled={isBusy || uploadedFiles.length === 0}
                     title={uploadedFiles.length === 0 ? "Please upload a file first" : ""}
                   >
-                    Save as Draft
+                    {isBusy ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save as draft"
+                    )}
                   </Button>
                   <Button
+                    className="h-11 w-full gap-2 sm:w-auto"
                     onClick={() => handleSubmit(false)}
-                    disabled={uploading || uploadedFiles.length === 0}
+                    disabled={isBusy || uploadedFiles.length === 0}
                     title={uploadedFiles.length === 0 ? "Please upload a file first" : ""}
                   >
-                    {uploading ? "Submitting..." : "Submit for Review"}
+                    {isBusy ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                        Submitting…
+                      </>
+                    ) : (
+                      "Submit for review"
+                    )}
                   </Button>
                 </div>
               </div>
             </div>
           )}
-        </Card>
-      </Container>
-    </main>
+        </DashboardPanel>
+      </DashboardPageContent>
+    </DashboardPage>
   );
 }
 
@@ -865,11 +920,12 @@ function VisibilityOption({
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`p-4 rounded-lg border-2 text-left transition-colors ${
+      className={cn(
+        "rounded-xl border-2 p-4 text-left transition-colors",
         selected
           ? "border-primary bg-primary/5"
-          : "border-muted hover:border-muted-foreground/30"
-      }`}
+          : "border-muted hover:border-muted-foreground/30",
+      )}
     >
       <div className="flex items-start gap-3">
         <div

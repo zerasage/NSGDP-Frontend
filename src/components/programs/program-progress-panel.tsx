@@ -50,6 +50,8 @@ interface ProgramProgressPanelProps {
   onClose?: () => void;
   onSuccess?: () => void;
   variant?: "inline" | "dialog";
+  /** When true, omits outer card chrome and title — use inside DashboardPanel. */
+  embedded?: boolean;
 }
 
 export function ProgramProgressPanel({
@@ -57,6 +59,7 @@ export function ProgramProgressPanel({
   onClose,
   onSuccess,
   variant = "inline",
+  embedded = false,
 }: ProgramProgressPanelProps) {
   const updateMutation = useUpdateProgramProgress();
   const mode = programme.progressMode ?? "lga_coverage";
@@ -105,19 +108,21 @@ export function ProgramProgressPanel({
 
   const content = (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-base font-semibold flex items-center gap-2">
-          <TrendingUp className="size-4" />
-          Update progress
-        </h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {mode === "combined"
-            ? "Track LGA coverage and your outcome metric separately."
-            : mode === "lga_coverage"
-              ? "Mark which target LGAs are covered."
-              : "Update how much of your outcome target has been reached."}
-        </p>
-      </div>
+      {!embedded ? (
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <TrendingUp className="size-4" />
+            Update progress
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {mode === "combined"
+              ? "Track LGA coverage and your outcome metric separately."
+              : mode === "lga_coverage"
+                ? "Mark which target LGAs are covered."
+                : "Update how much of your outcome target has been reached."}
+          </p>
+        </div>
+      ) : null}
 
       {showLga && (
         <div>
@@ -209,7 +214,7 @@ export function ProgramProgressPanel({
     </div>
   );
 
-  if (variant === "dialog") {
+  if (variant === "dialog" || embedded) {
     return content;
   }
 

@@ -1,22 +1,32 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Upload, FileText, MapPin, Scale, Settings, X, Loader2 } from "lucide-react";
-import { Container } from "@/components/layout/container";
+import { Upload, FileText, MapPin, Scale, Settings, X, Loader2, ArrowLeft, Search } from "lucide-react";
 import { Stepper } from "@/components/forms/stepper";
 import { FileUploadArea, type UploadedFile } from "@/components/forms/file-upload-area";
 import { FieldLabelTooltip } from "@/components/forms/field-label-tooltip";
 import { FormError } from "@/components/forms/form-error";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { HelpTip } from "@/components/ui/help-tip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DashboardPage,
+  DashboardPageContent,
+} from "@/components/layout/dashboard-page-header";
+import { DashboardPanel } from "@/components/dashboard/portal-dashboard-ui";
+import { PORTAL_DATASET_EDIT_PAGE_TIP } from "@/lib/constants/portal-tooltips";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { useDataset, useUpdateDataset, useDatasetFiles } from "@/lib/hooks/useDatasets";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
+import { canEditDataset } from "@/lib/auth";
+import { useRequireOrgMember } from "@/lib/hooks/useRequireOrgMember";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { UPLOAD_FIELD_TOOLTIPS } from "@/lib/constants/upload-tooltips";
 import { useDraftAutoSave } from "@/lib/hooks/useDraftAutoSave";
@@ -36,6 +46,14 @@ const steps = [
   { id: 5, name: "Contact & Settings", icon: Settings },
 ];
 
+const STEP_DESCRIPTIONS: Record<number, string> = {
+  1: "Update essential details about your dataset.",
+  2: "Where and when this data applies, and what it measures.",
+  3: "Review existing files or attach additional ones.",
+  4: "Usage rights and data quality notes for reviewers.",
+  5: "Contact details and who can access the dataset.",
+};
+
 const LICENSE_OPTIONS = [
   { value: "CC-BY-4.0", label: "CC BY 4.0 — Attribution required" },
   { value: "CC-BY-SA-4.0", label: "CC BY-SA 4.0 — Attribution, share-alike" },
@@ -51,6 +69,7 @@ export default function EditDatasetPage({
 }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const { user, isLoading: authLoading, allowed } = useRequireOrgMember();
 
   // Fetch dataset from API
   const { data: dataset, isLoading: loading, error } = useDataset(resolvedParams.slug);
@@ -60,7 +79,9 @@ export default function EditDatasetPage({
 
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
+  const isBusy = saving || isRedirecting;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -68,6 +89,10 @@ export default function EditDatasetPage({
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [selectedLGAs, setSelectedLGAs] = useState<string[]>([]);
+  const [lgaFilter, setLgaFilter] = useState("");
+  const filteredLGAs = NIGER_STATE_LGAS.filter((lga) =>
+    lga.toLowerCase().includes(lgaFilter.trim().toLowerCase()),
+  );
   const [temporalCoverageStart, setTemporalCoverageStart] = useState("");
   const [temporalCoverageEnd, setTemporalCoverageEnd] = useState("");
   const [diseaseIndicators, setDiseaseIndicators] = useState<string[]>([]);
@@ -109,13 +134,22 @@ export default function EditDatasetPage({
     }
   }, [dataset]);
 
-  // Handle not found
+  // Handle not found or forbidden
   useEffect(() => {
     if (error) {
       toast.error("Dataset not found");
       router.push("/datasets");
+      return;
     }
-  }, [error, router]);
+    if (!loading && dataset && user && !canEditDataset(user, dataset)) {
+      toast.error("You do not have permission to edit this dataset");
+      router.push(`/datasets/${resolvedParams.slug}`);
+    }
+  }, [error, loading, dataset, user, router, resolvedParams.slug]);
+
+  if (authLoading || !allowed) {
+    return null;
+  }
 
   const addTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -242,7 +276,8 @@ export default function EditDatasetPage({
       }
 
       toast.success(isDraft ? "Changes saved as draft" : "Dataset updated successfully!");
-      router.push("/datasets");
+      setIsRedirecting(true);
+      router.push(`/datasets/${resolvedParams.slug}`);
     } catch (error) {
       toast.error("Failed to update dataset");
       console.error(error);
@@ -253,46 +288,74 @@ export default function EditDatasetPage({
 
   if (loading) {
     return (
-      <main className="flex-1 bg-muted/40">
-        <Container className="py-12 flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="size-8 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading dataset...</p>
-          </div>
-        </Container>
-      </main>
+      <DashboardPage>
+        <div className="border-b bg-background px-4 py-5 sm:px-6">
+          <Skeleton className="h-8 w-2/3" />
+          <Skeleton className="mt-2 h-4 w-1/2" />
+        </div>
+        <DashboardPageContent className="mx-auto max-w-3xl space-y-4">
+          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-[28rem] rounded-2xl" />
+        </DashboardPageContent>
+      </DashboardPage>
     );
   }
 
   if (!dataset) return null;
 
+  if (!canEditDataset(user, dataset)) {
+    return null;
+  }
+
+  const activeStep = steps.find((step) => step.id === currentStep);
+  const ActiveIcon = activeStep?.icon ?? FileText;
+  const datasetHref = `/datasets/${resolvedParams.slug}`;
+
   return (
-    <main className="flex-1 bg-muted/40">
-      <div className="border-b bg-background">
-        <Container size="wide" className="py-8">
-          <h1 className="text-3xl font-bold">Edit Dataset</h1>
-          <p className="mt-2 text-muted-foreground">{dataset.title}</p>
-        </Container>
+    <DashboardPage>
+      <div className="border-b bg-background px-4 py-5 sm:px-6 sm:py-6">
+        <div className="flex flex-col gap-4">
+          <Link
+            href={datasetHref}
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "h-10 w-fit gap-2 px-0 hover:bg-transparent",
+            )}
+          >
+            <ArrowLeft className="size-4" />
+            Back to dataset
+          </Link>
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/[0.08] px-2.5 py-1">
+              <FileText className="size-3.5 text-amber-700 dark:text-warning" aria-hidden />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-warning">
+                Edit dataset
+              </span>
+            </div>
+            <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight sm:text-2xl">
+              Edit dataset
+              <HelpTip content={PORTAL_DATASET_EDIT_PAGE_TIP} label="Edit dataset help" />
+            </h1>
+            <p className="mt-1 truncate text-sm text-muted-foreground">{dataset.title}</p>
+          </div>
+        </div>
       </div>
 
-      <Container size="wide" className="py-8">
+      <DashboardPageContent className="mx-auto w-full max-w-3xl space-y-4 sm:space-y-6">
         <Stepper
           steps={steps}
           currentStep={currentStep}
           onStepClick={(step) => step < currentStep && setCurrentStep(step)}
-          className="mb-8"
         />
 
-        <Card className="max-w-3xl mx-auto p-4 sm:p-8">
+        <DashboardPanel
+          title={activeStep?.name ?? "Edit"}
+          description={STEP_DESCRIPTIONS[currentStep]}
+          icon={ActiveIcon}
+          tone="warning"
+        >
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Basic Information</h2>
-                <p className="text-muted-foreground">
-                  Update essential details about your dataset
-                </p>
-              </div>
-
+            <div className="space-y-5">
               <div>
                 <FieldLabelTooltip
                   htmlFor="title"
@@ -300,7 +363,7 @@ export default function EditDatasetPage({
                   required
                   tooltip={UPLOAD_FIELD_TOOLTIPS.title}
                 />
-                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Input id="title" className="h-11" value={title} onChange={(e) => setTitle(e.target.value)} disabled={isBusy} />
                 <FormError message={stepErrors.title} />
               </div>
 
@@ -395,23 +458,16 @@ export default function EditDatasetPage({
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <Button onClick={() => validateStep1() && setCurrentStep(2)}>
-                  Next: Coverage & Indicators
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+                <Button className="h-11 w-full sm:w-auto" onClick={() => validateStep1() && setCurrentStep(2)} disabled={isBusy}>
+                  Next: Coverage & indicators
                 </Button>
               </div>
             </div>
           )}
 
           {currentStep === 2 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Coverage & Indicators</h2>
-                <p className="text-muted-foreground">
-                  Where and when this data applies, and what it measures
-                </p>
-              </div>
-
+            <div className="space-y-5">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <FieldLabelTooltip label="LGA Coverage" required tooltip={UPLOAD_FIELD_TOOLTIPS.lgas} />
@@ -431,24 +487,41 @@ export default function EditDatasetPage({
                     {selectedLGAs.length === NIGER_STATE_LGAS.length ? "Clear All" : "Select All (25)"}
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-4 rounded-lg border">
-                  {NIGER_STATE_LGAS.map((lga) => (
-                    <label key={lga} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={selectedLGAs.includes(lga)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedLGAs([...selectedLGAs, lga]);
-                          } else {
-                            setSelectedLGAs(selectedLGAs.filter((l) => l !== lga));
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      {lga}
-                    </label>
-                  ))}
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={lgaFilter}
+                    onChange={(e) => setLgaFilter(e.target.value)}
+                    placeholder="Filter LGAs…"
+                    className="h-11 pl-9"
+                    disabled={isBusy}
+                  />
+                </div>
+                <div className="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredLGAs.length === 0 ? (
+                    <p className="col-span-full py-4 text-center text-sm text-muted-foreground">
+                      No LGAs match &ldquo;{lgaFilter}&rdquo;
+                    </p>
+                  ) : (
+                    filteredLGAs.map((lga) => (
+                      <label key={lga} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedLGAs.includes(lga)}
+                          disabled={isBusy}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLGAs([...selectedLGAs, lga]);
+                            } else {
+                              setSelectedLGAs(selectedLGAs.filter((l) => l !== lga));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        {lga}
+                      </label>
+                    ))
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {selectedLGAs.length} of {NIGER_STATE_LGAS.length} LGAs selected
@@ -529,31 +602,27 @@ export default function EditDatasetPage({
                 )}
               </div>
 
-              <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(1)}>
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
+                <Button variant="outline" className="h-11 w-full sm:w-auto" onClick={() => setCurrentStep(1)} disabled={isBusy}>
                   Back
                 </Button>
-                <Button onClick={() => validateStep2() && setCurrentStep(3)}>
-                  Next: Manage Files
+                <Button className="h-11 w-full sm:w-auto" onClick={() => validateStep2() && setCurrentStep(3)} disabled={isBusy}>
+                  Next: Manage files
                 </Button>
               </div>
             </div>
           )}
 
           {currentStep === 3 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Manage Files</h2>
-                <p className="text-muted-foreground">{UPLOAD_FIELD_TOOLTIPS.files}</p>
-              </div>
-
+            <div className="space-y-5">
+              <p className="text-sm text-muted-foreground">{UPLOAD_FIELD_TOOLTIPS.files}</p>
               {existingFiles && existingFiles.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="font-medium">Current Files ({existingFiles.length})</h3>
                   {existingFiles.map((file) => (
                     <div
                       key={file.id}
-                      className="flex items-center gap-3 p-4 rounded-lg border"
+                      className="flex items-center gap-3 rounded-xl border p-4"
                     >
                       <FileText className="size-5 text-muted-foreground shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -573,11 +642,11 @@ export default function EditDatasetPage({
               <FileUploadArea files={newFiles} onFilesChange={setNewFiles} />
               <FormError message={stepErrors.files} />
 
-              <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(2)}>
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
+                <Button variant="outline" className="h-11 w-full sm:w-auto" onClick={() => setCurrentStep(2)} disabled={isBusy}>
                   Back
                 </Button>
-                <Button onClick={() => validateStep3() && setCurrentStep(4)}>
+                <Button className="h-11 w-full sm:w-auto" onClick={() => validateStep3() && setCurrentStep(4)} disabled={isBusy}>
                   Next: Governance
                 </Button>
               </div>
@@ -585,14 +654,7 @@ export default function EditDatasetPage({
           )}
 
           {currentStep === 4 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Governance</h2>
-                <p className="text-muted-foreground">
-                  Usage rights and data quality notes
-                </p>
-              </div>
-
+            <div className="space-y-5">
               <div>
                 <FieldLabelTooltip
                   label="Data License"
@@ -644,26 +706,19 @@ export default function EditDatasetPage({
                 />
               </div>
 
-              <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(3)}>
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
+                <Button variant="outline" className="h-11 w-full sm:w-auto" onClick={() => setCurrentStep(3)} disabled={isBusy}>
                   Back
                 </Button>
-                <Button onClick={() => validateStep4() && setCurrentStep(5)}>
-                  Next: Contact & Settings
+                <Button className="h-11 w-full sm:w-auto" onClick={() => validateStep4() && setCurrentStep(5)} disabled={isBusy}>
+                  Next: Contact & settings
                 </Button>
               </div>
             </div>
           )}
 
           {currentStep === 5 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Contact & Settings</h2>
-                <p className="text-muted-foreground">
-                  Who to contact about this dataset, and who can access it
-                </p>
-              </div>
-
+            <div className="space-y-5">
               <div className="space-y-4">
                 <p className="text-sm font-medium text-muted-foreground">
                   Additional Information <span className="font-normal">(optional)</span>
@@ -746,12 +801,14 @@ export default function EditDatasetPage({
                       key={vis}
                       type="button"
                       onClick={() => setVisibility(vis)}
+                      disabled={isBusy}
                       aria-pressed={visibility === vis}
-                      className={`p-4 rounded-lg border-2 text-left transition-colors ${
+                      className={cn(
+                        "rounded-xl border-2 p-4 text-left transition-colors",
                         visibility === vis
                           ? "border-primary bg-primary/5"
-                          : "border-muted hover:border-muted-foreground/30"
-                      }`}
+                          : "border-muted hover:border-muted-foreground/30",
+                      )}
                     >
                       <div className="flex items-start gap-3">
                         <div
@@ -779,23 +836,47 @@ export default function EditDatasetPage({
                 <FormError message={stepErrors.visibility} />
               </div>
 
-              <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(4)}>
+              <div className="flex flex-col gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="h-11 w-full sm:w-auto sm:self-start"
+                  onClick={() => setCurrentStep(4)}
+                  disabled={isBusy}
+                >
                   Back
                 </Button>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button variant="outline" onClick={() => handleSave(true)} disabled={saving}>
-                    Save as Draft
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <Button
+                    variant="outline"
+                    className="h-11 w-full sm:w-auto"
+                    onClick={() => handleSave(true)}
+                    disabled={isBusy}
+                  >
+                    {isBusy ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save as draft"
+                    )}
                   </Button>
-                  <Button onClick={() => handleSave(false)} disabled={saving}>
-                    {saving ? "Saving..." : "Save Changes"}
+                  <Button className="h-11 w-full gap-2 sm:w-auto" onClick={() => handleSave(false)} disabled={isBusy}>
+                    {isBusy ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save changes"
+                    )}
                   </Button>
                 </div>
               </div>
             </div>
           )}
-        </Card>
-      </Container>
-    </main>
+        </DashboardPanel>
+      </DashboardPageContent>
+    </DashboardPage>
   );
 }

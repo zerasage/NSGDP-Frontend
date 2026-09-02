@@ -2,27 +2,65 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Database, Upload, Edit, Trash2, Eye, Search, Send } from "lucide-react";
-import { Container } from "@/components/layout/container";
-import { Button } from "@/components/ui/button";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Database,
+  Upload,
+  Edit,
+  Trash2,
+  Eye,
+  Search,
+  Send,
+  RotateCcw,
+  MoreHorizontal,
+} from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/data/status-badge";
 import { VisibilityBadge } from "@/components/data/visibility-badge";
-import { EmptyState } from "@/components/feedback/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useOrganizationDatasets, useDeleteDataset, useSubmitDatasetForReview } from "@/lib/hooks/useDatasets";
-import { useAuth } from "@/lib/auth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  useOrganizationDatasets,
+  useDeleteDataset,
+  useSubmitDatasetForReview,
+} from "@/lib/hooks/useDatasets";
+import { canEditDataset, canDeleteDataset, canSubmitDataset } from "@/lib/auth";
+import { useRequireOrgMember } from "@/lib/hooks/useRequireOrgMember";
+import {
+  DashboardPage,
+  DashboardPageContent,
+} from "@/components/layout/dashboard-page-header";
+import {
+  DashboardPanel,
+  EmptyPanelState,
+  FilterChip,
+  MetricCard,
+} from "@/components/dashboard/portal-dashboard-ui";
+import { HelpTip } from "@/components/ui/help-tip";
+import {
+  PORTAL_DATASETS_PAGE_TIP,
+  PORTAL_DATASETS_PENDING_METRIC_TIP,
+  PORTAL_DATASETS_STATUS_TIP,
+} from "@/lib/constants/portal-tooltips";
 import type { DatasetStatus } from "@/types";
+import type { DatasetVisibility } from "@/lib/api/datasets";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-// Backend status values: draft, pending, under_review, approved, rejected, archived
 const statusFilters: { value: DatasetStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
   { value: "approved", label: "Approved" },
-  { value: "pending", label: "Pending Review" },
-  { value: "under_review", label: "Under Review" },
+  { value: "pending", label: "Pending" },
+  { value: "under_review", label: "In review" },
   { value: "draft", label: "Drafts" },
   { value: "rejected", label: "Rejected" },
   { value: "archived", label: "Archived" },
@@ -30,141 +68,53 @@ const statusFilters: { value: DatasetStatus | "all"; label: string }[] = [
 
 export default function MyDatasetsPage() {
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading, allowed } = useRequireOrgMember();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<DatasetStatus | "all">(
-    (searchParams?.get("status") as DatasetStatus) || "all"
+    (searchParams?.get("status") as DatasetStatus) || "all",
   );
-  const limit = 50;
-
-  // Dialog state
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedDataset, setSelectedDataset] = useState<{ slug: string; title: string } | null>(null);
+  const [selectedDataset, setSelectedDataset] = useState<{ slug: string; title: string } | null>(
+    null,
+  );
 
-  // Fetch datasets from authenticated organization endpoint
-  // This endpoint shows ALL statuses (draft, pending, approved, etc.) for the user's org
-  const { data, isLoading, error } = useOrganizationDatasets(
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useOrganizationDatasets(
     {
       page: 1,
-      limit,
+      limit: 50,
       status: statusFilter !== "all" ? statusFilter : undefined,
       search: searchQuery || undefined,
     },
-    { enabled: !!user?.id } // Only fetch when user is authenticated
+    { enabled: !!user?.id },
   );
 
-  // Separate, always-unfiltered fetch used only to compute the tab counts —
-  // decoupled from `data` above (which is scoped to the active status tab).
-  // Deriving counts from the filtered list meant every other tab's count
-  // collapsed to 0 the moment you selected one, since that list only ever
-  // contained rows matching the currently-selected status.
   const { data: countsData } = useOrganizationDatasets(
-    { page: 1, limit: 100 }, // backend caps limit at 100 (PaginationDto)
-    { enabled: !!user?.id }
+    { page: 1, limit: 100 },
+    { enabled: !!user?.id },
   );
-  const allDatasetsForCounts = countsData?.data || [];
 
   const deleteDatasetMutation = useDeleteDataset();
   const submitDatasetMutation = useSubmitDatasetForReview();
 
-  const datasets = data?.data || [];
+  const datasets = data?.data ?? [];
   const meta = data?.meta;
+  const allDatasetsForCounts = countsData?.data ?? [];
 
-  // Permission helpers
-  const canEditDataset = (dataset: typeof datasets[0]) => {
-    if (!user) return false;
-    
-    // Admin can edit all org datasets (including approved - which triggers re-approval)
-    if (user.role === "admin") return true;
-    
-    // Approved datasets cannot be edited by contributors (even if they own it)
-    if (dataset.status === "approved") return false;
-    
-    // Contributor can only edit their own non-approved datasets
-    if (user.role === "contributor" && dataset.owner_id === user.id) return true;
-    
-    return false;
-  };
+  if (authLoading || !allowed) {
+    return null;
+  }
 
-  const canDeleteDataset = (dataset: typeof datasets[0]) => {
-    if (!user) return false;
-    
-    const deletableStatuses = ["draft", "rejected", "pending", "approved"];
-    
-    // Admin can delete draft, rejected, pending, and approved datasets
-    if (user.role === "admin" && deletableStatuses.includes(dataset.status)) {
-      return true;
-    }
-    
-    // Contributor can only delete their OWN draft or rejected datasets
-    // Once approved, only admin can delete (even if contributor owns it)
-    if (user.role === "contributor" && dataset.owner_id === user.id) {
-      return dataset.status === "draft" || dataset.status === "rejected";
-    }
-    
-    return false;
-  };
+  const canEditDatasetRow = (dataset: (typeof datasets)[0]) => canEditDataset(user, dataset);
+  const canDeleteDatasetRow = (dataset: (typeof datasets)[0]) => canDeleteDataset(user, dataset);
+  const canSubmitDatasetRow = (dataset: (typeof datasets)[0]) => canSubmitDataset(user, dataset);
 
-  const handleDelete = (slug: string, title: string) => {
-    setSelectedDataset({ slug, title });
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (!selectedDataset) return;
-    
-    deleteDatasetMutation.mutate(selectedDataset.slug, {
-      onSuccess: () => {
-        toast.success("Dataset archived successfully");
-        setSelectedDataset(null);
-      },
-      onError: () => {
-        toast.error("Failed to archive dataset");
-      },
-    });
-  };
-
-  const handleSubmitForReview = (slug: string, title: string) => {
-    setSelectedDataset({ slug, title });
-    setSubmitDialogOpen(true);
-  };
-
-  const confirmSubmit = () => {
-    if (!selectedDataset) return;
-    
-    submitDatasetMutation.mutate(selectedDataset.slug, {
-      onSuccess: () => {
-        toast.success("Dataset submitted for review successfully");
-        setSelectedDataset(null);
-      },
-      onError: (error: Error) => {
-        toast.error((error as Error)?.message || "Failed to submit dataset for review");
-      },
-    });
-  };
-
-  // Check if user can submit dataset for review
-  const canSubmitDataset = (dataset: typeof datasets[0]) => {
-    // Only draft or rejected datasets can be submitted
-    if (dataset.status !== "draft" && dataset.status !== "rejected") {
-      return false;
-    }
-    
-    // Admin can submit any org dataset
-    if (user?.role === "admin") {
-      return true;
-    }
-    
-    // Contributor can only submit their own datasets
-    if (user?.role === "contributor" && dataset.owner_id === user.id) {
-      return true;
-    }
-    
-    return false;
-  };
-
-  // Count by status from the unfiltered fetch, not the active tab's list
   const statusCounts: Record<DatasetStatus | "all", number> = {
     all: allDatasetsForCounts.length,
     approved: allDatasetsForCounts.filter((d) => d.status === "approved").length,
@@ -175,214 +125,243 @@ export default function MyDatasetsPage() {
     archived: allDatasetsForCounts.filter((d) => d.status === "archived").length,
   };
 
+  const confirmDelete = () => {
+    if (!selectedDataset) return;
+    deleteDatasetMutation.mutate(selectedDataset.slug, {
+      onSuccess: () => {
+        toast.success("Dataset archived successfully");
+        setSelectedDataset(null);
+      },
+      onError: () => toast.error("Failed to archive dataset"),
+    });
+  };
+
+  const confirmSubmit = () => {
+    if (!selectedDataset) return;
+    submitDatasetMutation.mutate(selectedDataset.slug, {
+      onSuccess: () => {
+        toast.success("Dataset submitted for review");
+        setSelectedDataset(null);
+      },
+      onError: (err: Error) =>
+        toast.error(err?.message || "Failed to submit dataset for review"),
+    });
+  };
+
   return (
-    <main className="flex-1 bg-muted/40">
-      <div className="border-b bg-background">
-        <Container size="wide" className="py-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Datasets</h1>
-              <p className="mt-2 text-muted-foreground">
-                Manage your organization&apos;s datasets and track their status
-              </p>
+    <DashboardPage>
+      <div className="border-b bg-background px-4 py-5 sm:px-6 sm:py-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-lg border border-success/25 bg-success/[0.06] px-2.5 py-1">
+              <Database className="size-3.5 text-success" aria-hidden />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-success">
+                Organisation
+              </span>
             </div>
-            <Link href="/upload">
-              <Button>
-                <Upload className="size-4 mr-2" />
-                Upload New Dataset
-              </Button>
-            </Link>
+            <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight sm:text-2xl">
+              Datasets
+              <HelpTip content={PORTAL_DATASETS_PAGE_TIP} label="Datasets page help" />
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Manage uploads, track review status, and keep catalogue entries up to date.
+            </p>
           </div>
-        </Container>
+          <Link
+            href="/upload"
+            className={cn(buttonVariants(), "h-11 shrink-0 gap-2 sm:h-10")}
+          >
+            <Upload className="size-4" />
+            Upload dataset
+          </Link>
+        </div>
       </div>
 
-      <Container size="wide" className="py-8">
-        {/* Status Filter Tabs */}
-        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-          {statusFilters.map((filter) => (
-            <button
-              key={filter.value}
-              onClick={() => setStatusFilter(filter.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                statusFilter === filter.value
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-background hover:bg-muted border"
-              }`}
-            >
-              {filter.label}
-              {statusCounts[filter.value] > 0 && (
-                <span className="ml-2 opacity-75">({statusCounts[filter.value]})</span>
-              )}
-            </button>
-          ))}
-          <Button 
-            onClick={() => window.location.reload()} 
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-          >
-            Refresh
-          </Button>
-        </div>
-
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Search datasets..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : error ? (
-          <div className="text-center py-12">
-            <p className="text-destructive">Failed to load datasets</p>
-            <Button onClick={() => window.location.reload()} variant="outline" className="mt-4">
-              Retry
-            </Button>
-          </div>
-        ) : datasets.length === 0 ? (
-          <EmptyState
+      <DashboardPageContent className="space-y-4 sm:space-y-6">
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            label="Total"
+            value={statusCounts.all}
+            hint="All organisation datasets"
             icon={Database}
-            title={searchQuery ? "No datasets found" : "No datasets yet"}
-            description={
-              searchQuery
-                ? "Try adjusting your search or filters"
-                : "Upload your first dataset to get started. Datasets will appear here once approved."
-            }
-            action={
-              searchQuery
-                ? undefined
-                : {
-                    label: "Upload Dataset",
-                    onClick: () => (window.location.href = "/upload"),
-                  }
-            }
+            tone="success"
           />
-        ) : (
-          <>
-            {/* Datasets Table */}
-            <div className="rounded-lg border bg-background overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="border-b bg-muted/50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-sm font-medium">Dataset</th>
-                      <th className="px-6 py-3 text-left text-sm font-medium">Status</th>
-                      <th className="px-6 py-3 text-left text-sm font-medium">Visibility</th>
-                      <th className="px-6 py-3 text-left text-sm font-medium">Downloads</th>
-                      <th className="px-6 py-3 text-left text-sm font-medium">Last Updated</th>
-                      <th className="px-6 py-3 text-right text-sm font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {datasets.map((dataset) => (
-                      <tr
-                        key={dataset.id}
-                        className="hover:bg-muted/50 transition-colors"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-start gap-3">
-                            <Database className="size-5 text-muted-foreground shrink-0 mt-0.5" />
-                            <div className="min-w-0">
-                              <Link
-                                href={`/datasets/${dataset.slug}`}
-                                className="font-medium hover:text-primary transition-colors block mb-1"
-                              >
-                                {dataset.title}
-                              </Link>
-                              <p className="text-sm text-muted-foreground line-clamp-1">
-                                {dataset.description}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <StatusBadge status={dataset.status} publishedAt={dataset.published_at} />
-                        </td>
-                        <td className="px-6 py-4">
-                          <VisibilityBadge visibility={dataset.visibility} />
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-muted-foreground">
-                            {dataset.download_count?.toLocaleString() || 0}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-muted-foreground">
-                            {formatDate(dataset.updated_at)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link href={`/datasets/${dataset.slug}`}>
-                              <Button size="sm" variant="ghost">
-                                <Eye className="size-4" />
-                              </Button>
-                            </Link>
-                            {canSubmitDataset(dataset) && (
-                              <Button 
-                                size="sm" 
-                                variant="default"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => handleSubmitForReview(dataset.slug, dataset.title)}
-                                disabled={submitDatasetMutation.isPending}
-                                title="Submit for review"
-                              >
-                                <Send className="size-4" />
-                              </Button>
-                            )}
-                            {canEditDataset(dataset) && (
-                              <Link href={`/edit/${dataset.slug}`}>
-                                <Button size="sm" variant="ghost">
-                                  <Edit className="size-4" />
-                                </Button>
-                              </Link>
-                            )}
-                            {canDeleteDataset(dataset) && (
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleDelete(dataset.slug, dataset.title)}
-                                disabled={deleteDatasetMutation.isPending}
-                              >
-                                <Trash2 className="size-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          <MetricCard
+            label="Pending"
+            value={statusCounts.pending + statusCounts.under_review}
+            hint="Awaiting review"
+            icon={Send}
+            tone="warning"
+            tip={PORTAL_DATASETS_PENDING_METRIC_TIP}
+            onClick={() => setStatusFilter("pending")}
+          />
+          <MetricCard
+            label="Approved"
+            value={statusCounts.approved}
+            hint="Live in catalogue"
+            icon={Eye}
+            tone="info"
+            onClick={() => setStatusFilter("approved")}
+          />
+          <MetricCard
+            label="Drafts"
+            value={statusCounts.draft}
+            hint="Not yet submitted"
+            icon={Edit}
+            tone="muted"
+            onClick={() => setStatusFilter("draft")}
+          />
+        </div>
+
+        <DashboardPanel
+          title="Your datasets"
+          titleTip={PORTAL_DATASETS_STATUS_TIP}
+          description="Filter by status or search by title and description."
+          icon={Database}
+          tone="success"
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9"
+              disabled={isFetching}
+              onClick={() => void refetch()}
+            >
+              <RotateCcw className={cn("size-4", isFetching && "animate-spin")} />
+              Refresh
+            </Button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {statusFilters.map((filter) => (
+                <FilterChip
+                  key={filter.value}
+                  active={statusFilter === filter.value}
+                  label={filter.label}
+                  count={statusCounts[filter.value]}
+                  onClick={() => setStatusFilter(filter.value)}
+                />
+              ))}
             </div>
 
-            {/* Results Count */}
-            <p className="text-sm text-muted-foreground text-center mt-6">
-              Showing {datasets.length} of {meta?.total || 0} datasets
-            </p>
-          </>
-        )}
-      </Container>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search datasets…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-11 pl-10"
+              />
+            </div>
 
-      {/* Submit for Review Dialog */}
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-28 rounded-xl sm:h-20" />
+                ))}
+              </div>
+            ) : error ? (
+              <EmptyPanelState
+                icon={Database}
+                message="Failed to load datasets."
+                action={
+                  <Button variant="outline" className="h-11" onClick={() => void refetch()}>
+                    Try again
+                  </Button>
+                }
+              />
+            ) : datasets.length === 0 ? (
+              <EmptyPanelState
+                icon={Database}
+                message={
+                  searchQuery
+                    ? "No datasets match your search."
+                    : "No datasets yet — upload your first one to get started."
+                }
+                action={
+                  searchQuery ? undefined : (
+                    <Link href="/upload" className={cn(buttonVariants(), "h-11")}>
+                      <Upload className="size-4" />
+                      Upload dataset
+                    </Link>
+                  )
+                }
+              />
+            ) : (
+              <>
+                <ul className="space-y-3 lg:hidden">
+                  {datasets.map((dataset) => (
+                    <DatasetMobileCard
+                      key={dataset.id}
+                      dataset={dataset}
+                      canEdit={canEditDatasetRow(dataset)}
+                      canDelete={canDeleteDatasetRow(dataset)}
+                      canSubmit={canSubmitDatasetRow(dataset)}
+                      onSubmit={() => {
+                        setSelectedDataset({ slug: dataset.slug, title: dataset.title });
+                        setSubmitDialogOpen(true);
+                      }}
+                      onDelete={() => {
+                        setSelectedDataset({ slug: dataset.slug, title: dataset.title });
+                        setDeleteDialogOpen(true);
+                      }}
+                    />
+                  ))}
+                </ul>
+
+                <div className="hidden overflow-hidden rounded-xl border lg:block">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="border-b bg-muted/30">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium">Dataset</th>
+                          <th className="px-4 py-3 text-left font-medium">Status</th>
+                          <th className="px-4 py-3 text-left font-medium">Visibility</th>
+                          <th className="px-4 py-3 text-left font-medium">Downloads</th>
+                          <th className="px-4 py-3 text-left font-medium">Updated</th>
+                          <th className="px-4 py-3 text-right font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {datasets.map((dataset) => (
+                          <DatasetTableRow
+                            key={dataset.id}
+                            dataset={dataset}
+                            canEdit={canEditDatasetRow(dataset)}
+                            canDelete={canDeleteDatasetRow(dataset)}
+                            canSubmit={canSubmitDatasetRow(dataset)}
+                            onSubmit={() => {
+                              setSelectedDataset({ slug: dataset.slug, title: dataset.title });
+                              setSubmitDialogOpen(true);
+                            }}
+                            onDelete={() => {
+                              setSelectedDataset({ slug: dataset.slug, title: dataset.title });
+                              setDeleteDialogOpen(true);
+                            }}
+                            submitPending={submitDatasetMutation.isPending}
+                            deletePending={deleteDatasetMutation.isPending}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <p className="text-center text-sm text-muted-foreground">
+                  Showing {datasets.length} of {meta?.total ?? 0} datasets
+                </p>
+              </>
+            )}
+          </div>
+        </DashboardPanel>
+      </DashboardPageContent>
+
       <ConfirmDialog
         open={submitDialogOpen}
         onOpenChange={setSubmitDialogOpen}
-        title="Submit for Review"
-        description={`Submit "${selectedDataset?.title}" for review? It will be sent to administrators for approval.`}
+        title="Submit for review"
+        description={`Submit "${selectedDataset?.title}" for admin review?`}
         confirmLabel="Submit"
         cancelLabel="Cancel"
         onConfirm={confirmSubmit}
@@ -390,18 +369,202 @@ export default function MyDatasetsPage() {
         isLoading={submitDatasetMutation.isPending}
       />
 
-      {/* Delete Dialog */}
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Archive Dataset"
-        description={`Are you sure you want to archive "${selectedDataset?.title}"? This action can be reversed by administrators.`}
+        title="Archive dataset"
+        description={`Archive "${selectedDataset?.title}"? Administrators can restore it later.`}
         confirmLabel="Archive"
         cancelLabel="Cancel"
         onConfirm={confirmDelete}
         variant="destructive"
         isLoading={deleteDatasetMutation.isPending}
       />
-    </main>
+    </DashboardPage>
+  );
+}
+
+type DatasetRow = {
+  id: string;
+  slug: string;
+  title: string;
+  description?: string | null;
+  status: DatasetStatus;
+  visibility: DatasetVisibility;
+  download_count?: number;
+  updated_at: string;
+  published_at?: string | null;
+};
+
+function DatasetMobileCard({
+  dataset,
+  canEdit,
+  canDelete,
+  canSubmit,
+  onSubmit,
+  onDelete,
+}: {
+  dataset: DatasetRow;
+  canEdit: boolean;
+  canDelete: boolean;
+  canSubmit: boolean;
+  onSubmit: () => void;
+  onDelete: () => void;
+}) {
+  const router = useRouter();
+  const hasActions = canEdit || canDelete || canSubmit;
+
+  return (
+    <li className="rounded-xl border bg-card p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/40">
+          <Database className="size-4 text-muted-foreground" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <Link
+              href={`/datasets/${dataset.slug}`}
+              className="font-medium leading-snug hover:text-primary"
+            >
+              {dataset.title}
+            </Link>
+            {hasActions ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-md hover:bg-muted"
+                >
+                  <MoreHorizontal className="size-4" />
+                  <span className="sr-only">Actions</span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem onClick={() => router.push(`/datasets/${dataset.slug}`)}>
+                    <Eye className="size-4" />
+                    View
+                  </DropdownMenuItem>
+                  {canSubmit ? (
+                    <DropdownMenuItem onClick={onSubmit}>
+                      <Send className="size-4" />
+                      Submit for review
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canEdit ? (
+                    <DropdownMenuItem onClick={() => router.push(`/edit/${dataset.slug}`)}>
+                      <Edit className="size-4" />
+                      Edit
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canDelete ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                        <Trash2 className="size-4" />
+                        Archive
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
+          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{dataset.description}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <StatusBadge status={dataset.status} publishedAt={dataset.published_at} />
+            <VisibilityBadge visibility={dataset.visibility} />
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            {dataset.download_count?.toLocaleString() ?? 0} downloads · Updated{" "}
+            {formatDate(dataset.updated_at)}
+          </p>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function DatasetTableRow({
+  dataset,
+  canEdit,
+  canDelete,
+  canSubmit,
+  onSubmit,
+  onDelete,
+  submitPending,
+  deletePending,
+}: {
+  dataset: DatasetRow;
+  canEdit: boolean;
+  canDelete: boolean;
+  canSubmit: boolean;
+  onSubmit: () => void;
+  onDelete: () => void;
+  submitPending: boolean;
+  deletePending: boolean;
+}) {
+  return (
+    <tr className="hover:bg-muted/30">
+      <td className="px-4 py-3">
+        <div className="flex items-start gap-3">
+          <Database className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0">
+            <Link
+              href={`/datasets/${dataset.slug}`}
+              className="font-medium hover:text-primary"
+            >
+              {dataset.title}
+            </Link>
+            <p className="line-clamp-1 text-xs text-muted-foreground">{dataset.description}</p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <StatusBadge status={dataset.status} publishedAt={dataset.published_at} />
+      </td>
+      <td className="px-4 py-3">
+        <VisibilityBadge visibility={dataset.visibility} />
+      </td>
+      <td className="px-4 py-3 tabular-nums text-muted-foreground">
+        {dataset.download_count?.toLocaleString() ?? 0}
+      </td>
+      <td className="px-4 py-3 text-muted-foreground">{formatDate(dataset.updated_at)}</td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-1">
+          <Link href={`/datasets/${dataset.slug}`}>
+            <Button size="icon" variant="ghost" className="size-9">
+              <Eye className="size-4" />
+            </Button>
+          </Link>
+          {canSubmit ? (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-9 text-success hover:text-success"
+              onClick={onSubmit}
+              disabled={submitPending}
+              title="Submit for review"
+            >
+              <Send className="size-4" />
+            </Button>
+          ) : null}
+          {canEdit ? (
+            <Link href={`/edit/${dataset.slug}`}>
+              <Button size="icon" variant="ghost" className="size-9">
+                <Edit className="size-4" />
+              </Button>
+            </Link>
+          ) : null}
+          {canDelete ? (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-9 text-destructive hover:text-destructive"
+              onClick={onDelete}
+              disabled={deletePending}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          ) : null}
+        </div>
+      </td>
+    </tr>
   );
 }
