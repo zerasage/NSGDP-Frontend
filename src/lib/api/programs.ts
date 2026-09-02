@@ -130,8 +130,12 @@ function mapReport(raw: DocumentApiPayload): ProgramReport {
   };
 }
 
-function toFormPayload(data: Partial<ProgramFormData>) {
+function toFormPayload(
+  data: Partial<ProgramFormData>,
+  options?: { includeStatus?: boolean }
+) {
   const payload: Record<string, unknown> = {};
+  const includeStatus = options?.includeStatus ?? true;
 
   if (data.name !== undefined) payload.name = data.name;
   if (data.description !== undefined) payload.description = data.description;
@@ -154,7 +158,7 @@ function toFormPayload(data: Partial<ProgramFormData>) {
     }
   }
 
-  if (data.status !== undefined) {
+  if (includeStatus && data.status !== undefined) {
     payload.status = data.status === 'completed' ? 'completed' : 'active';
   }
 
@@ -227,7 +231,7 @@ export async function getOrganizationProgramBySlug(slug: string): Promise<Progra
 export async function createProgramApi(data: ProgramFormData): Promise<Program> {
   const response = await apiClient.post<ApiResponse<ProgrammeApiPayload>>(
     '/programs',
-    toFormPayload(data)
+    toFormPayload(data, { includeStatus: false })
   );
   return mapProgramme(response.data.data);
 }

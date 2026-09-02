@@ -29,6 +29,7 @@ import { FormError } from "@/components/forms/form-error";
 import { LgaMultiSelect } from "@/components/programs/lga-multi-select";
 import { RichTextEditor } from "@/components/programs/rich-text-editor";
 import type { Program } from "@/types";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const TYPE_OPTIONS = [
@@ -45,7 +46,9 @@ interface ProgramFormProps {
   defaultValues?: Partial<ProgramFormData>;
   onSubmit: (data: ProgramFormData) => void | Promise<void>;
   submitLabel?: string;
+  submittingLabel?: string;
   disabled?: boolean;
+  isSubmitting?: boolean;
   isEditing?: boolean;
 }
 
@@ -53,7 +56,9 @@ export function ProgramForm({
   defaultValues,
   onSubmit,
   submitLabel = "Save Programme",
+  submittingLabel = "Saving…",
   disabled,
+  isSubmitting: isSubmittingProp,
   isEditing = false,
 }: ProgramFormProps) {
   const todayMin = localDateInputValue();
@@ -64,7 +69,7 @@ export function ProgramForm({
     control,
     watch,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting: formIsSubmitting },
   } = useForm<ProgramFormData>({
     resolver: zodResolver(programFormSchema),
     defaultValues: {
@@ -85,6 +90,7 @@ export function ProgramForm({
   const startDateValue = watch("startDate");
   const endDateMin =
     startDateValue && startDateValue > todayMin ? startDateValue : todayMin;
+  const isSubmitting = isSubmittingProp ?? formIsSubmitting;
 
   useEffect(() => {
     if (!isEditing) {
@@ -108,7 +114,7 @@ export function ProgramForm({
         <FormError message={errors.name?.message} />
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className={isEditing ? "grid gap-5 sm:grid-cols-2" : undefined}>
         <div>
           <label className="text-sm font-medium mb-1.5 block">Type</label>
           <Controller
@@ -131,26 +137,28 @@ export function ProgramForm({
           />
           <FormError message={errors.type?.message} />
         </div>
-        <div>
-          <label className="text-sm font-medium mb-1.5 block">Status</label>
-          <Controller
-            name="status"
-            control={control}
-            render={({ field }) => (
-              <Select value={field.value ?? ""} onValueChange={field.onChange} disabled={disabled}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="planned">Planned</SelectItem>
-                  <SelectItem value="ongoing">Ongoing</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
-          <FormError message={errors.status?.message} />
-        </div>
+        {isEditing ? (
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Status</label>
+            <Controller
+              name="status"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value ?? ""} onValueChange={field.onChange} disabled={disabled}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="planned">Planned</SelectItem>
+                    <SelectItem value="ongoing">Ongoing</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            <FormError message={errors.status?.message} />
+          </div>
+        ) : null}
       </div>
 
       <div>
@@ -320,8 +328,19 @@ export function ProgramForm({
         </div>
       </div>
 
-      <Button type="submit" disabled={disabled || isSubmitting} className="w-full sm:w-auto">
-        {isSubmitting ? "Saving…" : submitLabel}
+      <Button
+        type="submit"
+        disabled={disabled || isSubmitting}
+        className="w-full gap-2 sm:w-auto"
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+            {submittingLabel}
+          </>
+        ) : (
+          submitLabel
+        )}
       </Button>
     </form>
   );
