@@ -62,17 +62,25 @@ import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { WardAnalyticsChart } from "@/components/charts/ward-analytics-chart";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
 import {
+  ANALYTICS_DATA_COMPLETENESS_TIP,
+  ANALYTICS_FACILITY_OUTLIERS_CARD_TIP,
   ANALYTICS_FACILITY_OUTLIERS_TIP,
   ANALYTICS_GIS_ANOMALIES_TIP,
   ANALYTICS_INDICATOR_FILTER_TIP,
   ANALYTICS_INDICATOR_KPIS_TIP,
   ANALYTICS_LGA_BURDEN_TIP,
+  ANALYTICS_LGAS_REPORTING_TIP,
+  ANALYTICS_MAP_COVERAGE_TIP,
   ANALYTICS_MEASURE_KIND_TIP,
   ANALYTICS_ORG_FILTER_TIP,
   ANALYTICS_PAGE_TIP,
   ANALYTICS_PLATFORM_CONTEXT_TIP,
+  ANALYTICS_PLATFORM_DOWNLOADS_TIP,
   ANALYTICS_PROGRAMMES_TIP,
+  ANALYTICS_PUBLISHED_DATASETS_TIP,
+  ANALYTICS_STATE_FACILITIES_TIP,
   ANALYTICS_TOP_LGA_TIP,
+  ANALYTICS_TOTAL_CASES_TIP,
   ANALYTICS_TRENDS_TIP,
   ANALYTICS_WARD_BURDEN_TIP,
   ANALYTICS_WARD_INCIDENCE_TIP,
@@ -166,6 +174,7 @@ function MetricCard({
   label,
   value,
   hint,
+  tip,
   icon: Icon,
   tone = "primary",
   loading = false,
@@ -174,6 +183,7 @@ function MetricCard({
   label: string;
   value: ReactNode;
   hint?: string;
+  tip?: string;
   icon?: typeof Activity;
   tone?: MetricTone;
   /** Show a value skeleton instead of a number. */
@@ -185,8 +195,9 @@ function MetricCard({
   return (
     <div className={cn("rounded-2xl border p-4", t.card)}>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
+          {tip ? <HelpTooltip content={tip} /> : null}
         </p>
         {Icon ? (
           <div
@@ -1061,6 +1072,7 @@ function HealthAnalyticsContent() {
                     ? `${burdenContent.kpis.year}${isPartialYear ? " · year-to-date" : ""}`
                     : undefined
                 }
+                tip={ANALYTICS_TOTAL_CASES_TIP}
                 icon={Activity}
                 tone="destructive"
                 loading={indicatorCardsLoading}
@@ -1069,6 +1081,7 @@ function HealthAnalyticsContent() {
               <MetricCard
                 label="LGAs reporting"
                 value={burdenContent?.kpis.lgasReporting ?? "—"}
+                tip={ANALYTICS_LGAS_REPORTING_TIP}
                 icon={BarChart3}
                 tone="success"
                 loading={indicatorCardsLoading}
@@ -1086,6 +1099,7 @@ function HealthAnalyticsContent() {
                     ? `${burdenContent.kpis.monthsReporting} months reported`
                     : undefined
                 }
+                tip={ANALYTICS_DATA_COMPLETENESS_TIP}
                 icon={MapPin}
                 tone="info"
                 loading={indicatorCardsLoading}
@@ -1105,6 +1119,7 @@ function HealthAnalyticsContent() {
                     ? "Not shown for rate/stock measures"
                     : "This indicator only"
                 }
+                tip={ANALYTICS_FACILITY_OUTLIERS_CARD_TIP}
                 icon={AlertTriangle}
                 tone="warning"
                 loading={indicatorCardsLoading}
@@ -1121,6 +1136,7 @@ function HealthAnalyticsContent() {
                 label="State health facilities"
                 value={stateHealthFacilities?.toLocaleString() ?? "—"}
                 hint="Platform GIS registry"
+                tip={ANALYTICS_STATE_FACILITIES_TIP}
                 icon={Hospital}
                 tone="muted"
                 loading={platformCardsLoading}
@@ -1129,6 +1145,7 @@ function HealthAnalyticsContent() {
                 label="Published datasets"
                 value={dashboard?.platformStats.totalDatasets.toLocaleString() ?? "—"}
                 hint="Contributing to analytics"
+                tip={ANALYTICS_PUBLISHED_DATASETS_TIP}
                 icon={Database}
                 tone="muted"
                 loading={platformCardsLoading}
@@ -1137,6 +1154,7 @@ function HealthAnalyticsContent() {
                 label="LGAs with map coverage"
                 value={dashboard?.platformStats.lgasCovered ?? "—"}
                 hint="Population & facility layers"
+                tip={ANALYTICS_MAP_COVERAGE_TIP}
                 icon={Globe2}
                 tone="muted"
                 loading={platformCardsLoading}
@@ -1145,6 +1163,7 @@ function HealthAnalyticsContent() {
                 label="Platform downloads"
                 value={dashboard?.platformStats.totalDownloads.toLocaleString() ?? "—"}
                 hint="All-time downloads"
+                tip={ANALYTICS_PLATFORM_DOWNLOADS_TIP}
                 icon={Download}
                 tone="muted"
                 loading={platformCardsLoading}
