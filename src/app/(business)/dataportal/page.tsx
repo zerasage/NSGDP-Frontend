@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Database, Search, Loader2 } from "lucide-react";
+import { CheckSquare, Database, Download, Loader2, Search, X } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { GeoHealthDatasetCard } from "@/components/data/geohealth-dataset-card";
 import { DatasetDetailModal } from "@/components/data/dataset-detail-modal";
@@ -13,26 +13,44 @@ import {
 import { MobileFilterDrawer } from "@/components/filters/mobile-filter-drawer";
 import { ActiveFilterChips } from "@/components/filters/active-filter-chips";
 import { EmptyState } from "@/components/feedback/empty-state";
+import { LoginPromptModal } from "@/components/feedback/login-prompt-modal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/data/pagination";
 import { DatasetCardSkeleton } from "@/components/feedback/skeletons";
 import { ScrollToTopButton } from "@/components/layout/scroll-to-top-button";
 import { DEFAULT_PORTAL_FILTERS } from "@/lib/constants/dataset-filters";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
-import { useDatasets } from "@/lib/hooks/useDatasets";
+import { useBulkDownloadDatasets, useDatasets } from "@/lib/hooks/useDatasets";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { transformDatasets } from "@/lib/adapters/dataset-adapter";
+import { useAuth } from "@/lib/auth";
+import { BULK_DOWNLOAD_MAX_DATASETS } from "@/lib/api/datasets";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { DatasetListParams, DatasetFormat } from "@/lib/api/datasets";
 import type { Dataset } from "@/types";
 
 type SortOption = "recent" | "popular" | "name";
 
+function triggerBrowserDownload(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 function DataportalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuth();
+  const bulkDownloadMutation = useBulkDownloadDatasets();
   const [modalDataset, setModalDataset] = useState<Dataset | null>(null);
   const [filters, setFilters] = useState<Record<string, string[]>>(DEFAULT_PORTAL_FILTERS);
   const [sort, setSort] = useState<SortOption>("recent");
@@ -41,75 +59,64 @@ function DataportalContent() {
   const [searchInput, setSearchInput] = useState("");
   const searchQuery = useDebouncedValue(searchInput, 400);
   const resultsTopRef = useRef<HTMLDivElement>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
+  const [loginOpen, setLoginOpen] = useState(false);
 
-  // Fetch real categories from API
   const { data: categoriesResponse, isLoading: categoriesLoading } = useCategories();
-
-  // Fetch real organisations from API
   const { data: organisationsResponse, isLoading: organisationsLoading } = useOrganisations(1, 100);
 
-  // Build API query parameters from filters
   const datasetParams: DatasetListParams = useMemo(() => {
     const params: DatasetListParams = {
       page,
       limit: pageSize,
-      status: 'approved', // Only show approved datasets in public portal
-      search: searchQuery || undefined, // Add search parameter
+      status: "approved",
+      search: searchQuery || undefined,
     };
 
-    // Map sort options to API parameters
-    if (sort === 'recent') {
-      params.sortBy = 'created_at';
-      params.sortOrder = 'DESC';
-    } else if (sort === 'popular') {
-      params.sortBy = 'download_count';
-      params.sortOrder = 'DESC';
-    } else if (sort === 'name') {
-      params.sortBy = 'title';
-      params.sortOrder = 'ASC';
+    if (sort === "recent") {
+      params.sortBy = "created_at";
+      params.sortOrder = "DESC";
+    } else if (sort === "popular") {
+      params.sortBy = "download_count";
+      params.sortOrder = "DESC";
+    } else if (sort === "name") {
+      params.sortBy = "title";
+      params.sortOrder = "ASC";
     }
 
-    // Convert category slug to ID (backend expects categoryId UUID)
-    // For now, we'll need to look up the category ID from the slug
     if (filters.categories.length > 0 && categoriesResponse?.data) {
-      const categorySlug = filters.categories[0]; // Backend accepts single category
+      const categorySlug = filters.categories[0];
       const category = categoriesResponse.data.find((c) => c.slug === categorySlug);
       if (category) {
         params.categoryId = category.id;
       }
     }
 
-    // Convert organisation slug to ID (backend expects organisationId UUID)
     if (filters.organisations.length > 0 && organisationsResponse?.data) {
-      const orgSlug = filters.organisations[0]; // Backend accepts single org
+      const orgSlug = filters.organisations[0];
       const org = organisationsResponse.data.find((o) => o.slug === orgSlug);
       if (org) {
         params.organisationId = org.id;
       }
     }
 
-    // Map format filter (backend accepts single format)
     if (filters.formats.length > 0) {
       params.format = filters.formats[0] as DatasetFormat;
     }
 
-    // Map LGA filter (backend accepts single lga)
     if (filters.lgas.length > 0) {
       params.lga = filters.lgas[0];
     }
 
-    // Map ward filter (backend accepts single ward)
     if (filters.wards.length > 0) {
       params.ward = filters.wards[0];
     }
 
-    // Map disease filter (backend accepts single disease indicator)
     if (filters.diseases.length > 0) {
       params.diseaseIndicators = filters.diseases[0];
     }
 
-    // Map year filter to a date range (backend accepts dateFrom/dateTo, not
-    // discrete years) — spans the earliest to latest selected year.
     if (filters.years.length > 0) {
       const years = filters.years.map(Number).sort((a, b) => a - b);
       params.dateFrom = `${years[0]}-01-01`;
@@ -119,16 +126,11 @@ function DataportalContent() {
     return params;
   }, [page, pageSize, sort, filters, categoriesResponse, organisationsResponse, searchQuery]);
 
-  // Fetch datasets from real API. keepPreviousData avoids a jarring
-  // skeleton wipe on every filter/page/search change — the previous
-  // results stay on screen (dimmed via isRefetching) until the new page
-  // of results is ready.
   const { data: datasetsData, isLoading: datasetsLoading, isFetching: datasetsFetching } = useDatasets(
     datasetParams,
     { keepPreviousData: true }
   );
 
-  // Transform backend datasets to frontend format
   const datasets = useMemo(() => {
     if (!datasetsData?.data) return [];
     return transformDatasets(
@@ -141,7 +143,6 @@ function DataportalContent() {
   const total = datasetsData?.meta.total || 0;
   const totalPages = datasetsData?.meta.totalPages || 1;
 
-  // Build category options from real API data
   const categoryOptions = useMemo(() => {
     if (!categoriesResponse?.data) return [];
     return categoriesResponse.data
@@ -154,7 +155,6 @@ function DataportalContent() {
       }));
   }, [categoriesResponse]);
 
-  // Build organisation options from real API data
   const orgOptions = useMemo(() => {
     if (!organisationsResponse?.data) return [];
     return organisationsResponse.data
@@ -181,8 +181,6 @@ function DataportalContent() {
     router.replace(params.toString() ? `/dataportal?${params}` : "/dataportal", { scroll: false });
   }, [sort, page, pageSize, router]);
 
-  // Reset to page 1 once the debounced search term settles (skip the
-  // mount-time run so it doesn't clobber a page restored from the URL).
   const isFirstSearchRender = useRef(true);
   useEffect(() => {
     if (isFirstSearchRender.current) {
@@ -196,6 +194,69 @@ function DataportalContent() {
     resultsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedSlugs([]);
+  };
+
+  const enterSelectionMode = () => {
+    if (!isAuthenticated) {
+      setLoginOpen(true);
+      return;
+    }
+    setSelectionMode(true);
+  };
+
+  const toggleSelect = (slug: string) => {
+    setSelectedSlugs((prev) => {
+      if (prev.includes(slug)) {
+        return prev.filter((s) => s !== slug);
+      }
+      if (prev.length >= BULK_DOWNLOAD_MAX_DATASETS) {
+        toast.error(`You can select at most ${BULK_DOWNLOAD_MAX_DATASETS} datasets`);
+        return prev;
+      }
+      return [...prev, slug];
+    });
+  };
+
+  const selectVisible = () => {
+    const visible = datasets.map((d) => d.slug);
+    setSelectedSlugs((prev) => {
+      const merged = [...new Set([...prev, ...visible])];
+      if (merged.length > BULK_DOWNLOAD_MAX_DATASETS) {
+        toast.error(`You can select at most ${BULK_DOWNLOAD_MAX_DATASETS} datasets`);
+        return merged.slice(0, BULK_DOWNLOAD_MAX_DATASETS);
+      }
+      return merged;
+    });
+  };
+
+  const handleBulkDownload = () => {
+    if (selectedSlugs.length === 0) {
+      toast.error("Select at least one dataset");
+      return;
+    }
+    bulkDownloadMutation.mutate(selectedSlugs, {
+      onSuccess: (result) => {
+        triggerBrowserDownload(result.blob, result.fileName);
+        if (result.skippedCount > 0) {
+          toast.success(
+            `Downloaded ${result.includedCount} dataset${result.includedCount === 1 ? "" : "s"} (${result.skippedCount} skipped — see _download-report.json in the ZIP)`
+          );
+        } else {
+          toast.success(
+            `Downloaded ${result.includedCount} dataset${result.includedCount === 1 ? "" : "s"} as ZIP`
+          );
+        }
+        exitSelectionMode();
+      },
+      onError: (error: Error) => {
+        toast.error(error.message || "Bulk download failed");
+      },
+    });
+  };
+
   const isLoading = datasetsLoading || categoriesLoading || organisationsLoading;
   const isRefetching = datasetsFetching && !datasetsLoading;
 
@@ -205,7 +266,9 @@ function DataportalContent() {
     values.map((value) => ({
       filterId,
       value,
-      label: filterSections.find((s) => s.id === filterId)?.options.find((o) => o.value === value)?.label ?? value,
+      label:
+        filterSections.find((s) => s.id === filterId)?.options.find((o) => o.value === value)?.label ??
+        value,
     }))
   );
 
@@ -220,33 +283,31 @@ function DataportalContent() {
         </Container>
       </div>
 
-      <Container size="wide" className="py-8">
-        <div className="flex gap-8">
-          <div className="hidden lg:block w-64 shrink-0">
-            <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 pb-6">
-              <AdvancedDatasetFilters
-                filters={filters}
-                onFilterChange={(id, vals) => {
-                  setFilters((p) => ({ ...p, [id]: vals }));
-                  setPage(1);
-                  scrollToResults();
-                }}
-                orgs={orgOptions}
-                categoryOptions={categoryOptions}
-              />
-            </div>
-          </div>
+      <Container
+        size="wide"
+        className={cn("py-8", selectionMode && selectedSlugs.length > 0 && "pb-28")}
+      >
+        <div className="flex flex-col gap-8 lg:flex-row">
+          <aside className="hidden w-64 shrink-0 lg:block">
+            <AdvancedDatasetFilters
+              filters={filters}
+              onFilterChange={(id, vals) => {
+                setFilters((p) => ({ ...p, [id]: vals }));
+                setPage(1);
+              }}
+              orgs={orgOptions}
+              categoryOptions={categoryOptions}
+            />
+          </aside>
 
-          <div ref={resultsTopRef} className="flex-1 min-w-0 scroll-mt-20">
-            {/* Search Bar */}
-            <div className="relative mb-6">
+          <div className="min-w-0 flex-1" ref={resultsTopRef}>
+            <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                type="search"
-                placeholder="Search datasets by title or description..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-10 pr-9"
+                placeholder="Search datasets…"
+                className="pl-9"
               />
               {searchInput !== searchQuery && (
                 <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
@@ -262,12 +323,28 @@ function DataportalContent() {
               className="mb-4"
             />
 
-            <div className="flex items-center justify-between mb-6 gap-4">
-              <p className="text-sm font-medium flex items-center gap-2">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+              <p className="flex items-center gap-2 text-sm font-medium">
                 {isLoading ? "Loading…" : `${total} datasets found`}
                 {isRefetching && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {selectionMode ? (
+                  <>
+                    <Button type="button" variant="outline" size="sm" onClick={selectVisible}>
+                      Select page
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={exitSelectionMode}>
+                      <X className="size-4" />
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button type="button" variant="outline" size="sm" onClick={enterSelectionMode}>
+                    <CheckSquare className="size-4" />
+                    Select
+                  </Button>
+                )}
                 <MobileFilterDrawer
                   filters={filters}
                   onFilterChange={(id, vals) => {
@@ -288,6 +365,13 @@ function DataportalContent() {
                 </Select>
               </div>
             </div>
+
+            {selectionMode && (
+              <p className="mb-4 text-sm text-muted-foreground">
+                Select up to {BULK_DOWNLOAD_MAX_DATASETS} datasets you can access, then download them
+                as one ZIP. Restricted datasets without approved access are skipped.
+              </p>
+            )}
 
             {isLoading ? (
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
@@ -317,9 +401,18 @@ function DataportalContent() {
                     <div
                       key={d.id}
                       className="animate-in fade-in-0 slide-in-from-bottom-2 fill-mode-both"
-                      style={{ animationDelay: `${Math.min(i, 8) * 40}ms`, animationDuration: "300ms" }}
+                      style={{
+                        animationDelay: `${Math.min(i, 8) * 40}ms`,
+                        animationDuration: "300ms",
+                      }}
                     >
-                      <GeoHealthDatasetCard dataset={d} onInfoClick={setModalDataset} />
+                      <GeoHealthDatasetCard
+                        dataset={d}
+                        onInfoClick={setModalDataset}
+                        selectionMode={selectionMode}
+                        selected={selectedSlugs.includes(d.slug)}
+                        onToggleSelect={toggleSelect}
+                      />
                     </div>
                   ))}
                 </div>
@@ -345,10 +438,53 @@ function DataportalContent() {
         </div>
       </Container>
 
+      {selectionMode && selectedSlugs.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <Container size="wide" className="flex items-center justify-between gap-4 py-3">
+            <p className="text-sm font-medium">
+              {selectedSlugs.length} selected
+              <span className="font-normal text-muted-foreground">
+                {" "}
+                / {BULK_DOWNLOAD_MAX_DATASETS} max
+              </span>
+            </p>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" onClick={() => setSelectedSlugs([])}>
+                Clear
+              </Button>
+              <Button
+                type="button"
+                onClick={handleBulkDownload}
+                disabled={bulkDownloadMutation.isPending}
+              >
+                {bulkDownloadMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                {bulkDownloadMutation.isPending
+                  ? "Preparing ZIP…"
+                  : `Download ZIP (${selectedSlugs.length})`}
+              </Button>
+            </div>
+          </Container>
+        </div>
+      )}
+
       <DatasetDetailModal
         dataset={modalDataset}
         open={!!modalDataset}
-        onOpenChange={(o) => !o && setModalDataset(null)}
+        onOpenChange={(open) => {
+          if (!open) setModalDataset(null);
+        }}
+      />
+
+      <LoginPromptModal
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        redirectAfterAuth="/dataportal"
+        title="Log in to select datasets"
+        description="Create a free account or log in to bulk-download datasets as a ZIP."
       />
 
       <ScrollToTopButton />
@@ -358,7 +494,19 @@ function DataportalContent() {
 
 export default function DataportalPage() {
   return (
-    <Suspense>
+    <Suspense
+      fallback={
+        <main className="flex-1">
+          <Container size="wide" className="py-8">
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {[...Array(6)].map((_, i) => (
+                <DatasetCardSkeleton key={i} />
+              ))}
+            </div>
+          </Container>
+        </main>
+      }
+    >
       <DataportalContent />
     </Suspense>
   );

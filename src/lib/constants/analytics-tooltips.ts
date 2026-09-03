@@ -10,8 +10,32 @@ export const ANALYTICS_INDICATOR_FILTER_TIP =
 export const ANALYTICS_INDICATOR_KPIS_TIP =
   "Headline figures for the selected indicator and year — state total, LGAs reporting, completeness, and missing rows from published burden data.";
 
+export const ANALYTICS_TOTAL_CASES_TIP =
+  "State-wide total for the selected indicator and year from published burden rows. Label changes with measure kind (cases, stock, population, or rate).";
+
+export const ANALYTICS_LGAS_REPORTING_TIP =
+  "How many of Niger State's 25 LGAs have at least one published value for this indicator in the selected year.";
+
+export const ANALYTICS_DATA_COMPLETENESS_TIP =
+  "Share of expected facility–month reports that are present for this indicator. Partial years show how many months have reported so far.";
+
+export const ANALYTICS_FACILITY_OUTLIERS_CARD_TIP =
+  "Count of facilities whose values sit 2+ standard deviations from their LGA mean for this indicator. Not shown for rate or stock measures.";
+
 export const ANALYTICS_PLATFORM_CONTEXT_TIP =
   "State-wide platform GIS context (facilities, catalogue size, map coverage, downloads). These figures are not filtered by the selected disease indicator.";
+
+export const ANALYTICS_STATE_FACILITIES_TIP =
+  "Health facilities in the platform GIS registry across Niger State. Independent of the selected disease indicator.";
+
+export const ANALYTICS_PUBLISHED_DATASETS_TIP =
+  "Catalogue datasets that contribute published rows to analytics. Not limited to the selected indicator.";
+
+export const ANALYTICS_MAP_COVERAGE_TIP =
+  "LGAs covered by population and facility GIS layers used for maps and denominators.";
+
+export const ANALYTICS_PLATFORM_DOWNLOADS_TIP =
+  "All-time dataset downloads across the portal — platform-wide, not indicator-specific.";
 
 export const ANALYTICS_TRENDS_TIP =
   "State-wide totals over time. Annual view shows year-on-year totals; seasonal view groups by calendar month across years.";

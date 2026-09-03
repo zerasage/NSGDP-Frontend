@@ -32,7 +32,8 @@ import {
   MapLegend,
   POPULATION_DENSITY_LEGEND,
   FACILITY_DENSITY_LEGEND,
-  DISEASE_BUBBLE_LEGEND,
+  diseaseBurdenLegendItems,
+  getDiseaseBurdenColor,
 } from "@/components/map/map-legend";
 import { MapErrorBanner } from "@/components/map/map-error-banner";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
@@ -114,13 +115,6 @@ function getWardFacilityColor(count: number): string {
   if (count > 10) return "#2563eb";
   if (count > 5) return "#60a5fa";
   return "#bfdbfe";
-}
-
-function getDiseaseBurdenColor(cases: number): string {
-  if (cases > 500) return "#dc2626";
-  if (cases > 200) return "#ea580c";
-  if (cases > 50) return "#d97706";
-  return "#16a34a";
 }
 
 function buildTrendSparklineSvg(
@@ -225,6 +219,7 @@ export default function GisMappingPage() {
   const [selectedIndicator, setSelectedIndicator] = useState("");
   const [burdenYear, setBurdenYear] = useState(new Date().getFullYear());
   const [burdenYearOptions, setBurdenYearOptions] = useState<number[]>([]);
+  const [burdenYearsReady, setBurdenYearsReady] = useState(false);
 
   const [lgaSummary, setLgaSummary] = useState<LgaGisFeatureCollection | null>(null);
   const [wardSummary, setWardSummary] = useState<WardGisFeatureCollection | null>(null);
@@ -236,7 +231,7 @@ export default function GisMappingPage() {
   const [wardError, setWardError] = useState<string | null>(null);
   const [burdenError, setBurdenError] = useState<string | null>(null);
   const { data: stateBoundary } = useStateBoundary();
-  const { data: indicators } = useDiseaseIndicators();
+  const { data: indicators, isFetched: indicatorsFetched } = useDiseaseIndicators();
 
   useEffect(() => {
     configureLeafletIcons();
@@ -252,20 +247,34 @@ export default function GisMappingPage() {
   useEffect(() => {
     if (activeLayer !== "disease-burden" || !selectedIndicator) {
       setBurdenYearOptions([]);
+      setBurdenYearsReady(false);
       return;
     }
+    let cancelled = false;
+    setBurdenYearsReady(false);
     getBurdenTrends(selectedIndicator, { granularity: "annual" })
       .then((rows) => {
-        const years = rows.map((r) => r.year).sort((a, b) => a - b);
-        setBurdenYearOptions(years.length ? years : [new Date().getFullYear()]);
-        if (years.length && !years.includes(burdenYear)) {
-          setBurdenYear(years[years.length - 1]);
+        if (cancelled) return;
+        const years = (rows as { year: number }[])
+          .map((r) => r.year)
+          .filter((year) => Number.isFinite(year))
+          .sort((a, b) => a - b);
+        setBurdenYearOptions(years);
+        if (years.length) {
+          setBurdenYear((current) =>
+            years.includes(current) ? current : years[years.length - 1],
+          );
         }
+        setBurdenYearsReady(true);
       })
       .catch(() => {
-        setBurdenYearOptions([new Date().getFullYear()]);
+        if (cancelled) return;
+        setBurdenYearOptions([]);
+        setBurdenYearsReady(true);
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
   }, [activeLayer, selectedIndicator]);
 
   const loadLgaSummary = useCallback(() => {
@@ -319,10 +328,27 @@ export default function GisMappingPage() {
       setBurdenError(null);
       return;
     }
+    if (!burdenYearsReady) return;
     loadDiseaseBurden(selectedIndicator, burdenYear);
-  }, [activeLayer, selectedIndicator, burdenYear, loadDiseaseBurden]);
+  }, [
+    activeLayer,
+    selectedIndicator,
+    burdenYear,
+    burdenYearsReady,
+    loadDiseaseBurden,
+  ]);
 
   const lgaFeatures = useMemo(() => lgaSummary?.features ?? [], [lgaSummary]);
+  const burdenMaxCases = useMemo(() => {
+    if (!diseaseBurden?.features.length) return 0;
+    return Math.max(
+      0,
+      ...diseaseBurden.features.map((feature) => feature.properties.totalCases),
+    );
+  }, [diseaseBurden]);
+  const diseaseLayerLoading =
+    activeLayer === "disease-burden" &&
+    (isLoadingBurden || (!!selectedIndicator && !burdenYearsReady));
   const wardOptions = useMemo(
     () => (wardSummary?.features ?? []).map((f) => f.properties.ward).sort(),
     [wardSummary]
@@ -392,20 +418,21 @@ export default function GisMappingPage() {
           fallbackZoom={8}
         />
 
-        {activeLayer === "disease-burden" && diseaseBurden ? (
+        {activeLayer === "disease-burden" ? (
+          diseaseBurden ? (
           <GeoJSON
-            key={`burden-${selectedIndicator}-${burdenYear}`}
+            key={`burden-${selectedIndicator}-${burdenYear}-${burdenMaxCases}`}
             data={diseaseBurden as unknown as GeoJSON.FeatureCollection}
             style={(feature?: Feature) => {
               const props = feature?.properties as DiseaseBurdenGisProperties | undefined;
               if (!props) return {};
-              const color = getDiseaseBurdenColor(props.totalCases);
+              const color = getDiseaseBurdenColor(props.totalCases, burdenMaxCases);
               const isSelected = props.lgaName === lga;
               return {
                 color: isSelected ? "#111827" : "#ffffff",
                 weight: isSelected ? 2.5 : 1,
                 fillColor: color,
-                fillOpacity: 0.65,
+                fillOpacity: 0.75,
               };
             }}
             onEachFeature={(feature, layer) => {
@@ -435,6 +462,7 @@ export default function GisMappingPage() {
               });
             }}
           />
+          ) : null
         ) : lgaSummary ? (
           <GeoJSON
             key={`lga-${activeLayer}-${lgaSummary.generatedAt}`}
@@ -580,6 +608,13 @@ export default function GisMappingPage() {
 
           {activeLayer === "disease-burden" && (
             <div className="space-y-3 border-t pt-3">
+              {indicatorsFetched && !indicators?.length ? (
+                <p className="text-xs text-muted-foreground">
+                  No published warehouse indicators to map. Load analytics for a
+                  dataset in Ingestion Ops, then return here.
+                </p>
+              ) : (
+                <>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Indicator</label>
                 <Select
@@ -635,7 +670,7 @@ export default function GisMappingPage() {
                   </Select>
                 )}
               </div>
-              {isLoadingBurden && (
+              {diseaseLayerLoading && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Loader2 className="size-3 animate-spin" /> Loading disease-burden…
                 </p>
@@ -645,6 +680,18 @@ export default function GisMappingPage() {
                   message={burdenError}
                   onRetry={() => loadDiseaseBurden(selectedIndicator, burdenYear)}
                 />
+              )}
+              {!diseaseLayerLoading &&
+              !burdenError &&
+              diseaseBurden &&
+              burdenMaxCases === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No published cases for this indicator in {burdenYear}. The map
+                  uses grey for empty LGAs — pick another year or load analytics
+                  first.
+                </p>
+              ) : null}
+                </>
               )}
             </div>
           )}
@@ -869,7 +916,7 @@ export default function GisMappingPage() {
             ? POPULATION_DENSITY_LEGEND
             : activeLayer === "facilities"
               ? FACILITY_DENSITY_LEGEND
-              : DISEASE_BUBBLE_LEGEND
+              : diseaseBurdenLegendItems(burdenMaxCases)
         }
         className="absolute bottom-4 right-4 z-[1000]"
       />
