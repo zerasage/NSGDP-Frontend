@@ -9,6 +9,7 @@ import {
   deleteDataset,
   submitDatasetForReview,
   downloadDataset,
+  bulkDownloadDatasets,
   getDatasetFiles,
   getDatasetVersions,
   getDatasetPreview,
@@ -167,6 +168,20 @@ export function useDownloadDataset() {
       if (mode !== 'view') {
         queryClient.invalidateQueries({ queryKey: ['dataset', slug] });
       }
+    },
+  });
+}
+
+/**
+ * Hook to bulk-download selected datasets as a ZIP
+ */
+export function useBulkDownloadDatasets() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (slugs: string[]) => bulkDownloadDatasets(slugs),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['datasets'] });
     },
   });
 }

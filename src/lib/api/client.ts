@@ -151,6 +151,67 @@ export async function apiFetch<T>(
   return (await res.json()) as T;
 }
 
+export type BlobFetchResult = {
+  blob: Blob;
+  fileName: string | null;
+  headers: Headers;
+};
+
+/**
+ * Same auth/refresh behaviour as apiFetch, but returns a binary body
+ * (e.g. ZIP bulk download) instead of JSON.
+ */
+export async function apiFetchBlob(
+  path: string,
+  options: RequestOptions = {},
+): Promise<BlobFetchResult> {
+  const { token } = options;
+  let accessToken = token ?? getAccessToken();
+
+  let res = await doFetch(path, options, accessToken);
+
+  if (res.status === 401 && accessToken && !token) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      accessToken = newToken;
+      res = await doFetch(path, options, accessToken);
+    }
+  }
+
+  if (!res.ok) {
+    let message = res.statusText;
+    let details: unknown;
+    try {
+      const data = await res.json();
+      message = data?.message ?? message;
+      details = data;
+    } catch {
+      // non-JSON error body
+    }
+
+    if (res.status === 401) handleUnauthorized(!!accessToken);
+
+    throw new ApiError(res.status, Array.isArray(message) ? message.join(', ') : String(message), details);
+  }
+
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const fileNameMatch =
+    /filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i.exec(
+      disposition,
+    );
+  const fileName = fileNameMatch
+    ? decodeURIComponent(
+        (fileNameMatch[1] || fileNameMatch[2] || fileNameMatch[3] || '').trim(),
+      )
+    : null;
+
+  return {
+    blob: await res.blob(),
+    fileName,
+    headers: res.headers,
+  };
+}
+
 /**
  * API client with axios-like interface
  * Wraps apiFetch to provide a familiar API
@@ -176,6 +237,14 @@ export const apiClient = {
       ...options,
     });
     return { data: responseData };
+  },
+
+  postBlob: async (url: string, data?: unknown, options?: RequestOptions) => {
+    return apiFetchBlob(url, {
+      method: "POST",
+      body: data,
+      ...options,
+    });
   },
 
   patch: async <T>(url: string, data?: unknown, options?: RequestOptions) => {

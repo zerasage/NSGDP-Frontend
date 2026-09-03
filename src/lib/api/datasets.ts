@@ -334,6 +334,36 @@ export async function downloadDataset(
   return response.data.data;
 }
 
+/** Max datasets allowed in one bulk ZIP (must match backend). */
+export const BULK_DOWNLOAD_MAX_DATASETS = 25;
+
+export type BulkDownloadResult = {
+  blob: Blob;
+  fileName: string;
+  includedCount: number;
+  skippedCount: number;
+};
+
+/**
+ * Download multiple accessible datasets as a ZIP. Auth required.
+ * Inaccessible selections are skipped server-side.
+ */
+export async function bulkDownloadDatasets(
+  slugs: string[]
+): Promise<BulkDownloadResult> {
+  const result = await apiClient.postBlob(API_ROUTES.datasets.bulkDownload, {
+    slugs,
+  });
+  const includedCount = Number(result.headers.get("X-Bulk-Included") ?? "0");
+  const skippedCount = Number(result.headers.get("X-Bulk-Skipped") ?? "0");
+  return {
+    blob: result.blob,
+    fileName: result.fileName || "nsgdp-datasets.zip",
+    includedCount: Number.isFinite(includedCount) ? includedCount : 0,
+    skippedCount: Number.isFinite(skippedCount) ? skippedCount : 0,
+  };
+}
+
 /**
  * List every file ever uploaded to a dataset (a dataset can receive more
  * than one upload over time).
