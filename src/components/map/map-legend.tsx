@@ -57,13 +57,38 @@ export function MapLegend({ title, items, unit, type = "circle", className }: Ma
   );
 }
 
-/** Pre-built legend for disease burden bubble maps */
-export const DISEASE_BUBBLE_LEGEND: LegendItem[] = [
-  { label: "Very High (>500 cases)", color: "#dc2626", description: "Critical burden — immediate response" },
-  { label: "High (200–500)",         color: "#ea580c", description: "Elevated — enhanced surveillance" },
-  { label: "Moderate (50–200)",      color: "#d97706", description: "Monitor closely" },
-  { label: "Low (<50 cases)",        color: "#16a34a", description: "Within expected range" },
-];
+const DISEASE_NO_DATA_COLOR = "#d1d5db";
+const DISEASE_SCALE = ["#fde68a", "#f59e0b", "#ea580c", "#b91c1c"] as const;
+
+/** Choropleth fill for LGA case counts. Zero uses grey so Disease never looks like Population. */
+export function getDiseaseBurdenColor(cases: number, maxCases: number): string {
+  if (cases <= 0 || maxCases <= 0) return DISEASE_NO_DATA_COLOR;
+  const t = cases / maxCases;
+  if (t > 0.75) return DISEASE_SCALE[3];
+  if (t > 0.5) return DISEASE_SCALE[2];
+  if (t > 0.25) return DISEASE_SCALE[1];
+  return DISEASE_SCALE[0];
+}
+
+export function diseaseBurdenLegendItems(maxCases: number): LegendItem[] {
+  if (maxCases <= 0) {
+    return [
+      {
+        label: "No published cases",
+        color: DISEASE_NO_DATA_COLOR,
+        description: "Warehouse has no values for this indicator and year",
+      },
+    ];
+  }
+  const cut = (fraction: number) => Math.max(1, Math.round(maxCases * fraction));
+  return [
+    { label: `Highest (>${cut(0.75)} cases)`, color: DISEASE_SCALE[3] },
+    { label: `High (${cut(0.5)}–${cut(0.75)})`, color: DISEASE_SCALE[2] },
+    { label: `Moderate (${cut(0.25)}–${cut(0.5)})`, color: DISEASE_SCALE[1] },
+    { label: `Lower (1–${cut(0.25)})`, color: DISEASE_SCALE[0] },
+    { label: "No published cases", color: DISEASE_NO_DATA_COLOR },
+  ];
+}
 
 /** Pre-built legend for facility maps */
 export const FACILITY_LEGEND: LegendItem[] = [
