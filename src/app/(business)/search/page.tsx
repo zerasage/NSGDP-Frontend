@@ -51,11 +51,19 @@ function SearchContent() {
     setLoading(true);
     searchAll(q).then((data) => {
       setResults(
-        data.results.map((r) =>
-          r.type === "organisation"
-            ? { type: "organisation" as const, item: adaptSearchResultToOrganisation(r) }
-            : { type: "dataset" as const, item: adaptSearchResultToDataset(r) }
-        )
+        data.results
+          .filter(
+            (result) =>
+              result.type === "organisation" ||
+              (result.metadata?.status === "approved" &&
+                !!result.metadata.published_at &&
+                result.metadata.visibility !== "private"),
+          )
+          .map((r) =>
+            r.type === "organisation"
+              ? { type: "organisation" as const, item: adaptSearchResultToOrganisation(r) }
+              : { type: "dataset" as const, item: adaptSearchResultToDataset(r) },
+          )
       );
       setLoading(false);
     });

@@ -9,7 +9,9 @@ import { formatDate } from "@/lib/utils/date";
 
 export function RepositoryDashboard() {
   const { data: datasetsData, isLoading: datasetsLoading } = useDatasets({
+    catalogue: true,
     status: "approved",
+    published: true,
     sortBy: "download_count",
     sortOrder: "DESC",
     limit: 4,
@@ -18,7 +20,12 @@ export function RepositoryDashboard() {
   // NOTE: organisation names are deliberately not resolved here — GET
   // /organisations requires auth (401 for anonymous visitors), and this
   // section must stay visible on the public, logged-out homepage.
-  const topDatasets = datasetsData?.data ?? [];
+  const topDatasets = (datasetsData?.data ?? []).filter(
+    (dataset) =>
+      dataset.status === "approved" &&
+      !!dataset.published_at &&
+      dataset.visibility !== "private",
+  );
 
   return (
     <Panel

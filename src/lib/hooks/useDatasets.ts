@@ -7,12 +7,15 @@ import {
   createDataset,
   updateDataset,
   deleteDataset,
+  unarchiveDataset,
+  retractDataset,
   submitDatasetForReview,
   downloadDataset,
   bulkDownloadDatasets,
   getDatasetFiles,
   getDatasetVersions,
   getDatasetPreview,
+  getFilePreview,
   getDatasetInsights,
   type DatasetListParams,
   type CreateDatasetDto,
@@ -130,6 +133,44 @@ export function useDeleteDataset() {
   });
 }
 
+/** Restore a dataset archived from draft or pending. */
+export function useUnarchiveDataset() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (slug: string) => unarchiveDataset(slug),
+    onSuccess: (_, slug) => {
+      queryClient.invalidateQueries({ queryKey: ['dataset', slug] });
+      queryClient.invalidateQueries({ queryKey: ['organization-dataset', slug] });
+      queryClient.invalidateQueries({ queryKey: ['datasets'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-datasets'] });
+    },
+  });
+}
+
+/**
+ * Hook to retract (withdraw) a dataset — archive or queue admin request
+ */
+export function useRetractDataset() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ slug, reason }: { slug: string; reason?: string }) =>
+      retractDataset(slug, reason),
+    onSuccess: (_result, { slug }) => {
+      queryClient.invalidateQueries({ queryKey: ['dataset', slug] });
+      queryClient.invalidateQueries({ queryKey: ['organization-dataset', slug] });
+      queryClient.invalidateQueries({ queryKey: ['datasets'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-datasets'] });
+    },
+    onError: (_error, { slug }) => {
+      // A 409 can mean another tab already created the request. Refresh the
+      // detail state so the stale Retract action is replaced by its pending badge.
+      queryClient.invalidateQueries({ queryKey: ['organization-dataset', slug] });
+    },
+  });
+}
+
 /**
  * Hook to submit a dataset for review (draft/rejected → pending)
  */
@@ -220,6 +261,22 @@ export function useDatasetPreview(slug: string, enabled: boolean = true) {
     queryFn: () => getDatasetPreview(slug),
     enabled: !!slug && enabled,
     staleTime: 24 * 60 * 60 * 1000, // 24 hours - previews are cached
+  });
+}
+
+/**
+ * Hook to fetch preview for a specific file within a dataset
+ */
+export function useFilePreview(
+  slug: string,
+  fileId: string,
+  enabled: boolean = true
+) {
+  return useQuery({
+    queryKey: ['file-preview', slug, fileId],
+    queryFn: () => getFilePreview(slug, fileId),
+    enabled: !!slug && !!fileId && enabled,
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - file previews are cached
   });
 }
 

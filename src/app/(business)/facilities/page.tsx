@@ -90,7 +90,8 @@ const FlyToBounds = dynamic(
   { ssr: false }
 );
 
-const NIGER_STATE_CENTER: [number, number] = [9.9319, 6.547];
+// Shifted slightly east to account for left filter panel
+const NIGER_STATE_CENTER: [number, number] = [9.9319, 6.747];
 const NIGER_STATE_BOUNDS: [[number, number], [number, number]] = [
   [8.5, 3.5],
   [11.5, 8.5],

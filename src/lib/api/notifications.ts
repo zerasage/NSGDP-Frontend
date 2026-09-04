@@ -17,7 +17,9 @@ export type BackendNotificationType =
   | 'account_approved'
   | 'account_suspended'
   | 'new_dataset_available'
-  | 'system_announcement';
+  | 'system_announcement'
+  | 'dataset_archive_requested'
+  | 'dataset_archive_completed';
 
 // Display types for UI
 export type DisplayNotificationType = 'info' | 'success' | 'warning' | 'error';
@@ -53,11 +55,13 @@ export function getDisplayType(type: BackendNotificationType): DisplayNotificati
     case 'dataset_approved':
     case 'account_approved':
     case 'new_dataset_available':
+    case 'dataset_archive_completed':
       return 'success';
     case 'dataset_rejected':
     case 'account_suspended':
       return 'error';
     case 'dataset_revision_requested':
+    case 'dataset_archive_requested':
       return 'warning';
     case 'system_announcement':
     default:

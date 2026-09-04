@@ -95,7 +95,6 @@ export default function UploadDatasetPage() {
   const [responsibleDept, setResponsibleDept] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [contactEmail, setContactEmail] = useState("");
-  const [updateFrequency, setUpdateFrequency] = useState("");
 
   const [prefillTestData, setPrefillTestData] = useState(false);
   const togglePrefill = (checked: boolean) => {
@@ -116,7 +115,6 @@ export default function UploadDatasetPage() {
       setResponsibleDept("Disease Surveillance Unit");
       setContactPerson("Jane Doe");
       setContactEmail("jane.doe@example.org");
-      setUpdateFrequency("Monthly");
     } else {
       setTitle("");
       setDescription("");
@@ -132,7 +130,6 @@ export default function UploadDatasetPage() {
       setResponsibleDept("");
       setContactPerson("");
       setContactEmail("");
-      setUpdateFrequency("");
     }
   };
 
@@ -296,7 +293,6 @@ export default function UploadDatasetPage() {
         responsibleDept: responsibleDept || undefined,
         contactPerson: contactPerson || undefined,
         contactEmail: contactEmail || undefined,
-        updateFrequency: updateFrequency || undefined,
       });
 
       // Step 2: Upload every selected file — a dataset can have more than
@@ -797,26 +793,6 @@ export default function UploadDatasetPage() {
                       placeholder="e.g., jane.doe@example.org"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <FieldLabelTooltip
-                    label="Update Frequency"
-                    tooltip={UPLOAD_FIELD_TOOLTIPS.updateFrequency}
-                  />
-                  <Select value={updateFrequency} onValueChange={(v) => setUpdateFrequency(v || "")}>
-                    <SelectTrigger className="w-full h-10">
-                      <SelectValue placeholder="Select frequency (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Daily">Daily</SelectItem>
-                      <SelectItem value="Weekly">Weekly</SelectItem>
-                      <SelectItem value="Monthly">Monthly</SelectItem>
-                      <SelectItem value="Quarterly">Quarterly</SelectItem>
-                      <SelectItem value="Annually">Annually</SelectItem>
-                      <SelectItem value="One-time">One-time</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
 

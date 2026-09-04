@@ -156,10 +156,6 @@ export default function UploadProgrammeReportPage() {
     <DashboardPage>
       <div className="border-b bg-background px-4 py-3 sm:px-6">
         <nav className="flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
-          <Link href="/dashboard" className="hover:text-foreground">
-            Dashboard
-          </Link>
-          <ChevronRight className="size-3.5 shrink-0 sm:size-4" />
           <Link href="/my-programs" className="hover:text-foreground">
             Programmes
           </Link>

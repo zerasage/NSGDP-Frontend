@@ -11,7 +11,6 @@ export type { DatasetAccessState } from "./mock-session";
 // Program permissions
 export {
   ORG_PROGRAM_MANAGE_CAPABILITY,
-  ORG_PROGRAM_UPLOAD_CAPABILITY,
   getEffectiveProgramPermissions,
   hasProgramPermission,
   canProgram,
@@ -32,5 +31,8 @@ export {
   canEditDataset,
   canDeleteDataset,
   canSubmitDataset,
+  canRetractDataset,
+  canUnarchiveDataset,
+  retractRequiresApproval,
 } from "./dataset-permissions";
 export type { DatasetPermissionFields } from "./dataset-permissions";

@@ -82,8 +82,8 @@ function buildFeaturePopupHtml(properties: Record<string, unknown>): string {
   `;
 }
 
-// Niger State coordinates (approximate center)
-const NIGER_STATE_CENTER: [number, number] = [9.9319, 6.5470];
+// Niger State coordinates (shifted slightly east to account for left filter panel)
+const NIGER_STATE_CENTER: [number, number] = [9.9319, 6.7470];
 const DEFAULT_ZOOM = 8;
 const MIN_ZOOM = 7; // Prevent zooming out too far
 const MAX_ZOOM = 18; // Allow detailed view

@@ -77,6 +77,8 @@ export interface Dataset {
   approved_at: string | null;
   published_by: string | null;
   published_at: string | null;
+  pending_archive_request_id?: string | null;
+  status_before_archive?: DatasetStatus | null;
 }
 
 // A dataset can have more than one file uploaded to it over time — each
@@ -101,6 +103,8 @@ export interface DatasetListParams {
   format?: DatasetFormat;
   visibility?: DatasetVisibility;
   status?: DatasetStatus;
+  published?: boolean;
+  catalogue?: boolean;
   search?: string;
   tags?: string; // comma-separated
   lga?: string;
@@ -177,6 +181,13 @@ export interface DownloadResponse {
 
 export interface DatasetPreview {
   dataset: Dataset;
+  preview: unknown;
+  cached: boolean;
+  rowCount?: number;
+}
+
+export interface FilePreview {
+  file: DatasetFile;
   preview: unknown;
   cached: boolean;
   rowCount?: number;
@@ -306,6 +317,41 @@ export async function deleteDataset(slug: string): Promise<void> {
   await apiClient.delete(`/datasets/${slug}`);
 }
 
+/** Restore a dataset that was archived while draft or pending. */
+export async function unarchiveDataset(slug: string): Promise<Dataset> {
+  const response = await apiClient.post<ApiResponse<Dataset>>(
+    API_ROUTES.datasets.unarchive(slug),
+  );
+  return response.data.data;
+}
+
+export type RetractDatasetResult =
+  | { action: "archived"; dataset: Dataset }
+  | {
+      action: "requested";
+      request: {
+        id: string;
+        dataset_id: string;
+        reason: string;
+        status: string;
+      };
+    };
+
+/**
+ * Withdraw a dataset: archives immediately for draft/pending,
+ * or queues a super-admin retract request for rejected/under_review/approved.
+ */
+export async function retractDataset(
+  slug: string,
+  reason?: string
+): Promise<RetractDatasetResult> {
+  const response = await apiClient.post<ApiResponse<RetractDatasetResult>>(
+    API_ROUTES.datasets.retract(slug),
+    reason ? { reason } : {}
+  );
+  return response.data.data;
+}
+
 /**
  * Submit dataset for review (draft/rejected → pending)
  */
@@ -365,6 +411,25 @@ export async function bulkDownloadDatasets(
 }
 
 /**
+ * Download multiple files from a single dataset as a ZIP archive
+ */
+export async function bulkDownloadFiles(
+  slug: string,
+  fileIds: string[]
+): Promise<BulkDownloadResult> {
+  const result = await apiClient.postBlob(
+    `/datasets/${slug}/files/bulk-download`,
+    { fileIds }
+  );
+  return {
+    blob: result.blob,
+    fileName: result.fileName || `${slug}_files.zip`,
+    includedCount: fileIds.length,
+    skippedCount: 0,
+  };
+}
+
+/**
  * List every file ever uploaded to a dataset (a dataset can receive more
  * than one upload over time).
  */
@@ -393,6 +458,19 @@ export async function getDatasetVersions(
 export async function getDatasetPreview(slug: string): Promise<DatasetPreview> {
   const response = await apiClient.get<ApiResponse<DatasetPreview>>(
     `/datasets/${slug}/preview`
+  );
+  return response.data.data;
+}
+
+/**
+ * Get preview for a specific file within a dataset
+ */
+export async function getFilePreview(
+  slug: string,
+  fileId: string
+): Promise<FilePreview> {
+  const response = await apiClient.get<ApiResponse<FilePreview>>(
+    `/datasets/${slug}/files/${fileId}/preview`
   );
   return response.data.data;
 }

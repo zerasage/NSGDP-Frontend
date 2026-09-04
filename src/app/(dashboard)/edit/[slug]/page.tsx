@@ -105,7 +105,6 @@ export default function EditDatasetPage({
   const [responsibleDept, setResponsibleDept] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [contactEmail, setContactEmail] = useState("");
-  const [updateFrequency, setUpdateFrequency] = useState("");
 
   useDraftAutoSave(
     !loading && Boolean(title || description || newFiles.length > 0),
@@ -129,7 +128,6 @@ export default function EditDatasetPage({
       setResponsibleDept(dataset.responsible_dept || "");
       setContactPerson(dataset.contact_person || "");
       setContactEmail(dataset.contact_email || "");
-      setUpdateFrequency(dataset.update_frequency || "");
       setVisibility(dataset.visibility);
     }
   }, [dataset]);
@@ -262,7 +260,6 @@ export default function EditDatasetPage({
           responsibleDept: responsibleDept || undefined,
           contactPerson: contactPerson || undefined,
           contactEmail: contactEmail || undefined,
-          updateFrequency: updateFrequency || undefined,
           visibility,
         },
       });
@@ -766,26 +763,6 @@ export default function EditDatasetPage({
                       placeholder="e.g., jane.doe@example.org"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <FieldLabelTooltip
-                    label="Update Frequency"
-                    tooltip={UPLOAD_FIELD_TOOLTIPS.updateFrequency}
-                  />
-                  <Select value={updateFrequency} onValueChange={(v) => setUpdateFrequency(v || "")}>
-                    <SelectTrigger className="w-full h-10">
-                      <SelectValue placeholder="Select frequency (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Daily">Daily</SelectItem>
-                      <SelectItem value="Weekly">Weekly</SelectItem>
-                      <SelectItem value="Monthly">Monthly</SelectItem>
-                      <SelectItem value="Quarterly">Quarterly</SelectItem>
-                      <SelectItem value="Annually">Annually</SelectItem>
-                      <SelectItem value="One-time">One-time</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
 

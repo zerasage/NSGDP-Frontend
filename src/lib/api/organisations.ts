@@ -199,3 +199,15 @@ export interface OrganisationMember {
   createdAt: string;
   isActive: boolean;
 }
+
+/**
+ * Get activity statistics for an organisation (views and downloads across all datasets)
+ */
+export async function getOrganisationActivityStats(
+  orgId: string
+): Promise<{ totalViews: number; totalDownloads: number }> {
+  const response = await apiClient.get<
+    ApiResponse<{ totalViews: number; totalDownloads: number }>
+  >(`/organisations/${orgId}/activity-stats`);
+  return response.data.data;
+}

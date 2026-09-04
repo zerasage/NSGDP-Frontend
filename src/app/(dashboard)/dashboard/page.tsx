@@ -27,6 +27,7 @@ import { useDashboardSummary } from "@/lib/hooks/useDashboardSummary";
 import { useDownloadHistory } from "@/lib/hooks/useDownloadHistory";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { useOrganizationDatasets } from "@/lib/hooks/useDatasets";
+import { useOrganisationActivityStats } from "@/lib/hooks/useOrganisations";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { formatDistanceToNow } from "date-fns";
@@ -69,6 +70,10 @@ export default function DashboardPage() {
       sortOrder: "DESC",
     },
     { enabled: !!user?.organisationId && isMember },
+  );
+
+  const { data: activityStats, isLoading: activityStatsLoading } = useOrganisationActivityStats(
+    user?.organisationId
   );
 
   const myDatasets = datasetsData?.data ?? [];
@@ -442,7 +447,12 @@ export default function DashboardPage() {
               )}
             </DashboardPanel>
 
-            {isMember ? <DatasetActivityPanel /> : null}
+            {isMember ? (
+              <DatasetActivityPanel
+                views={activityStats?.totalViews}
+                downloads={activityStats?.totalDownloads}
+              />
+            ) : null}
 
             {summary ? (
               <DashboardPanel title="Account" icon={Clock} tone="muted">

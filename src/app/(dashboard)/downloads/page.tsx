@@ -24,13 +24,16 @@ import {
   MetricCard,
 } from "@/components/dashboard/portal-dashboard-ui";
 import { useDownloadHistory } from "@/lib/hooks/useDownloadHistory";
+import { useDownloadDataset } from "@/lib/hooks/useDatasets";
 import { PORTAL_DOWNLOADS_PAGE_TIP } from "@/lib/constants/portal-tooltips";
 import { formatDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type DownloadRow = {
   id: string;
   downloadedAt: string;
+  downloadCount: number;
   dataset: {
     slug: string;
     title: string;
@@ -83,9 +86,9 @@ export default function DownloadsPage() {
         {!isLoading && filteredDownloads.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <MetricCard
-              label="Total"
+              label="Datasets"
               value={totalDownloads}
-              hint="All-time downloads"
+              hint="Unique datasets downloaded"
               icon={Download}
               tone="info"
             />
@@ -170,7 +173,8 @@ export default function DownloadsPage() {
                         <tr>
                           <th className="px-4 py-3 text-left font-medium">Dataset</th>
                           <th className="px-4 py-3 text-left font-medium">Format</th>
-                          <th className="px-4 py-3 text-left font-medium">Downloaded</th>
+                          <th className="px-4 py-3 text-left font-medium">Times downloaded</th>
+                          <th className="px-4 py-3 text-left font-medium">Last downloaded</th>
                           <th className="px-4 py-3 text-right font-medium">Actions</th>
                         </tr>
                       </thead>
@@ -229,6 +233,23 @@ function isDeletedDataset(item: DownloadRow) {
 
 function DownloadMobileCard({ item }: { item: DownloadRow }) {
   const deleted = isDeletedDataset(item);
+  const downloadMutation = useDownloadDataset();
+
+  const handleDownload = () => {
+    downloadMutation.mutate(
+      { slug: item.dataset.slug, mode: "download" },
+      {
+        onSuccess: (data) => {
+          window.location.href = data.downloadUrl;
+          toast.success("Download started");
+        },
+        onError: (error) => {
+          toast.error("Failed to start download");
+          console.error(error);
+        },
+      }
+    );
+  };
 
   return (
     <li className="rounded-xl border bg-card p-4">
@@ -242,7 +263,7 @@ function DownloadMobileCard({ item }: { item: DownloadRow }) {
               <p className="font-medium text-muted-foreground">{item.dataset.title}</p>
             ) : (
               <Link
-                href={`/datasets/${item.dataset.slug}`}
+                href={`/dataportal/${item.dataset.slug}`}
                 className="font-medium hover:text-primary"
               >
                 {item.dataset.title}
@@ -266,20 +287,26 @@ function DownloadMobileCard({ item }: { item: DownloadRow }) {
           <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Calendar className="size-3.5" />
             {formatDate(item.downloadedAt)}
+            <span className="ml-2">•</span>
+            <span className="tabular-nums">
+              Downloaded {item.downloadCount} {item.downloadCount === 1 ? 'time' : 'times'}
+            </span>
           </p>
         </div>
       </div>
       {!deleted ? (
         <div className="mt-3 flex gap-2">
-          <Link
-            href={`/datasets/${item.dataset.slug}`}
-            className={cn(buttonVariants({ size: "sm" }), "h-10 flex-1 gap-2")}
+          <Button
+            onClick={handleDownload}
+            disabled={downloadMutation.isPending}
+            size="sm"
+            className="h-10 flex-1 gap-2"
           >
             <Download className="size-4" />
-            Re-download
-          </Link>
+            {downloadMutation.isPending ? "Downloading..." : "Re-download"}
+          </Button>
           <Link
-            href={`/datasets/${item.dataset.slug}`}
+            href={`/dataportal/${item.dataset.slug}`}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-10 flex-1 gap-2")}
           >
             <ExternalLink className="size-4" />
@@ -295,6 +322,23 @@ function DownloadMobileCard({ item }: { item: DownloadRow }) {
 
 function DownloadTableRow({ item }: { item: DownloadRow }) {
   const deleted = isDeletedDataset(item);
+  const downloadMutation = useDownloadDataset();
+
+  const handleDownload = () => {
+    downloadMutation.mutate(
+      { slug: item.dataset.slug, mode: "download" },
+      {
+        onSuccess: (data) => {
+          window.location.href = data.downloadUrl;
+          toast.success("Download started");
+        },
+        onError: (error) => {
+          toast.error("Failed to start download");
+          console.error(error);
+        },
+      }
+    );
+  };
 
   return (
     <tr className={cn("hover:bg-muted/30", deleted && "opacity-60")}>
@@ -306,7 +350,7 @@ function DownloadTableRow({ item }: { item: DownloadRow }) {
               <p className="font-medium text-muted-foreground">{item.dataset.title}</p>
             ) : (
               <Link
-                href={`/datasets/${item.dataset.slug}`}
+                href={`/dataportal/${item.dataset.slug}`}
                 className="font-medium hover:text-primary"
               >
                 {item.dataset.title}
@@ -331,6 +375,11 @@ function DownloadTableRow({ item }: { item: DownloadRow }) {
         ) : null}
       </td>
       <td className="px-4 py-3 text-muted-foreground">
+        <span className="tabular-nums">
+          {item.downloadCount} {item.downloadCount === 1 ? 'time' : 'times'}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
           <Calendar className="size-3.5" />
           {formatDate(item.downloadedAt)}
@@ -341,13 +390,17 @@ function DownloadTableRow({ item }: { item: DownloadRow }) {
           <span className="text-sm italic text-muted-foreground">Removed</span>
         ) : (
           <div className="flex items-center justify-end gap-2">
-            <Link href={`/datasets/${item.dataset.slug}`}>
-              <Button size="sm" variant="outline" className="h-9 gap-2">
-                <Download className="size-4" />
-                Re-download
-              </Button>
-            </Link>
-            <Link href={`/datasets/${item.dataset.slug}`}>
+            <Button 
+              onClick={handleDownload}
+              disabled={downloadMutation.isPending}
+              size="sm" 
+              variant="outline" 
+              className="h-9 gap-2"
+            >
+              <Download className="size-4" />
+              {downloadMutation.isPending ? "Downloading..." : "Re-download"}
+            </Button>
+            <Link href={`/dataportal/${item.dataset.slug}`}>
               <Button size="sm" variant="ghost" className="h-9">
                 View
               </Button>

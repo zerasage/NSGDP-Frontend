@@ -38,7 +38,13 @@ export async function searchAll(
   limit: number = 20,
 ): Promise<BackendSearchResponse> {
   const response = await apiClient.get<ApiResponse<BackendSearchResponse>>('/search', {
-    params: { q: query, page, limit, types: 'dataset,organisation' },
+    params: {
+      q: query,
+      page,
+      limit,
+      types: 'dataset,organisation',
+      catalogue: true,
+    },
   });
   return response.data.data;
 }

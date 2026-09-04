@@ -8,7 +8,7 @@ import {
   FileText,
   ChevronRight,
   Edit,
-  Trash2,
+  Archive,
   Send,
   ArrowLeft,
   Eye,
@@ -17,15 +17,30 @@ import {
   MoreHorizontal,
   Info,
   MapPin,
+  CheckSquare,
+  Square,
+  Loader2,
+  Clock3,
+  RotateCcw,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { VisibilityBadge } from "@/components/data/visibility-badge";
 import { StatusBadge } from "@/components/data/status-badge";
-import { DatasetDownloadActions } from "@/components/data/dataset-download-actions";
 import { DatasetMapSection } from "@/components/data/dataset-map-section";
+import { MultipleFilePreviews } from "@/components/data/multiple-file-previews";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { HelpTip } from "@/components/ui/help-tip";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -42,7 +57,8 @@ import {
 import { DashboardPanel } from "@/components/dashboard/portal-dashboard-ui";
 import {
   useOrganizationDataset,
-  useDeleteDataset,
+  useRetractDataset,
+  useUnarchiveDataset,
   useSubmitDatasetForReview,
   useDatasetPreview,
   useDatasetFiles,
@@ -50,7 +66,13 @@ import {
 } from "@/lib/hooks/useDatasets";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
-import { canEditDataset, canDeleteDataset, canSubmitDataset } from "@/lib/auth";
+import {
+  canEditDataset,
+  canRetractDataset,
+  canSubmitDataset,
+  canUnarchiveDataset,
+  retractRequiresApproval,
+} from "@/lib/auth";
 import { useRequireOrgMember } from "@/lib/hooks/useRequireOrgMember";
 import { transformDataset } from "@/lib/adapters/dataset-adapter";
 import { formatDate } from "@/lib/utils/date";
@@ -64,6 +86,7 @@ import {
   PORTAL_DATASET_SUBMIT_TIP,
 } from "@/lib/constants/portal-tooltips";
 import type { DatasetFile, Dataset as BackendDataset } from "@/lib/api/datasets";
+import { bulkDownloadFiles } from "@/lib/api/datasets";
 import type { PaginatedResponse } from "@/lib/types/common";
 import type { Category } from "@/lib/api/categories";
 import type { Organisation } from "@/lib/api/organisations";
@@ -79,7 +102,11 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
   const { user, isLoading: authLoading, allowed } = useRequireOrgMember();
   const router = useRouter();
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [retractDialogOpen, setRetractDialogOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [retractReason, setRetractReason] = useState("");
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
 
   const { data: backendDataset, isLoading, error } = useOrganizationDataset(slug);
 
@@ -88,7 +115,8 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
     !!backendDataset?.file_path,
   );
 
-  const deleteDatasetMutation = useDeleteDataset();
+  const retractDatasetMutation = useRetractDataset();
+  const unarchiveDatasetMutation = useUnarchiveDataset();
   const submitDatasetMutation = useSubmitDatasetForReview();
   const { data: files } = useDatasetFiles(slug);
   const downloadMutation = useDownloadDataset();
@@ -106,25 +134,48 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
     ? { status: backendDataset.status, owner_id: backendDataset.owner_id }
     : null;
   const canEdit = () => canEditDataset(user, datasetFields);
-  const canDelete = () => canDeleteDataset(user, datasetFields);
+  const canRetract = () => canRetractDataset(user, datasetFields);
+  const canRestore = () => canUnarchiveDataset(user, backendDataset);
   const canSubmit = () => canSubmitDataset(user, datasetFields);
+  const needsRetractApproval = retractRequiresApproval(datasetFields);
+  const hasPendingRetractRequest = !!backendDataset?.pending_archive_request_id;
+  const showRetractAction = canRetract() && !hasPendingRetractRequest;
 
   if (authLoading || !allowed) {
     return null;
   }
 
-  const confirmDelete = () => {
+  const confirmRetract = () => {
     if (!dataset) return;
 
-    deleteDatasetMutation.mutate(dataset.slug, {
-      onSuccess: () => {
-        toast.success("Dataset archived successfully");
-        router.push("/datasets");
+    if (needsRetractApproval && retractReason.trim().length < 10) {
+      toast.error("Please explain why you want to withdraw this dataset (at least 10 characters).");
+      return;
+    }
+
+    retractDatasetMutation.mutate(
+      {
+        slug: dataset.slug,
+        reason: needsRetractApproval ? retractReason.trim() : undefined,
       },
-      onError: () => {
-        toast.error("Failed to archive dataset");
+      {
+        onSuccess: (result) => {
+          setRetractDialogOpen(false);
+          setRetractReason("");
+          if (result.action === "archived") {
+            toast.success("Dataset retracted and archived");
+            router.push("/datasets");
+          } else {
+            toast.success(
+              "Retract request sent to super admin. You will be notified when it is completed.",
+            );
+          }
+        },
+        onError: (error: Error) => {
+          toast.error(error.message || "Failed to retract dataset");
+        },
       },
-    });
+    );
   };
 
   const confirmSubmit = () => {
@@ -136,6 +187,19 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
       },
       onError: (error: Error) => {
         toast.error(error.message || "Failed to submit dataset for review");
+      },
+    });
+  };
+
+  const confirmRestore = () => {
+    if (!dataset) return;
+    unarchiveDatasetMutation.mutate(dataset.slug, {
+      onSuccess: () => {
+        setRestoreDialogOpen(false);
+        toast.success("Dataset restored successfully");
+      },
+      onError: (error: Error) => {
+        toast.error(error.message || "Failed to restore dataset");
       },
     });
   };
@@ -155,12 +219,69 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
       { slug, mode: "download", fileId: file.id },
       {
         onSuccess: (data) => {
-          window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
+          // Use anchor element to download without opening new tab
+          const link = document.createElement('a');
+          link.href = data.downloadUrl;
+          link.download = data.fileName || file.file_name;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
           toast.success(`Downloading ${data.fileName}`);
         },
         onError: (error: Error) => toast.error(error.message || "Failed to generate download link"),
       },
     );
+  };
+
+  const toggleFileSelection = (fileId: string) => {
+    setSelectedFileIds((prev) =>
+      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedFileIds.length === files?.length) {
+      setSelectedFileIds([]);
+    } else {
+      setSelectedFileIds(files?.map((f) => f.id) ?? []);
+    }
+  };
+
+  const downloadFilesAsZip = async (fileIds: string[]) => {
+    setIsBulkDownloading(true);
+    try {
+      const result = await bulkDownloadFiles(slug, fileIds);
+      const url = URL.createObjectURL(result.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.fileName;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Downloaded ${fileIds.length} file(s) as ZIP`);
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to download files');
+      return false;
+    } finally {
+      setIsBulkDownloading(false);
+    }
+  };
+
+  const handleDownloadSelected = async () => {
+    if (selectedFileIds.length === 0) return;
+    if (await downloadFilesAsZip(selectedFileIds)) {
+      setSelectedFileIds([]);
+    }
+  };
+
+  const handleDownloadAll = () => {
+    if (!files?.length) return;
+    void downloadFilesAsZip(files.map((file) => file.id));
   };
 
   const formatBytes = (bytes: number) => {
@@ -199,7 +320,7 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
     notFound();
   }
 
-  const hasActions = canSubmit() || canEdit() || canDelete();
+  const hasActions = canSubmit() || canEdit() || canRestore() || showRetractAction;
   const showDataPreview =
     backendDataset?.file_path &&
     !SPATIAL_ONLY_PREVIEW_FORMATS.includes(backendDataset.format);
@@ -208,10 +329,6 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
     <DashboardPage>
       <div className="border-b bg-background px-4 py-3 sm:px-6">
         <nav className="flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
-          <Link href="/dashboard" className="hover:text-foreground">
-            Dashboard
-          </Link>
-          <ChevronRight className="size-3.5 shrink-0 sm:size-4" />
           <Link href="/datasets" className="hover:text-foreground">
             Datasets
           </Link>
@@ -307,15 +424,21 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
                         Edit dataset
                       </DropdownMenuItem>
                     ) : null}
-                    {canDelete() ? (
+                    {canRestore() ? (
+                      <DropdownMenuItem onClick={() => setRestoreDialogOpen(true)}>
+                        <RotateCcw className="size-4" />
+                        Restore dataset
+                      </DropdownMenuItem>
+                    ) : null}
+                    {showRetractAction ? (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           variant="destructive"
-                          onClick={() => setDeleteDialogOpen(true)}
+                          onClick={() => setRetractDialogOpen(true)}
                         >
-                          <Trash2 className="size-4" />
-                          Archive
+                          <Archive className="size-4" />
+                          Retract
                         </DropdownMenuItem>
                       </>
                     ) : null}
@@ -337,17 +460,35 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
               </Link>
             ) : null}
 
-            {canDelete() ? (
+            {canRestore() ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="hidden h-9 gap-2 sm:inline-flex"
+                onClick={() => setRestoreDialogOpen(true)}
+                disabled={unarchiveDatasetMutation.isPending}
+              >
+                <RotateCcw className="size-4" />
+                Restore
+              </Button>
+            ) : null}
+
+            {showRetractAction ? (
               <Button
                 size="sm"
                 variant="outline"
                 className="hidden h-9 gap-2 text-destructive hover:text-destructive sm:inline-flex"
-                onClick={() => setDeleteDialogOpen(true)}
-                disabled={deleteDatasetMutation.isPending}
+                onClick={() => setRetractDialogOpen(true)}
+                disabled={retractDatasetMutation.isPending}
               >
-                <Trash2 className="size-4" />
-                Archive
+                <Archive className="size-4" />
+                Retract
               </Button>
+            ) : hasPendingRetractRequest && canRetract() ? (
+              <Badge variant="secondary" className="hidden h-9 gap-2 px-3 sm:inline-flex">
+                <Clock3 className="size-4" />
+                Retract request pending
+              </Badge>
             ) : null}
           </div>
         </div>
@@ -362,19 +503,8 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
               </p>
             </DashboardPanel>
 
-            {showDataPreview ? (
-              <DashboardPanel
-                title="Data preview"
-                titleTip={PORTAL_DATASET_PREVIEW_TIP}
-                icon={Database}
-                tone="info"
-              >
-                <DataPreviewContent
-                  isLoading={isPreviewLoading}
-                  previewData={previewData}
-                />
-              </DashboardPanel>
-            ) : null}
+            {/* Multiple file previews - moved to top with navigation */}
+            {files && files.length > 0 && <MultipleFilePreviews slug={slug} files={files} />}
 
             {files && files.length > 0 ? (
               <DashboardPanel
@@ -383,58 +513,138 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
                 icon={FileText}
                 tone="primary"
                 action={
-                  files.length > 1 ? (
-                    <Badge variant="secondary">{files.length} files</Badge>
-                  ) : undefined
+                  <div className="flex items-center gap-2">
+                    {files.length > 1 && (
+                      <Badge variant="secondary">{files.length} files</Badge>
+                    )}
+                    {selectedFileIds.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={handleDownloadSelected}
+                        disabled={isBulkDownloading}
+                        className="gap-2"
+                      >
+                        <Download className="size-4" />
+                        Download {selectedFileIds.length} selected
+                      </Button>
+                    )}
+                  </div>
                 }
               >
-                <ul className="divide-y">
-                  {files.map((file) => (
-                    <li
-                      key={file.id}
-                      className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/40">
-                          <FileText className="size-4 text-muted-foreground" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{file.file_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {file.format.toUpperCase()} · {formatBytes(file.file_size ?? 0)} ·{" "}
-                            {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="size-10 sm:size-9"
-                          onClick={() => handleFileView(file)}
-                          disabled={downloadMutation.isPending}
-                          aria-label="View file"
+                <div className="space-y-3">
+                  {files.length > 1 && (
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSelectAll}
+                        className="h-8 text-xs"
+                      >
+                        {selectedFileIds.length === files.length ? (
+                          <>
+                            <CheckSquare className="size-4 mr-1" />
+                            Deselect All
+                          </>
+                        ) : (
+                          <>
+                            <Square className="size-4 mr-1" />
+                            Select All
+                          </>
+                        )}
+                      </Button>
+                      {selectedFileIds.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {selectedFileIds.length} selected
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <ul className="divide-y">
+                    {files.map((file) => {
+                      const isSelected = selectedFileIds.includes(file.id);
+                      return (
+                        <li
+                          key={file.id}
+                          className={cn(
+                            "flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0 transition-colors",
+                            isSelected && "bg-muted/30"
+                          )}
                         >
-                          <Eye className="size-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="size-10 sm:size-9"
-                          onClick={() => handleFileDownload(file)}
-                          disabled={downloadMutation.isPending}
-                          aria-label="Download file"
-                        >
-                          <Download className="size-4" />
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                          <div className="flex min-w-0 items-center gap-3">
+                            {files.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => toggleFileSelection(file.id)}
+                                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                                aria-label={isSelected ? "Deselect file" : "Select file"}
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="size-5" />
+                                ) : (
+                                  <Square className="size-5" />
+                                )}
+                              </button>
+                            )}
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/40">
+                              <FileText className="size-4 text-muted-foreground" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{file.file_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {file.format.toUpperCase()} · {formatBytes(file.file_size ?? 0)} ·{" "}
+                                {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="size-10 sm:size-9"
+                              onClick={() => handleFileView(file)}
+                              disabled={downloadMutation.isPending}
+                              aria-label="View file"
+                            >
+                              <Eye className="size-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="size-10 sm:size-9"
+                              onClick={() => handleFileDownload(file)}
+                              disabled={downloadMutation.isPending}
+                              aria-label="Download file"
+                            >
+                              <Download className="size-4" />
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               </DashboardPanel>
             ) : null}
 
-            <DatasetMapSection preview={previewData?.preview} lgaCoverage={dataset.lgaCoverage} />
+          </div>
+
+          <div className="space-y-4 lg:space-y-6">
+            <DashboardPanel title="Quick actions" tone="primary">
+              <Button
+                className="w-full"
+                onClick={handleDownloadAll}
+                disabled={!files?.length || isBulkDownloading}
+              >
+                {isBulkDownloading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                {isBulkDownloading ? "Preparing ZIP\u2026" : "Download all files"}
+              </Button>
+            </DashboardPanel>
 
             <DashboardPanel
               title="Additional information"
@@ -446,18 +656,7 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
                 dataset={dataset}
                 backendDataset={backendDataset!}
                 categories={categoriesResponse?.data ?? []}
-              />
-            </DashboardPanel>
-          </div>
-
-          <div className="space-y-4 lg:space-y-6">
-            <DashboardPanel title="Quick actions" tone="primary">
-              <DatasetDownloadActions
-                datasetId={dataset.id}
-                datasetSlug={dataset.slug}
-                datasetTitle={dataset.title}
-                visibility={dataset.visibility}
-                datasetOrganisationId={dataset.organisation.id}
+                files={files}
               />
             </DashboardPanel>
 
@@ -525,16 +724,75 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
       />
 
       <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Archive dataset"
-        description={`Are you sure you want to archive "${dataset.title}"? This action can be reversed by administrators.`}
-        confirmLabel="Archive"
+        open={restoreDialogOpen}
+        onOpenChange={setRestoreDialogOpen}
+        title="Restore dataset"
+        description={`Restore "${dataset.title}" to its previous draft or pending status?`}
+        confirmLabel="Restore"
         cancelLabel="Cancel"
-        onConfirm={confirmDelete}
-        variant="destructive"
-        isLoading={deleteDatasetMutation.isPending}
+        onConfirm={confirmRestore}
+        variant="default"
+        isLoading={unarchiveDatasetMutation.isPending}
       />
+
+      <Dialog
+        open={retractDialogOpen}
+        onOpenChange={(open) => {
+          setRetractDialogOpen(open);
+          if (!open) setRetractReason("");
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {needsRetractApproval ? "Request retract" : "Retract dataset"}
+            </DialogTitle>
+            <DialogDescription>
+              {needsRetractApproval
+                ? `This dataset is ${dataset.status === "approved" && backendDataset?.published_at ? "published" : dataset.status.replace("_", " ")}. Super admin must approve withdrawal. Explain why, then wait for a notification when it is archived.`
+                : `Retract and archive "${dataset.title}" now? You can upload a new dataset afterwards.`}
+            </DialogDescription>
+          </DialogHeader>
+          {needsRetractApproval ? (
+            <div className="space-y-2">
+              <Label htmlFor="retract-reason">Reason (required)</Label>
+              <Textarea
+                id="retract-reason"
+                value={retractReason}
+                onChange={(e) => setRetractReason(e.target.value)}
+                placeholder="Why should this dataset be withdrawn?"
+                rows={4}
+                maxLength={2000}
+              />
+              <p className="text-xs text-muted-foreground">
+                At least 10 characters. Super admin will see this message.
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRetractDialogOpen(false)}
+              disabled={retractDatasetMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmRetract}
+              disabled={retractDatasetMutation.isPending}
+            >
+              {retractDatasetMutation.isPending
+                ? "Working…"
+                : needsRetractApproval
+                  ? "Send request"
+                  : "Retract & archive"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardPage>
   );
 }
@@ -695,10 +953,12 @@ function MetadataGrid({
   dataset,
   backendDataset,
   categories,
+  files,
 }: {
   dataset: ReturnType<typeof transformDataset>;
   backendDataset: BackendDataset;
   categories: Category[];
+  files?: DatasetFile[];
 }) {
   return (
     <div className="space-y-4">
@@ -716,11 +976,21 @@ function MetadataGrid({
             File formats
           </p>
           <div className="mt-1 flex flex-wrap gap-1">
-            {dataset.formats.map((format) => (
-              <Badge key={format} variant="outline">
-                {format}
-              </Badge>
-            ))}
+            {files && files.length > 0 ? (
+              // Show unique formats from all uploaded files
+              Array.from(new Set(files.map((f) => f.format.toUpperCase()))).map((format) => (
+                <Badge key={format} variant="outline">
+                  {format}
+                </Badge>
+              ))
+            ) : (
+              // Fallback to dataset primary format
+              dataset.formats.map((format) => (
+                <Badge key={format} variant="outline">
+                  {format}
+                </Badge>
+              ))
+            )}
           </div>
         </div>
         <div>
@@ -748,12 +1018,6 @@ function MetadataGrid({
             Data licence
           </p>
           <p className="mt-1 text-sm">{backendDataset?.license || "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Update frequency
-          </p>
-          <p className="mt-1 text-sm">{backendDataset?.update_frequency || "—"}</p>
         </div>
       </div>
 
@@ -824,3 +1088,4 @@ function MetadataGrid({
     </div>
   );
 }
+

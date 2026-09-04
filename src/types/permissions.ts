@@ -8,4 +8,5 @@ export type ProgramPermissionAction =
   | "create:programs"
   | "edit:programs"
   | "delete:programs"
-  | "upload:programs";
+  | "upload:programs"
+  | "manage:programs";

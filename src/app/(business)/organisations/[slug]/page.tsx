@@ -27,16 +27,29 @@ export default function OrganisationPage({ params }: OrganisationPageProps) {
 
   const { data: datasetsResponse, isLoading: isDatasetsLoading } = useDatasets(
     organisation
-      ? { organisationId: organisation.id, status: "approved", limit: 50 }
+      ? {
+          organisationId: organisation.id,
+          catalogue: true,
+          status: "approved",
+          published: true,
+          limit: 50,
+        }
       : undefined,
     { enabled: !!organisation }
   );
 
   const datasets = useMemo(() => {
     if (!datasetsResponse?.data) return [];
-    return transformDatasets(datasetsResponse.data, categoriesResponse?.data, [
-      organisation,
-    ].filter(Boolean) as NonNullable<typeof organisation>[]);
+    return transformDatasets(
+      datasetsResponse.data.filter(
+        (dataset) =>
+          dataset.status === "approved" &&
+          !!dataset.published_at &&
+          dataset.visibility !== "private",
+      ),
+      categoriesResponse?.data,
+      [organisation].filter(Boolean) as NonNullable<typeof organisation>[],
+    );
   }, [datasetsResponse, categoriesResponse, organisation]);
 
   if (isLoading) {

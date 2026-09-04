@@ -26,12 +26,11 @@ import { z } from "zod";
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof changePasswordSchema>;
-type ProfileTab = "profile" | "security" | "preferences";
+type ProfileTab = "profile" | "security";
 
 const TABS: { value: ProfileTab; label: string; icon: typeof User }[] = [
   { value: "profile", label: "Profile", icon: User },
   { value: "security", label: "Security", icon: Lock },
-  { value: "preferences", label: "Preferences", icon: SlidersHorizontal },
 ];
 
 export default function ProfilePage() {
@@ -100,6 +99,7 @@ export default function ProfilePage() {
               description="Extra sign-in protection for your account."
               icon={Lock}
               tone="muted"
+              className="hidden"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -115,78 +115,6 @@ export default function ProfilePage() {
                     Enable 2FA
                   </Button>
                 ) : null}
-              </div>
-            </DashboardPanel>
-          </div>
-        ) : null}
-
-        {activeTab === "preferences" ? (
-          <div className="space-y-4 sm:space-y-6">
-            <DashboardPanel
-              title="Notification preferences"
-              description="Choose how you want to be notified. Saved preferences coming soon."
-              icon={SlidersHorizontal}
-              tone="info"
-            >
-              <div className="space-y-5">
-                <NotificationToggle
-                  label="Email notifications"
-                  description="Updates about your datasets and downloads"
-                />
-                <NotificationToggle
-                  label="Dataset comments"
-                  description="When someone comments on your datasets"
-                />
-                <NotificationToggle
-                  label="Access requests"
-                  description="When someone requests access to restricted datasets"
-                />
-                <NotificationToggle
-                  label="Weekly summary"
-                  description="A weekly summary of portal activity"
-                />
-              </div>
-            </DashboardPanel>
-
-            <DashboardPanel
-              title="Display preferences"
-              description="Customise how you browse the portal."
-              icon={Settings}
-              tone="muted"
-            >
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="defaultView" className="mb-1.5 block text-sm font-medium">
-                    Default view
-                  </label>
-                  <select
-                    id="defaultView"
-                    className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                    defaultValue="grid"
-                    disabled
-                  >
-                    <option value="grid">Grid view</option>
-                    <option value="list">List view</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="itemsPerPage" className="mb-1.5 block text-sm font-medium">
-                    Items per page
-                  </label>
-                  <select
-                    id="itemsPerPage"
-                    className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                    defaultValue="20"
-                    disabled
-                  >
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                  </select>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Display preferences are not saved yet — this preview shows planned options.
-                </p>
               </div>
             </DashboardPanel>
           </div>

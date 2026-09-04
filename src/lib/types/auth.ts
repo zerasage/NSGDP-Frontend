@@ -28,7 +28,7 @@ export interface UserProfile {
   createdAt: string;
   /** Delegated user permission-group actions (staff). */
   permissions?: string[];
-  /** Organisation Group capabilities for the user's org (e.g. create:programs). */
+  /** Organisation Group capabilities for the user's org (e.g. manage:programs). */
   organisationCapabilities?: string[];
 }
 

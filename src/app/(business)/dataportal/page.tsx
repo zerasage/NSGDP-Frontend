@@ -70,7 +70,9 @@ function DataportalContent() {
     const params: DatasetListParams = {
       page,
       limit: pageSize,
+      catalogue: true,
       status: "approved",
+      published: true,
       search: searchQuery || undefined,
     };
 
@@ -134,7 +136,12 @@ function DataportalContent() {
   const datasets = useMemo(() => {
     if (!datasetsData?.data) return [];
     return transformDatasets(
-      datasetsData.data,
+      datasetsData.data.filter(
+        (dataset) =>
+          dataset.status === "approved" &&
+          !!dataset.published_at &&
+          dataset.visibility !== "private",
+      ),
       categoriesResponse?.data,
       organisationsResponse?.data
     );

@@ -90,7 +90,8 @@ export function MetricCard({
       <div className="flex items-start justify-between gap-3">
         <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
-          {tip ? <HelpTip content={tip} label={`Help: ${label}`} iconClassName="size-3.5" /> : null}
+          {/* Don't render HelpTip when card is clickable (button) - would create nested buttons */}
+          {tip && !onClick ? <HelpTip content={tip} label={`Help: ${label}`} iconClassName="size-3.5" /> : null}
         </p>
         {Icon ? (
           <div
@@ -156,7 +157,7 @@ export function HeroMetricCard({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {label}
             {tip ? <HelpTip content={tip} label={`Help: ${label}`} iconClassName="size-3.5" /> : null}
           </p>

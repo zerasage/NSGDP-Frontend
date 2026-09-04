@@ -10,7 +10,7 @@ import {
 import type { ProgramCapability } from "@/lib/auth/program-permissions";
 
 // Org-scoping is enforced by my-organization endpoints and ownership checks.
-// Portal access additionally requires the organisation's `create:programs`
+// Portal access additionally requires the organisation's `manage:programs`
 // Organisation Group capability (surfaced on /auth/me).
 export function useProgramPermissions() {
   const { user } = useAuth();

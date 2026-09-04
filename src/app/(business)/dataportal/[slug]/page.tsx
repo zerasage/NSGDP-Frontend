@@ -1,10 +1,18 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { FileText, ChevronRight, Lock } from "lucide-react";
+import {
+  CheckSquare,
+  ChevronRight,
+  Download,
+  FileText,
+  Loader2,
+  Lock,
+  Square,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Container } from "@/components/layout/container";
 import { VisibilityBadge } from "@/components/data/visibility-badge";
@@ -13,9 +21,18 @@ import { DatasetDownloadActions } from "@/components/data/dataset-download-actio
 import { DatasetMapSection } from "@/components/data/dataset-map-section";
 import { DatasetActivityPanel } from "@/components/data/dataset-activity-panel";
 import { DatasetInsightsPanel } from "@/components/data/dataset-insights-panel";
+import { MultipleFilePreviews } from "@/components/data/multiple-file-previews";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDataset, useDatasets, useDatasetPreview, useDatasetInsights } from "@/lib/hooks/useDatasets";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useDataset,
+  useDatasetFiles,
+  useDatasetInsights,
+  useDatasetPreview,
+  useDatasets,
+} from "@/lib/hooks/useDatasets";
 import { usePublicDatasetPreview } from "@/lib/hooks/usePublicDatasetPreview";
 import { usePublicDatasetInsights } from "@/lib/hooks/usePublicDatasetInsights";
 import { useAuth } from "@/lib/auth";
@@ -28,6 +45,9 @@ import { formatDate } from "@/lib/utils/date";
 import type { PaginatedResponse } from "@/lib/types/common";
 import type { Category } from "@/lib/api/categories";
 import type { Organisation } from "@/lib/api/organisations";
+import { bulkDownloadFiles } from "@/lib/api/datasets";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface DatasetPageProps {
   params: Promise<{ slug: string }>;
@@ -35,50 +55,58 @@ interface DatasetPageProps {
 
 export default function DatasetPage({ params }: DatasetPageProps) {
   const { slug } = use(params);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
   
   // Fetch dataset by slug (public endpoint — now also returns restricted
   // datasets as metadata-only, so this can 200 even without access)
   const { data: backendDataset, isLoading, error } = useDataset(slug);
+  const { data: files } = useDatasetFiles(slug);
   const { isAuthenticated } = useAuth();
+  const isVisibleInDataPortal =
+    backendDataset?.status === "approved" &&
+    !!backendDataset.published_at &&
+    backendDataset.visibility !== "private";
 
-  // The public preview endpoint only ever serves visibility:"public"
-  // datasets — for restricted/private ones it always 403s, so route those
-  // through the authenticated endpoint instead, which respects hasAccess
-  // (same-org member, approved requester, super_admin, or staff grant).
-  const isRestrictedOrPrivate =
-    backendDataset?.visibility === "restricted" || backendDataset?.visibility === "private";
-  const { data: publicPreviewData, isLoading: isPublicPreviewLoading } = usePublicDatasetPreview(
+  // Public preview/insights require an approved, published, public dataset.
+  // Published restricted datasets use authenticated endpoints for members
+  // with access; unpublished datasets are excluded from this page entirely.
+  const canUsePublicDataEndpoints =
+    backendDataset?.status === "approved" &&
+    !!backendDataset.published_at &&
+    backendDataset.visibility === "public";
+  const { data: publicPreviewData } = usePublicDatasetPreview(
     slug,
-    !!backendDataset && !isRestrictedOrPrivate
+    isVisibleInDataPortal && canUsePublicDataEndpoints
   );
   const {
     data: authPreviewData,
-    isLoading: isAuthPreviewLoading,
     error: authPreviewError,
-  } = useDatasetPreview(slug, !!backendDataset && isRestrictedOrPrivate && isAuthenticated);
+  } = useDatasetPreview(
+    slug,
+    isVisibleInDataPortal && !canUsePublicDataEndpoints && isAuthenticated,
+  );
 
-  const previewData = isRestrictedOrPrivate ? authPreviewData : publicPreviewData;
-  const isPreviewLoading = isRestrictedOrPrivate
-    ? isAuthenticated && isAuthPreviewLoading
-    : isPublicPreviewLoading;
+  const previewData = canUsePublicDataEndpoints ? publicPreviewData : authPreviewData;
   // 403 from the authenticated endpoint means "no access yet", not "broken
   // file" — the generic fallback message would be misleading here.
-  const previewBlocked = isRestrictedOrPrivate && (!isAuthenticated || !!authPreviewError);
+  const previewBlocked =
+    !canUsePublicDataEndpoints && (!isAuthenticated || !!authPreviewError);
 
   // Same public/authenticated split as the preview above, since insights
   // are derived from the same file and carry the same access sensitivity.
   const { data: publicInsightsData, isLoading: isPublicInsightsLoading } = usePublicDatasetInsights(
     slug,
-    !!backendDataset && !isRestrictedOrPrivate
+    isVisibleInDataPortal && canUsePublicDataEndpoints
   );
   const { data: authInsightsData, isLoading: isAuthInsightsLoading } = useDatasetInsights(
     slug,
-    !!backendDataset && isRestrictedOrPrivate && isAuthenticated
+    isVisibleInDataPortal && !canUsePublicDataEndpoints && isAuthenticated
   );
-  const insightsData = isRestrictedOrPrivate ? authInsightsData : publicInsightsData;
-  const isInsightsLoading = isRestrictedOrPrivate
-    ? isAuthenticated && isAuthInsightsLoading
-    : isPublicInsightsLoading;
+  const insightsData = canUsePublicDataEndpoints ? publicInsightsData : authInsightsData;
+  const isInsightsLoading = canUsePublicDataEndpoints
+    ? isPublicInsightsLoading
+    : isAuthenticated && isAuthInsightsLoading;
   
   // Fetch reference data for transformation
   const { data: categoriesResponse } = useCategories() as { data?: PaginatedResponse<Category> };
@@ -91,13 +119,16 @@ export default function DatasetPage({ params }: DatasetPageProps) {
   
   // Fetch related datasets (same category)
   const { data: relatedData } = useDatasets(
-    dataset?.healthCategory && backendDataset?.category_id
+    isVisibleInDataPortal && dataset?.healthCategory && backendDataset?.category_id
       ? {
           categoryId: backendDataset.category_id,
+          catalogue: true,
           limit: 4,
           status: 'approved',
+          published: true,
         }
-      : undefined
+      : undefined,
+    { enabled: isVisibleInDataPortal },
   );
   
   const relatedDatasets = relatedData?.data
@@ -110,14 +141,124 @@ export default function DatasetPage({ params }: DatasetPageProps) {
   if (isLoading) {
     return (
       <main className="flex-1">
+        {/* Breadcrumb skeleton */}
+        <div className="border-b bg-muted/40">
+          <Container size="wide" className="py-4">
+            <Skeleton className="h-5 w-64" />
+          </Container>
+        </div>
+
+        {/* Header skeleton */}
+        <div className="border-b bg-background">
+          <Container size="wide" className="py-8">
+            <div className="flex items-start gap-4">
+              <Skeleton className="size-16 shrink-0 rounded-lg" />
+              <div className="flex-1 space-y-3">
+                <Skeleton className="h-8 w-3/4" />
+                <Skeleton className="h-4 w-48" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-6 w-24" />
+                </div>
+              </div>
+            </div>
+          </Container>
+        </div>
+
         <Container size="wide" className="py-8">
-          <DatasetCardSkeleton />
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Main Content Skeleton */}
+            <div className="lg:col-span-2 space-y-8">
+              {/* Description */}
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-6 w-32" />
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </CardContent>
+              </Card>
+
+              {/* Preview */}
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-6 w-40" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-[500px] w-full" />
+                </CardContent>
+              </Card>
+
+              {/* Files */}
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-6 w-48" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sidebar Skeleton */}
+            <div className="space-y-6">
+              {/* Download */}
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-5 w-24" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-10 w-full" />
+                </CardContent>
+              </Card>
+
+              {/* Additional Information */}
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-5 w-40" />
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </CardContent>
+              </Card>
+
+              {/* Related Datasets */}
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-5 w-32" />
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </CardContent>
+              </Card>
+
+              {/* Activity */}
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-5 w-32" />
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </Container>
       </main>
     );
   }
 
-  if (error || !dataset) {
+  if (error || !dataset || !isVisibleInDataPortal) {
     notFound();
   }
 
@@ -128,6 +269,43 @@ export default function DatasetPage({ params }: DatasetPageProps) {
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+  };
+
+  const toggleFileSelection = (fileId: string) => {
+    setSelectedFileIds((selected) =>
+      selected.includes(fileId)
+        ? selected.filter((id) => id !== fileId)
+        : [...selected, fileId],
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedFileIds((selected) =>
+      selected.length === files?.length ? [] : (files?.map((file) => file.id) ?? []),
+    );
+  };
+
+  const downloadFilesAsZip = async (fileIds: string[]) => {
+    if (fileIds.length === 0) return;
+    setIsBulkDownloading(true);
+    try {
+      const result = await bulkDownloadFiles(slug, fileIds);
+      const url = URL.createObjectURL(result.blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = result.fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${fileIds.length} file(s) as ZIP`);
+      setSelectedFileIds([]);
+    } catch (downloadError) {
+      toast.error(downloadError instanceof Error ? downloadError.message : "Failed to download files");
+    } finally {
+      setIsBulkDownloading(false);
+    }
   };
 
   return (
@@ -214,144 +392,23 @@ export default function DatasetPage({ params }: DatasetPageProps) {
               </CardContent>
             </Card>
 
-            {/* Data Preview — hidden for formats the Spatial Preview card
-                already renders fully (table + map) on its own */}
-            {backendDataset?.file_path &&
-              !SPATIAL_ONLY_PREVIEW_FORMATS.includes(backendDataset.format) && (
+            {files?.length ? (
+              <MultipleFilePreviews slug={slug} files={files} />
+            ) : backendDataset?.file_path && previewBlocked ? (
               <Card>
-                <CardHeader>
-                  <CardTitle>Data Preview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isPreviewLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="size-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
-                      <span className="ml-3 text-sm text-muted-foreground">Loading preview...</span>
-                    </div>
-                  ) : previewBlocked ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Lock className="size-12 mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">
-                        {isAuthenticated ? "Preview requires access" : "Log in to preview"}
-                      </p>
-                      <p className="text-xs mt-1">
-                        {isAuthenticated
-                          ? "This dataset is restricted — request access below to preview it."
-                          : "This dataset is restricted — log in and request access to preview it."}
-                      </p>
-                    </div>
-                  ) : previewData ? (
-                    <div className="space-y-4">
-                      {/* Tabular Preview (CSV/Excel) */}
-                      {(previewData.preview as { type?: string; columns?: string[] })?.type === 'tabular' && (previewData.preview as { columns?: string[] }).columns ? (
-                        <>
-                          <div className="rounded-lg border overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead className="bg-muted/50 border-b">
-                                <tr>
-                                  {((previewData.preview as { columns?: string[] }).columns || []).map((col: string, idx: number) => (
-                                    <th key={idx} className="px-4 py-2 text-left font-medium">
-                                      {col}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y">
-                                {((previewData.preview as { rows?: Record<string, unknown>[] }).rows || []).slice(0, 10).map((row: Record<string, unknown>, rowIdx: number) => (
-                                  <tr key={rowIdx} className="hover:bg-muted/30">
-                                    {((previewData.preview as { columns?: string[] }).columns || []).map((col: string, cellIdx: number) => (
-                                      <td key={cellIdx} className="px-4 py-2">
-                                        {row[col] !== null && row[col] !== undefined ? String(row[col]) : '-'}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          {(previewData.preview as { totalRows?: number | string }).totalRows && (
-                            <p className="text-xs text-muted-foreground text-center">
-                              Showing first 10 of {typeof (previewData.preview as { totalRows?: number | string }).totalRows === 'number' 
-                                ? (previewData.preview as { totalRows: number }).totalRows.toLocaleString() 
-                                : (previewData.preview as { totalRows: string }).totalRows} rows
-                              {(previewData.preview as { isPartialPreview?: boolean }).isPartialPreview && ' (preview only)'}
-                            </p>
-                          )}
-                        </>
-                      ) : null}
-
-                      {/* JSON Preview */}
-                      {(previewData.preview as { type?: string })?.type === 'json' && (
-                        <div className="space-y-3">
-                          {(previewData.preview as { message?: string }).message ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <FileText className="size-12 mx-auto mb-3 opacity-50" />
-                              <p className="text-sm">{(previewData.preview as { message: string }).message}</p>
-                              {(previewData.preview as { fileSizeMB?: number }).fileSizeMB && (
-                                <p className="text-xs mt-1">File size: {(previewData.preview as { fileSizeMB: number }).fileSizeMB} MB</p>
-                              )}
-                            </div>
-                          ) : (
-                            <>
-                              <div className="rounded-lg border p-4 bg-muted/30">
-                                <pre className="text-xs overflow-x-auto max-h-96">
-                                  {JSON.stringify((previewData.preview as { records?: unknown[]; data?: unknown }).records?.slice(0, 5) || (previewData.preview as { data?: unknown }).data, null, 2)}
-                                </pre>
-                              </div>
-                              {(previewData.preview as { totalRecords?: number }).totalRecords && (
-                                <p className="text-xs text-muted-foreground text-center">
-                                  Showing first 5 of {(previewData.preview as { totalRecords: number }).totalRecords.toLocaleString()} records
-                                </p>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-
-                      {/* GeoJSON Preview */}
-                      {(previewData.preview as { type?: string })?.type === 'geojson' && (
-                        <div className="space-y-3">
-                          <div className="rounded-lg border p-4 bg-muted/30">
-                            <div className="space-y-2 text-sm">
-                              <p><span className="font-medium">Format:</span> GeoJSON</p>
-                              <p><span className="font-medium">Features:</span> {(previewData.preview as { totalFeatures?: number }).totalFeatures?.toLocaleString()}</p>
-                              {(previewData.preview as { bbox?: unknown }).bbox ? (
-                                <p><span className="font-medium">Bounding Box:</span> {JSON.stringify((previewData.preview as { bbox: unknown }).bbox)}</p>
-                              ) : null}
-                            </div>
-                          </div>
-                          <p className="text-xs text-muted-foreground text-center">
-                            View on map below for spatial visualization
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Document Preview (PDF) */}
-                      {(previewData.preview as { type?: string })?.type === 'document' && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <FileText className="size-12 mx-auto mb-3 opacity-50" />
-                          <p className="text-sm">{(previewData.preview as { message?: string }).message}</p>
-                        </div>
-                      )}
-
-                      {/* Error or Unknown Format */}
-                      {((previewData.preview as { type?: string })?.type === 'error' || (previewData.preview as { type?: string })?.type === 'unknown') && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <FileText className="size-12 mx-auto mb-3 opacity-50" />
-                          <p className="text-sm">{(previewData.preview as { message?: string }).message}</p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <FileText className="size-12 mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">Preview not available</p>
-                      <p className="text-xs mt-1">The file may not be uploaded yet or format is not supported</p>
-                    </div>
-                  )}
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  <Lock className="mx-auto mb-3 size-12 opacity-50" />
+                  <p className="text-sm">
+                    {isAuthenticated ? "Preview requires access" : "Log in to preview"}
+                  </p>
+                  <p className="mt-1 text-xs">
+                    {isAuthenticated
+                      ? "This dataset is restricted — request access below to preview it."
+                      : "This dataset is restricted — log in and request access to preview it."}
+                  </p>
                 </CardContent>
               </Card>
-            )}
+            ) : null}
 
             {/* Automated Insights — deterministic column profiling (date +
                 numeric metric detection, trend), not shown at all when the
@@ -367,62 +424,155 @@ export default function DatasetPage({ params }: DatasetPageProps) {
               )}
 
             {/* Resources / Files */}
-            {dataset.resources && dataset.resources.length > 0 && (
+            {files?.length ? (
+              <Card>
+                <CardHeader className="flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <CardTitle>Data Files & Resources</CardTitle>
+                    {files.length > 1 ? <Badge variant="secondary">{files.length} files</Badge> : null}
+                  </div>
+                  {selectedFileIds.length > 0 ? (
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => void downloadFilesAsZip(selectedFileIds)}
+                      disabled={isBulkDownloading}
+                    >
+                      {isBulkDownloading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Download className="size-4" />
+                      )}
+                      Download {selectedFileIds.length} selected
+                    </Button>
+                  ) : null}
+                </CardHeader>
+                <CardContent>
+                  {files.length > 1 ? (
+                    <div className="mb-2 flex items-center gap-2 border-b pb-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSelectAll}
+                        className="h-8 text-xs"
+                      >
+                        {selectedFileIds.length === files.length ? (
+                          <CheckSquare className="mr-1 size-4" />
+                        ) : (
+                          <Square className="mr-1 size-4" />
+                        )}
+                        {selectedFileIds.length === files.length ? "Deselect all" : "Select all"}
+                      </Button>
+                      {selectedFileIds.length > 0 ? (
+                        <span className="text-xs text-muted-foreground">
+                          {selectedFileIds.length} selected
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <ul className="divide-y">
+                    {files.map((file) => {
+                      const isSelected = selectedFileIds.includes(file.id);
+                      return (
+                        <li
+                          key={file.id}
+                          className={cn(
+                            "flex items-center justify-between gap-3 py-4 first:pt-0 last:pb-0",
+                            isSelected && "bg-muted/30",
+                          )}
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            {files.length > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleFileSelection(file.id)}
+                                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                                aria-label={isSelected ? "Deselect file" : "Select file"}
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="size-5" />
+                                ) : (
+                                  <Square className="size-5" />
+                                )}
+                              </button>
+                            ) : null}
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                            <FileText className="size-5 text-muted-foreground" />
+                          </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{file.file_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                                {file.format.toUpperCase()} • {formatBytes(file.file_size ?? 0)} • Updated{" "}
+                                {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
+                              </p>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </CardContent>
+              </Card>
+            ) : dataset.resources && dataset.resources.length > 0 ? (
               <Card>
                 <CardHeader>
                   <CardTitle>Data Files & Resources</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="divide-y">
-                    {dataset.resources.map((resource) => (
-                      <div
-                        key={resource.id}
-                        className="flex items-center justify-between py-4 first:pt-0 last:pb-0"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                            <FileText className="size-5 text-muted-foreground" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{resource.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {resource.format} • {formatBytes(resource.sizeBytes)} •
-                              Updated{" "}
-                              {formatDistanceToNow(new Date(resource.updatedAt), {
-                                addSuffix: true,
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        <DatasetDownloadActions
-                          datasetId={dataset.id}
-                          datasetSlug={dataset.slug}
-                          datasetTitle={dataset.title}
-                          visibility={dataset.visibility}
-                          datasetOrganisationId={dataset.organisation.id}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  <DatasetDownloadActions
+                    datasetId={dataset.id}
+                    datasetSlug={dataset.slug}
+                    datasetTitle={dataset.title}
+                    visibility={dataset.visibility}
+                    datasetOrganisationId={dataset.organisation.id}
+                  />
                 </CardContent>
               </Card>
-            )}
+            ) : null}
+          </div>
 
-            {/* Spatial preview for geo datasets */}
-            <DatasetMapSection
-              preview={previewData?.preview}
-              lgaCoverage={dataset.lgaCoverage}
-            />
-
-            {/* Metadata */}
+          {/* Sidebar */}
+          <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Additional Information</CardTitle>
+                <CardTitle className="text-base">Download</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {files?.length ? (
+                  <Button
+                    className="w-full gap-2"
+                    onClick={() => void downloadFilesAsZip(files.map((file) => file.id))}
+                    disabled={isBulkDownloading}
+                  >
+                    {isBulkDownloading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Download className="size-4" />
+                    )}
+                    Download all files as ZIP
+                  </Button>
+                ) : (
+                  <DatasetDownloadActions
+                    datasetId={dataset.id}
+                    datasetSlug={dataset.slug}
+                    datasetTitle={dataset.title}
+                    visibility={dataset.visibility}
+                    datasetOrganisationId={dataset.organisation.id}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Additional Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Additional Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
+                    <p className="text-xs font-medium text-muted-foreground">
                       Category
                     </p>
                     <p className="mt-1 text-sm">
@@ -430,19 +580,29 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
+                    <p className="text-xs font-medium text-muted-foreground">
                       File Formats
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {dataset.formats.map((format) => (
-                        <Badge key={format} variant="outline">
-                          {format}
-                        </Badge>
-                      ))}
+                      {files && files.length > 0 ? (
+                        // Show unique formats from all uploaded files
+                        Array.from(new Set(files.map((f) => f.format.toUpperCase()))).map((format) => (
+                          <Badge key={format} variant="outline" className="text-xs">
+                            {format}
+                          </Badge>
+                        ))
+                      ) : (
+                        // Fallback to dataset primary format
+                        dataset.formats.map((format) => (
+                          <Badge key={format} variant="outline" className="text-xs">
+                            {format}
+                          </Badge>
+                        ))
+                      )}
                     </div>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
+                    <p className="text-xs font-medium text-muted-foreground">
                       LGA Coverage
                     </p>
                     <p className="mt-1 text-sm">
@@ -452,7 +612,7 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
+                    <p className="text-xs font-medium text-muted-foreground">
                       Reporting Period
                     </p>
                     <p className="mt-1 text-sm">
@@ -462,27 +622,21 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
+                    <p className="text-xs font-medium text-muted-foreground">
                       Data License
                     </p>
                     <p className="mt-1 text-sm">{backendDataset?.license || "—"}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Update Frequency
-                    </p>
-                    <p className="mt-1 text-sm">{backendDataset?.update_frequency || "—"}</p>
-                  </div>
                 </div>
 
                 {backendDataset?.disease_indicators && backendDataset.disease_indicators.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
+                  <div className="pt-2 border-t">
+                    <p className="text-xs font-medium text-muted-foreground">
                       Disease / Health Indicators
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {backendDataset.disease_indicators.map((indicator) => (
-                        <Badge key={indicator} variant="secondary">
+                        <Badge key={indicator} variant="secondary" className="text-xs">
                           {indicator}
                         </Badge>
                       ))}
@@ -492,10 +646,10 @@ export default function DatasetPage({ params }: DatasetPageProps) {
 
                 {(backendDataset?.responsible_dept || backendDataset?.contact_person || backendDataset?.contact_email) && (
                   <div className="pt-2 border-t">
-                    <p className="text-sm font-medium text-muted-foreground mb-2">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
                       Contact
                     </p>
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
                       {backendDataset?.responsible_dept && (
                         <div>
                           <p className="text-xs text-muted-foreground">Responsible Department</p>
@@ -518,7 +672,7 @@ export default function DatasetPage({ params }: DatasetPageProps) {
 
                 {backendDataset?.methodology && (
                   <div className="pt-2 border-t">
-                    <p className="text-sm font-medium text-muted-foreground">Methodology</p>
+                    <p className="text-xs font-medium text-muted-foreground">Methodology</p>
                     <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
                       {backendDataset.methodology}
                     </p>
@@ -527,7 +681,7 @@ export default function DatasetPage({ params }: DatasetPageProps) {
 
                 {backendDataset?.limitations && (
                   <div className="pt-2 border-t">
-                    <p className="text-sm font-medium text-muted-foreground">Known Limitations</p>
+                    <p className="text-xs font-medium text-muted-foreground">Known Limitations</p>
                     <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
                       {backendDataset.limitations}
                     </p>
@@ -535,26 +689,6 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                 )}
               </CardContent>
             </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Download</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DatasetDownloadActions
-                  datasetId={dataset.id}
-                  datasetSlug={dataset.slug}
-                  datasetTitle={dataset.title}
-                  visibility={dataset.visibility}
-                  datasetOrganisationId={dataset.organisation.id}
-                />
-              </CardContent>
-            </Card>
-
-            <DatasetActivityPanel />
 
             {/* Related Datasets */}
             {relatedDatasets.length > 0 && (
@@ -580,6 +714,11 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                 </CardContent>
               </Card>
             )}
+
+            <DatasetActivityPanel
+              views={backendDataset.view_count}
+              downloads={backendDataset.download_count}
+            />
           </div>
         </div>
       </Container>

@@ -7,11 +7,12 @@ import {
   Database,
   Upload,
   Edit,
-  Trash2,
+  Archive,
   Eye,
   Search,
   Send,
   RotateCcw,
+  Clock3,
   MoreHorizontal,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -30,9 +31,15 @@ import {
 import {
   useOrganizationDatasets,
   useDeleteDataset,
+  useUnarchiveDataset,
   useSubmitDatasetForReview,
 } from "@/lib/hooks/useDatasets";
-import { canEditDataset, canDeleteDataset, canSubmitDataset } from "@/lib/auth";
+import {
+  canDeleteDataset,
+  canEditDataset,
+  canSubmitDataset,
+  canUnarchiveDataset,
+} from "@/lib/auth";
 import { useRequireOrgMember } from "@/lib/hooks/useRequireOrgMember";
 import {
   DashboardPage,
@@ -75,6 +82,7 @@ export default function MyDatasetsPage() {
   );
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [selectedDataset, setSelectedDataset] = useState<{ slug: string; title: string } | null>(
     null,
   );
@@ -101,6 +109,7 @@ export default function MyDatasetsPage() {
   );
 
   const deleteDatasetMutation = useDeleteDataset();
+  const unarchiveDatasetMutation = useUnarchiveDataset();
   const submitDatasetMutation = useSubmitDatasetForReview();
 
   const datasets = data?.data ?? [];
@@ -113,6 +122,8 @@ export default function MyDatasetsPage() {
 
   const canEditDatasetRow = (dataset: (typeof datasets)[0]) => canEditDataset(user, dataset);
   const canDeleteDatasetRow = (dataset: (typeof datasets)[0]) => canDeleteDataset(user, dataset);
+  const canRestoreDatasetRow = (dataset: (typeof datasets)[0]) =>
+    canUnarchiveDataset(user, dataset);
   const canSubmitDatasetRow = (dataset: (typeof datasets)[0]) => canSubmitDataset(user, dataset);
 
   const statusCounts: Record<DatasetStatus | "all", number> = {
@@ -133,6 +144,17 @@ export default function MyDatasetsPage() {
         setSelectedDataset(null);
       },
       onError: () => toast.error("Failed to archive dataset"),
+    });
+  };
+
+  const confirmRestore = () => {
+    if (!selectedDataset) return;
+    unarchiveDatasetMutation.mutate(selectedDataset.slug, {
+      onSuccess: () => {
+        toast.success("Dataset restored successfully");
+        setSelectedDataset(null);
+      },
+      onError: () => toast.error("Failed to restore dataset"),
     });
   };
 
@@ -297,6 +319,7 @@ export default function MyDatasetsPage() {
                       dataset={dataset}
                       canEdit={canEditDatasetRow(dataset)}
                       canDelete={canDeleteDatasetRow(dataset)}
+                      canRestore={canRestoreDatasetRow(dataset)}
                       canSubmit={canSubmitDatasetRow(dataset)}
                       onSubmit={() => {
                         setSelectedDataset({ slug: dataset.slug, title: dataset.title });
@@ -305,6 +328,10 @@ export default function MyDatasetsPage() {
                       onDelete={() => {
                         setSelectedDataset({ slug: dataset.slug, title: dataset.title });
                         setDeleteDialogOpen(true);
+                      }}
+                      onRestore={() => {
+                        setSelectedDataset({ slug: dataset.slug, title: dataset.title });
+                        setRestoreDialogOpen(true);
                       }}
                     />
                   ))}
@@ -330,6 +357,7 @@ export default function MyDatasetsPage() {
                             dataset={dataset}
                             canEdit={canEditDatasetRow(dataset)}
                             canDelete={canDeleteDatasetRow(dataset)}
+                            canRestore={canRestoreDatasetRow(dataset)}
                             canSubmit={canSubmitDatasetRow(dataset)}
                             onSubmit={() => {
                               setSelectedDataset({ slug: dataset.slug, title: dataset.title });
@@ -339,8 +367,13 @@ export default function MyDatasetsPage() {
                               setSelectedDataset({ slug: dataset.slug, title: dataset.title });
                               setDeleteDialogOpen(true);
                             }}
+                            onRestore={() => {
+                              setSelectedDataset({ slug: dataset.slug, title: dataset.title });
+                              setRestoreDialogOpen(true);
+                            }}
                             submitPending={submitDatasetMutation.isPending}
                             deletePending={deleteDatasetMutation.isPending}
+                            restorePending={unarchiveDatasetMutation.isPending}
                           />
                         ))}
                       </tbody>
@@ -380,6 +413,18 @@ export default function MyDatasetsPage() {
         variant="destructive"
         isLoading={deleteDatasetMutation.isPending}
       />
+
+      <ConfirmDialog
+        open={restoreDialogOpen}
+        onOpenChange={setRestoreDialogOpen}
+        title="Restore dataset"
+        description={`Restore "${selectedDataset?.title}" to its previous draft or pending status?`}
+        confirmLabel="Restore"
+        cancelLabel="Cancel"
+        onConfirm={confirmRestore}
+        variant="default"
+        isLoading={unarchiveDatasetMutation.isPending}
+      />
     </DashboardPage>
   );
 }
@@ -394,25 +439,31 @@ type DatasetRow = {
   download_count?: number;
   updated_at: string;
   published_at?: string | null;
+  pending_archive_request_id?: string | null;
+  status_before_archive?: DatasetStatus | null;
 };
 
 function DatasetMobileCard({
   dataset,
   canEdit,
   canDelete,
+  canRestore,
   canSubmit,
   onSubmit,
   onDelete,
+  onRestore,
 }: {
   dataset: DatasetRow;
   canEdit: boolean;
   canDelete: boolean;
+  canRestore: boolean;
   canSubmit: boolean;
   onSubmit: () => void;
   onDelete: () => void;
+  onRestore: () => void;
 }) {
   const router = useRouter();
-  const hasActions = canEdit || canDelete || canSubmit;
+  const hasActions = canEdit || canDelete || canRestore || canSubmit;
 
   return (
     <li className="rounded-xl border bg-card p-4">
@@ -453,11 +504,17 @@ function DatasetMobileCard({
                       Edit
                     </DropdownMenuItem>
                   ) : null}
+                  {canRestore ? (
+                    <DropdownMenuItem onClick={onRestore}>
+                      <RotateCcw className="size-4" />
+                      Restore
+                    </DropdownMenuItem>
+                  ) : null}
                   {canDelete ? (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                        <Trash2 className="size-4" />
+                        <Archive className="size-4" />
                         Archive
                       </DropdownMenuItem>
                     </>
@@ -470,6 +527,12 @@ function DatasetMobileCard({
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusBadge status={dataset.status} publishedAt={dataset.published_at} />
             <VisibilityBadge visibility={dataset.visibility} />
+            {dataset.pending_archive_request_id ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                <Clock3 className="size-3" />
+                Retract pending
+              </span>
+            ) : null}
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
             {dataset.download_count?.toLocaleString() ?? 0} downloads · Updated{" "}
@@ -485,20 +548,26 @@ function DatasetTableRow({
   dataset,
   canEdit,
   canDelete,
+  canRestore,
   canSubmit,
   onSubmit,
   onDelete,
+  onRestore,
   submitPending,
   deletePending,
+  restorePending,
 }: {
   dataset: DatasetRow;
   canEdit: boolean;
   canDelete: boolean;
+  canRestore: boolean;
   canSubmit: boolean;
   onSubmit: () => void;
   onDelete: () => void;
+  onRestore: () => void;
   submitPending: boolean;
   deletePending: boolean;
+  restorePending: boolean;
 }) {
   return (
     <tr className="hover:bg-muted/30">
@@ -517,7 +586,18 @@ function DatasetTableRow({
         </div>
       </td>
       <td className="px-4 py-3">
-        <StatusBadge status={dataset.status} publishedAt={dataset.published_at} />
+        <div className="flex items-center gap-2">
+          <StatusBadge status={dataset.status} publishedAt={dataset.published_at} />
+          {dataset.pending_archive_request_id ? (
+            <span
+              className="inline-flex size-7 items-center justify-center rounded-full bg-muted text-muted-foreground"
+              title="Retract request pending"
+            >
+              <Clock3 className="size-3.5" />
+              <span className="sr-only">Retract request pending</span>
+            </span>
+          ) : null}
+        </div>
       </td>
       <td className="px-4 py-3">
         <VisibilityBadge visibility={dataset.visibility} />
@@ -552,6 +632,18 @@ function DatasetTableRow({
               </Button>
             </Link>
           ) : null}
+          {canRestore ? (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-9 text-primary hover:text-primary"
+              onClick={onRestore}
+              disabled={restorePending}
+              title="Restore dataset"
+            >
+              <RotateCcw className="size-4" />
+            </Button>
+          ) : null}
           {canDelete ? (
             <Button
               size="icon"
@@ -560,7 +652,7 @@ function DatasetTableRow({
               onClick={onDelete}
               disabled={deletePending}
             >
-              <Trash2 className="size-4" />
+              <Archive className="size-4" />
             </Button>
           ) : null}
         </div>

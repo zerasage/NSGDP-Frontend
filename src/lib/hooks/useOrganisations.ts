@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getOrganisations, getOrganisationBySlug, createOrganisation, type CreateOrganisationPayload } from '../api/organisations';
+import { getOrganisations, getOrganisationBySlug, createOrganisation, getOrganisationActivityStats, type CreateOrganisationPayload } from '../api/organisations';
 
 /**
  * Hook to fetch all organisations with pagination
@@ -37,5 +37,17 @@ export function useCreateOrganisation() {
         queryKey: ['organisations'],
       });
     },
+  });
+}
+
+/**
+ * Hook to fetch activity statistics for an organisation
+ */
+export function useOrganisationActivityStats(orgId: string | undefined) {
+  return useQuery({
+    queryKey: ['organisation-activity-stats', orgId],
+    queryFn: () => getOrganisationActivityStats(orgId!),
+    enabled: !!orgId,
+    staleTime: 60 * 1000, // 1 minute - activity stats should be relatively fresh
   });
 }
