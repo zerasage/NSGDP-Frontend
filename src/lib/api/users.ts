@@ -13,6 +13,7 @@ interface ApiResponse<T> {
 export interface DownloadHistoryItem {
   id: string;
   downloadedAt: string;
+  downloadCount: number;
   dataset: {
     id: string;
     slug: string;
@@ -20,6 +21,7 @@ export interface DownloadHistoryItem {
     format: string;
     version: number;
     organisationId: string;
+    isDeleted?: boolean;
   };
 }
 
