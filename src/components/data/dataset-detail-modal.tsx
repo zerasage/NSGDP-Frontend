@@ -89,13 +89,13 @@ export function DatasetDetailModal({ dataset, open, onOpenChange }: DatasetDetai
             <dl className="grid grid-cols-[160px_1fr] gap-x-4 gap-y-2.5">
               <FieldLabel
                 label="Dataset Owner"
-                tip="The organisation or agency responsible for this dataset."
+                tip="The development partner or agency responsible for this dataset."
               />
               <dd>{dataset.organisation.name}</dd>
 
               <FieldLabel
                 label="Responsible Dept"
-                tip="The specific directorate or department within the owning organisation that manages this dataset."
+                tip="The specific directorate or department within the owning development partner that manages this dataset."
               />
               <dd>{dataset.responsibleDept ?? "—"}</dd>
 

@@ -65,7 +65,7 @@ import {
   useDownloadDataset,
 } from "@/lib/hooks/useDatasets";
 import { useCategories } from "@/lib/hooks/useCategories";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import {
   canEditDataset,
   canRetractDataset,
@@ -89,7 +89,7 @@ import type { DatasetFile, Dataset as BackendDataset } from "@/lib/api/datasets"
 import { bulkDownloadFiles } from "@/lib/api/datasets";
 import type { PaginatedResponse } from "@/lib/types/common";
 import type { Category } from "@/lib/api/categories";
-import type { Organisation } from "@/lib/api/organisations";
+import type { DevelopmentPartner } from "@/lib/api/development-partners";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -122,8 +122,8 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
   const downloadMutation = useDownloadDataset();
 
   const { data: categoriesResponse } = useCategories() as { data?: PaginatedResponse<Category> };
-  const { data: organisationsResponse } = useOrganisations(1, 100) as {
-    data?: PaginatedResponse<Organisation>;
+  const { data: organisationsResponse } = useDevelopmentPartners(1, 100) as {
+    data?: PaginatedResponse<DevelopmentPartner>;
   };
 
   const dataset = backendDataset

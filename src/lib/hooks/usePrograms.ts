@@ -41,7 +41,7 @@ export function useProgramBySlug(slug: string) {
  * hides. Use this for "My Programmes" management views.
  */
 export function useOrganizationPrograms(
-  params?: Omit<GetProgramsParams, 'organisationId'>,
+  params?: Omit<GetProgramsParams, 'developmentPartnerId'>,
   options?: { enabled?: boolean }
 ) {
   return useQuery({

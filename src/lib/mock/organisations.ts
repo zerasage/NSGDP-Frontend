@@ -1,6 +1,6 @@
-import type { Organisation } from "@/types";
+import type { DevelopmentPartner } from "@/types";
 
-export const mockOrganisations: Organisation[] = [
+export const mockOrganisations: DevelopmentPartner[] = [
   {
     id: "org-1",
     slug: "nsphcda",

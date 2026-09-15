@@ -178,7 +178,7 @@ export default function MyDatasetsPage() {
             <div className="mb-2 inline-flex items-center gap-2 rounded-lg border border-success/25 bg-success/[0.06] px-2.5 py-1">
               <Database className="size-3.5 text-success" aria-hidden />
               <span className="text-[11px] font-semibold uppercase tracking-wide text-success">
-                Organisation
+                Development Partner
               </span>
             </div>
             <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight sm:text-2xl">
@@ -204,7 +204,7 @@ export default function MyDatasetsPage() {
           <MetricCard
             label="Total"
             value={statusCounts.all}
-            hint="All organisation datasets"
+            hint="All development partner datasets"
             icon={Database}
             tone="success"
           />

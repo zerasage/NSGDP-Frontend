@@ -167,7 +167,7 @@ export default function MyProgrammesPage() {
         <DashboardPageContent>
           <EmptyPanelState
             icon={ClipboardList}
-            message="Your organisation has not been granted programme access. Contact a super administrator to request it via an Organisation Group."
+            message="Your development partner has not been granted programme access. Contact a super administrator to request it via a Development Partner Group."
             action={
               <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }), "h-11")}>
                 Back to dashboard
@@ -187,7 +187,7 @@ export default function MyProgrammesPage() {
             <div className="mb-2 inline-flex items-center gap-2 rounded-lg border border-success/25 bg-success/[0.06] px-2.5 py-1">
               <ClipboardList className="size-3.5 text-success" aria-hidden />
               <span className="text-[11px] font-semibold uppercase tracking-wide text-success">
-                Organisation
+                Development Partner
               </span>
             </div>
             <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight sm:text-2xl">
@@ -196,8 +196,8 @@ export default function MyProgrammesPage() {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {canCreate
-                ? "Manage your organisation's programmes and track rollout progress."
-                : "Upload reports and view progress for your organisation's programmes."}
+                ? "Manage your development partner's programmes and track rollout progress."
+                : "Upload reports and view progress for your development partner's programmes."}
             </p>
           </div>
           {canCreate ? (
@@ -217,7 +217,7 @@ export default function MyProgrammesPage() {
           <MetricCard
             label="Total"
             value={statusCounts.all}
-            hint="All organisation programmes"
+            hint="All development partner programmes"
             icon={ClipboardList}
             tone="success"
           />
@@ -306,10 +306,10 @@ export default function MyProgrammesPage() {
                   </Button>
                 }
               />
-            ) : !user?.organisationId ? (
+            ) : !user?.developmentPartnerId ? (
               <EmptyPanelState
                 icon={ClipboardList}
-                message="Your account isn't linked to an organisation yet, so there are no programmes to manage here."
+                message="Your account isn't linked to a development partner yet, so there are no programmes to manage here."
               />
             ) : programmes.length === 0 ? (
               <EmptyPanelState

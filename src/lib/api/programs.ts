@@ -12,7 +12,7 @@ export interface GetProgramsParams {
   status?: 'active' | 'completed' | 'suspended' | 'archived';
   type?: ProgramType;
   lga?: string;
-  organisationId?: string;
+  developmentPartnerId?: string;
   q?: string;
   sort?: 'recent' | 'alphabetical';
 }
@@ -106,7 +106,7 @@ function mapProgramme(raw: ProgrammeApiPayload): Program {
     targetCount,
     activeDays: daysActiveSince(raw.start_date ?? raw.created_at),
     lgasCovered: raw.lgas_covered_count ?? coveredLgas.length,
-    organisationId: raw.organisation_id ?? undefined,
+    developmentPartnerId: raw.organisation_id ?? undefined,
     updatedAt: raw.updated_at,
   };
 }
@@ -185,7 +185,7 @@ export async function getPrograms(
         status: params?.status,
         type: params?.type,
         lga: params?.lga,
-        organisationId: params?.organisationId,
+        developmentPartnerId: params?.developmentPartnerId,
         q: params?.q,
         sort: params?.sort,
       },
@@ -201,7 +201,7 @@ export async function getProgramBySlug(slug: string): Promise<Program> {
 }
 
 export async function getOrganizationPrograms(
-  params?: Omit<GetProgramsParams, 'organisationId'>
+  params?: Omit<GetProgramsParams, 'developmentPartnerId'>
 ): Promise<PaginatedResponse<Program>> {
   const response = await apiClient.get<ApiResponse<PaginatedResponse<ProgrammeApiPayload>>>(
     '/programs/my-organization',

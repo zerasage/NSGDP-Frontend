@@ -38,10 +38,10 @@ type InviteFormData = z.infer<typeof inviteSchema>;
 interface InviteModalProps {
   open: boolean;
   onClose: () => void;
-  organisationId?: string; // If undefined, super admin can select org
+  developmentPartnerId?: string; // If undefined, super admin can select org
 }
 
-export function InviteModal({ open, onClose, organisationId }: InviteModalProps) {
+export function InviteModal({ open, onClose, developmentPartnerId }: InviteModalProps) {
   const [loading, setLoading] = useState(false);
   const createInviteMutation = useCreateInvite();
 
@@ -62,8 +62,8 @@ export function InviteModal({ open, onClose, organisationId }: InviteModalProps)
   const selectedRole = watch("role");
 
   const onSubmit = async (data: InviteFormData) => {
-    if (!organisationId) {
-      toast.error("Organisation ID is required");
+    if (!developmentPartnerId) {
+      toast.error("Development Partner ID is required");
       return;
     }
 
@@ -71,7 +71,7 @@ export function InviteModal({ open, onClose, organisationId }: InviteModalProps)
 
     try {
       await createInviteMutation.mutateAsync({
-        organisationId,
+        developmentPartnerId,
         data: {
           invitedEmail: data.email,
           role: data.role,
@@ -104,7 +104,7 @@ export function InviteModal({ open, onClose, organisationId }: InviteModalProps)
         <DialogHeader>
           <DialogTitle>Invite Team Member</DialogTitle>
           <DialogDescription>
-            Send an invitation to join your organisation. They&apos;ll receive an email with a link to
+            Send an invitation to join your development partner. They&apos;ll receive an email with a link to
             create their account.
           </DialogDescription>
         </DialogHeader>

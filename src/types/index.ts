@@ -101,7 +101,7 @@ export interface User {
   organisationIds: string[];
 }
 
-export interface Organisation {
+export interface DevelopmentPartner {
   id: string;
   slug: string;
   name: string;
@@ -146,7 +146,7 @@ export interface Dataset {
   slug: string;
   title: string;
   description?: string;
-  organisation: Pick<Organisation, "id" | "slug" | "name" | "logoUrl">;
+  organisation: Pick<DevelopmentPartner, "id" | "slug" | "name" | "logoUrl">;
   groups: Pick<Group, "id" | "slug" | "name">[];
   healthCategory: HealthCategory;
   visibility: Visibility;
@@ -252,7 +252,7 @@ export interface Program {
   activeDays: number;
   lgasCovered: number;
   /** Owning organisation (data source / programme owner) */
-  organisationId?: string;
+  developmentPartnerId?: string;
   organisationName?: string;
   updatedAt?: string;
   /** Reports are only visible when completionPercent === 100 */

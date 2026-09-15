@@ -1,7 +1,7 @@
 // Centralized mock API - typed accessors that mimic the future REST API
 // These will be replaced with real API calls when backend is ready
 
-import type { Dataset, Organisation, Group, Visibility, DatasetStatus, HealthCategory, AnalyticsMetric, DatasetArchiveInfo } from "@/types";
+import type { Dataset, DevelopmentPartner, Group, Visibility, DatasetStatus, HealthCategory, AnalyticsMetric, DatasetArchiveInfo } from "@/types";
 import { mockDatasets } from "./datasets";
 import { mockOrganisations } from "./organisations";
 import { mockGroups } from "./groups";
@@ -239,7 +239,7 @@ export async function getOrganisations(filters: OrganisationFilters = {}) {
   return results;
 }
 
-export async function getOrganisationBySlug(slug: string): Promise<Organisation | null> {
+export async function getOrganisationBySlug(slug: string): Promise<DevelopmentPartner | null> {
   await simulateDelay();
   return mockOrganisations.find((o) => o.slug === slug) || null;
 }
@@ -263,8 +263,8 @@ export async function getGroupBySlug(slug: string): Promise<Group | null> {
 // ============================================================================
 
 export interface SearchResult {
-  type: "dataset" | "organisation" | "group";
-  item: Dataset | Organisation | Group;
+  type: "dataset" | "development-partner" | "group";
+  item: Dataset | DevelopmentPartner | Group;
 }
 
 export async function searchAll(query: string): Promise<SearchResult[]> {
@@ -294,7 +294,7 @@ export async function searchAll(query: string): Promise<SearchResult[]> {
         o.acronym?.toLowerCase().includes(q)
     )
     .slice(0, 5)
-    .forEach((item) => results.push({ type: "organisation", item }));
+    .forEach((item) => results.push({ type: "development-partner", item }));
 
   // Search groups
   mockGroups

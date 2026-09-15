@@ -180,7 +180,7 @@ export function ProgramDetailView({ slug, orgScope = false }: ProgramDetailViewP
   }
 
   const ownsProgramme =
-    orgScope || (!!user?.organisationId && user.organisationId === program.organisationId);
+    orgScope || (!!user?.developmentPartnerId && user.developmentPartnerId === program.developmentPartnerId);
   const canEdit = canAccess && ownsProgramme && can("edit");
   const canUploadReport = canAccess && ownsProgramme && can("upload");
   const hasManageActions = canEdit || canUploadReport;

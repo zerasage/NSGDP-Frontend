@@ -59,8 +59,8 @@ const NAV_LINKS: NavLink[] = [
     section: "workspace",
   },
   {
-    href: "/organisation",
-    label: "Organization",
+    href: "/development-partner",
+    label: "Development Partner",
     icon: Building2,
     roles: ["contributor", "admin"],
     section: "workspace",

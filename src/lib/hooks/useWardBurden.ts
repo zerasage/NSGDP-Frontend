@@ -5,11 +5,11 @@ import { ALL_SOURCES_ID } from '../constants/analytics-sources';
 export function useWardBurden(
   indicator: string | undefined,
   lga: string | undefined,
-  opts?: { organisationId?: string; year?: number }
+  opts?: { developmentPartnerId?: string; year?: number }
 ) {
   const orgId =
-    opts?.organisationId && opts.organisationId !== ALL_SOURCES_ID
-      ? opts.organisationId
+    opts?.developmentPartnerId && opts.developmentPartnerId !== ALL_SOURCES_ID
+      ? opts.developmentPartnerId
       : undefined;
 
   return useQuery({
@@ -17,7 +17,7 @@ export function useWardBurden(
     queryFn: () =>
       getWardBurden(indicator!, lga!, {
         year: opts?.year,
-        organisationId: orgId,
+        developmentPartnerId: orgId,
         limit: 20,
       }),
     enabled: !!indicator && !!lga,

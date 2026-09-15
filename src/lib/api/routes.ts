@@ -32,13 +32,13 @@ export const API_ROUTES = {
     dashboardSummary: '/users/me/dashboard-summary',
   },
 
-  // Organisation endpoints
-  organisations: {
-    list: '/organisations',
-    bySlug: (slug: string) => `/organisations/${slug}`,
-    members: (orgId: string) => `/organisations/${orgId}/members`,
-    updateMemberRole: (orgId: string, userId: string) => `/organisations/${orgId}/members/${userId}/role`,
-    removeMember: (orgId: string, userId: string) => `/organisations/${orgId}/members/${userId}/remove`,
+  // Development Partner endpoints
+  developmentPartners: {
+    list: '/development-partners',
+    bySlug: (slug: string) => `/development-partners/${slug}`,
+    members: (orgId: string) => `/development-partners/${orgId}/members`,
+    updateMemberRole: (orgId: string, userId: string) => `/development-partners/${orgId}/members/${userId}/role`,
+    removeMember: (orgId: string, userId: string) => `/development-partners/${orgId}/members/${userId}/remove`,
   },
 
   // Category endpoints

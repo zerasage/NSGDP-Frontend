@@ -3,7 +3,7 @@ import { z } from "zod";
 export const submitDatasetSchema = z.object({
   // ── Core identification ──────────────────────────────────────────────
   datasetName: z.string().min(3, "Dataset name must be at least 3 characters"),
-  organisation: z.string().min(2, "Organisation is required"),
+  organisation: z.string().min(2, "Development Partner is required"),
   responsibleDept: z.string().min(2, "Responsible department is required"),
   contactPerson: z.string().min(2, "Contact person name is required"),
   contactEmail: z.string().email("Enter a valid email address"),

@@ -44,7 +44,7 @@ export function useDatasets(
  * Hook to fetch organization datasets (authenticated, shows all statuses)
  * Use this in "My Datasets" page to show org's drafts, pending, etc.
  */
-export function useOrganizationDatasets(params?: Omit<DatasetListParams, 'organisationId'>, options?: { enabled?: boolean }) {
+export function useOrganizationDatasets(params?: Omit<DatasetListParams, 'developmentPartnerId'>, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['organization-datasets', params],
     queryFn: () => getOrganizationDatasets(params),

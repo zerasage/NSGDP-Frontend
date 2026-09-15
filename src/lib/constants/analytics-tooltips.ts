@@ -59,7 +59,7 @@ export const ANALYTICS_GIS_ANOMALIES_TIP =
   "State-wide population density and facility-count anomalies from platform GIS layers — not tied to the selected disease indicator.";
 
 export const ANALYTICS_PROGRAMMES_TIP =
-  "Self-reported programme progress (reach vs target) from organisation owners. Filter by organisation to compare monitoring programmes.";
+  "Self-reported programme progress (reach vs target) from development partner owners. Filter by development partner to compare monitoring programmes.";
 
 export const ANALYTICS_ORG_FILTER_TIP =
-  "Limit ward burden or programme cards to datasets and programmes published by one organisation.";
+  "Limit ward burden or programme cards to datasets and programmes published by one development partner.";

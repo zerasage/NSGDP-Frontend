@@ -99,7 +99,7 @@ export interface DatasetListParams {
   page?: number;
   limit?: number;
   categoryId?: string;
-  organisationId?: string;
+  developmentPartnerId?: string;
   format?: DatasetFormat;
   visibility?: DatasetVisibility;
   status?: DatasetStatus;
@@ -136,7 +136,7 @@ export interface CreateDatasetDto {
   contactEmail?: string;
   updateFrequency?: string;
   programmeId?: string;
-  organisationId?: string; // For admins to create on behalf of org
+  developmentPartnerId?: string; // For admins to create on behalf of org
 }
 
 export interface UpdateDatasetDto {
@@ -242,7 +242,7 @@ export interface DatasetMapCoverage {
   hasSpatialData: boolean;
   geographicCoverage: string[];
   downloadCount: number;
-  organisationId: string | null;
+  developmentPartnerId: string | null;
   organisationName: string | null;
 }
 
@@ -260,7 +260,7 @@ export async function getDatasetMapCoverage(): Promise<DatasetMapCoverage[]> {
  * Get organization datasets (authenticated, shows all statuses including drafts)
  */
 export async function getOrganizationDatasets(
-  params?: Omit<DatasetListParams, 'organisationId'>
+  params?: Omit<DatasetListParams, 'developmentPartnerId'>
 ): Promise<PaginatedResponse<Dataset>> {
   const response = await apiClient.get<ApiResponse<PaginatedResponse<Dataset>>>(
     API_ROUTES.datasets.myOrganization,

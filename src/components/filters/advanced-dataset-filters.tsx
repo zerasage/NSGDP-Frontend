@@ -33,7 +33,7 @@ export function buildAdvancedFilterSections(
       label: "Category",
       options: categoryOptions,
     },
-    { id: "organisations", label: "Organisations", options: orgs },
+    { id: "organisations", label: "Development Partners", options: orgs },
     { id: "lgas", label: "LGAs", options: NIGER_STATE_LGAS.map((l) => ({ value: l, label: l })) },
     { id: "diseases", label: "Disease", options: DISEASE_FILTER_OPTIONS },
     { id: "wards", label: "Ward", options: WARD_FILTER_OPTIONS },

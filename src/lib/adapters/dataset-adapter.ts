@@ -1,7 +1,7 @@
 import type { Dataset as BackendDataset } from '../api/datasets';
 import type { Dataset as FrontendDataset, HealthCategory, FileFormat } from '@/types';
 import type { Category } from '../api/categories';
-import type { Organisation } from '../api/organisations';
+import type { DevelopmentPartner } from '../api/development-partners';
 
 /**
  * Transform backend dataset to frontend dataset format
@@ -11,7 +11,7 @@ import type { Organisation } from '../api/organisations';
 export function transformDataset(
   backendDataset: BackendDataset,
   categories?: Category[],
-  organisations?: Organisation[]
+  organisations?: DevelopmentPartner[]
 ): FrontendDataset {
   // Find related category
   const category = categories?.find((c) => c.id === backendDataset.category_id);
@@ -46,7 +46,7 @@ export function transformDataset(
       : {
           id: backendDataset.organisation_id || '',
           slug: 'unknown',
-          name: 'Unknown Organisation',
+          name: 'Unknown Development Partner',
           logoUrl: undefined,
         },
     
@@ -158,7 +158,7 @@ function mapStatusToLifecycleStage(
 export function transformDatasets(
   backendDatasets: BackendDataset[],
   categories?: Category[],
-  organisations?: Organisation[]
+  organisations?: DevelopmentPartner[]
 ): FrontendDataset[] {
   return backendDatasets.map((dataset) =>
     transformDataset(dataset, categories, organisations)

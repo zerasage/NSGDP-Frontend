@@ -155,8 +155,8 @@ export default function UploadDatasetPage() {
     }
 
     // Must have organisation
-    if (!user.organisationId) {
-      toast.error("You must be part of an organization to upload datasets");
+    if (!user.developmentPartnerId) {
+      toast.error("You must be part of a development partner to upload datasets");
       router.replace("/dashboard");
       return null;
     }

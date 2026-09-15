@@ -3,13 +3,13 @@
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
 import { Container } from "@/components/layout/container";
-import { OrgCard } from "@/components/data/org-card";
+import { DevelopmentPartnerCard } from "@/components/data/development-partner-card";
 import { Input } from "@/components/ui/input";
 import { OrgCardSkeleton } from "@/components/feedback/skeletons";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import { cn } from "@/lib/utils";
 
-// Organisation types from API
+// Development Partner types from API
 const ORG_TYPES = [
   { value: "government", label: "Government" },
   { value: "ngo", label: "NGO" },
@@ -22,19 +22,19 @@ const ORG_TYPES = [
 // Force dynamic rendering
 export const dynamic = "force-dynamic";
 
-export default function OrganisationsPage() {
+export default function DevelopmentPartnersPage() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch organisations from real API (fetch all with high limit)
-  const { data, isLoading } = useOrganisations(1, 100);
+  // Fetch development partners from real API (fetch all with high limit)
+  const { data, isLoading } = useDevelopmentPartners(1, 100);
 
-  // Get active organisations from API
+  // Get active development partners from API
   const organisations = useMemo(() => {
     return data?.data?.filter((org) => org.isActive) || [];
   }, [data]);
 
-  // Filter organisations by type and search
+  // Filter development partners by type and search
   const filteredOrgs = useMemo(() => {
     let filtered = organisations;
 
@@ -66,7 +66,7 @@ export default function OrganisationsPage() {
     <main className="flex-1">
       <div className="border-b bg-muted/40">
         <Container size="wide" className="py-8">
-          <h1 className="text-3xl font-bold">Organisations</h1>
+          <h1 className="text-3xl font-bold">Development Partners</h1>
           <p className="mt-2 text-muted-foreground">
             Browse data-contributing ministries, departments, and agencies
           </p>
@@ -79,7 +79,7 @@ export default function OrganisationsPage() {
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search organisations..."
+            placeholder="Search development partners..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -128,12 +128,12 @@ export default function OrganisationsPage() {
           </div>
         ) : filteredOrgs.length === 0 ? (
           <div className="py-12 text-center">
-            <p className="text-muted-foreground">No organisations found</p>
+            <p className="text-muted-foreground">No development partners found</p>
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredOrgs.map((org) => (
-              <OrgCard key={org.id} organisation={org} />
+              <DevelopmentPartnerCard key={org.id} organisation={org} />
             ))}
           </div>
         )}

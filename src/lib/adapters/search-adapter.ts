@@ -1,8 +1,8 @@
 import type { BackendSearchResult } from '../api/search';
 import type { Dataset as BackendDataset, DatasetFormat, DatasetVisibility, DatasetStatus } from '../api/datasets';
-import type { Organisation as BackendOrganisation } from '../api/organisations';
+import type { DevelopmentPartner as BackendDevelopmentPartner } from '../api/development-partners';
 import { transformDataset } from './dataset-adapter';
-import type { Dataset, Organisation } from '@/types';
+import type { Dataset, DevelopmentPartner } from '@/types';
 
 /** Shape of the `metadata` object search.service.ts attaches to a dataset hit */
 interface SearchDatasetMetadata {
@@ -23,7 +23,7 @@ interface SearchDatasetMetadata {
 }
 
 /** Shape of the `metadata` object search.service.ts attaches to an org hit */
-interface SearchOrganisationMetadata {
+interface SearchDevelopmentPartnerMetadata {
   type?: string;
   acronym?: string;
   logoUrl?: string | null;
@@ -34,8 +34,8 @@ interface SearchOrganisationMetadata {
 /**
  * The global search endpoint returns a flat summary per result (not a full
  * record), enriched with just enough fields to render a real card. These
- * adapters bridge that summary into the same `Dataset`/`Organisation` shapes
- * the rest of the app already renders via `DatasetCard`/`OrgCard` — some
+ * adapters bridge that summary into the same `Dataset`/`DevelopmentPartner` shapes
+ * the rest of the app already renders via `DatasetCard`/`DevelopmentPartnerCard` — some
  * fields the full detail page would have (owner, methodology, file info,
  * etc.) simply aren't available from a search hit and are left at safe
  * defaults.
@@ -90,29 +90,29 @@ export function adaptSearchResultToDataset(result: BackendSearchResult): Dataset
     published_at: null,
   };
 
-  const organisations: BackendOrganisation[] | undefined = m.organisation
+  const organisations: BackendDevelopmentPartner[] | undefined = m.organisation
     ? [
         {
           id: m.organisation_id ?? '',
           slug: m.organisation.slug,
           name: m.organisation.name,
           logoUrl: m.organisation.logoUrl ?? undefined,
-        } as BackendOrganisation,
+        } as BackendDevelopmentPartner,
       ]
     : undefined;
 
   return transformDataset(backendDataset, undefined, organisations);
 }
 
-export function adaptSearchResultToOrganisation(result: BackendSearchResult): Organisation {
-  const m = (result.metadata ?? {}) as SearchOrganisationMetadata;
+export function adaptSearchResultToDevelopmentPartner(result: BackendSearchResult): DevelopmentPartner {
+  const m = (result.metadata ?? {}) as SearchDevelopmentPartnerMetadata;
 
   return {
     id: result.id,
     slug: result.slug ?? result.id,
     name: result.title,
     acronym: m.acronym ?? undefined,
-    sector: m.type ?? 'organisation',
+    sector: m.type ?? 'development-partner',
     logoUrl: m.logoUrl ?? undefined,
     description: result.description ?? undefined,
     datasetCount: m.datasetCount ?? 0,

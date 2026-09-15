@@ -6,18 +6,18 @@ import Link from "next/link";
 import { Search, Database, Building2 } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { DatasetCard } from "@/components/data/dataset-card";
-import { OrgCard } from "@/components/data/org-card";
+import { DevelopmentPartnerCard } from "@/components/data/development-partner-card";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { DatasetCardSkeleton, OrgCardSkeleton } from "@/components/feedback/skeletons";
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { searchAll } from "@/lib/api/search";
-import { adaptSearchResultToDataset, adaptSearchResultToOrganisation } from "@/lib/adapters/search-adapter";
-import type { Dataset, Organisation } from "@/types";
+import { adaptSearchResultToDataset, adaptSearchResultToDevelopmentPartner } from "@/lib/adapters/search-adapter";
+import type { Dataset, DevelopmentPartner } from "@/types";
 
-type Tab = "all" | "dataset" | "organisation";
-type SearchResult = { type: "dataset" | "organisation"; item: Dataset | Organisation };
+type Tab = "all" | "dataset" | "development-partner";
+type SearchResult = { type: "dataset" | "development-partner"; item: Dataset | DevelopmentPartner };
 
 function SearchContent() {
   const router = useRouter();
@@ -54,14 +54,14 @@ function SearchContent() {
         data.results
           .filter(
             (result) =>
-              result.type === "organisation" ||
+              result.type === "development-partner" ||
               (result.metadata?.status === "approved" &&
                 !!result.metadata.published_at &&
                 result.metadata.visibility !== "private"),
           )
           .map((r) =>
-            r.type === "organisation"
-              ? { type: "organisation" as const, item: adaptSearchResultToOrganisation(r) }
+            r.type === "development-partner"
+              ? { type: "development-partner" as const, item: adaptSearchResultToDevelopmentPartner(r) }
               : { type: "dataset" as const, item: adaptSearchResultToDataset(r) },
           )
       );
@@ -72,13 +72,13 @@ function SearchContent() {
   const counts = {
     all: results.length,
     dataset: results.filter((r) => r.type === "dataset").length,
-    organisation: results.filter((r) => r.type === "organisation").length,
+    organisation: results.filter((r) => r.type === "development-partner").length,
   };
 
   const tabs: Array<{ key: Tab; label: string; count: number }> = [
     { key: "all", label: "All", count: counts.all },
     { key: "dataset", label: "Datasets", count: counts.dataset },
-    { key: "organisation", label: "Organisations", count: counts.organisation },
+    { key: "development-partner", label: "Development Partners", count: counts.organisation },
   ];
 
   const displayResults = tab === "all"
@@ -93,7 +93,7 @@ function SearchContent() {
             <div>
               <h1 className="text-3xl font-bold">Search Results</h1>
               <p className="mt-2 text-muted-foreground">
-                {q ? `Results for "${q}"` : "Enter a search term to find datasets and organisations"}
+                {q ? `Results for "${q}"` : "Enter a search term to find datasets and development partners"}
               </p>
             </div>
             <form onSubmit={handleSearch} className="flex w-full gap-2 sm:w-auto sm:min-w-80">
@@ -106,9 +106,9 @@ function SearchContent() {
                   type="search"
                   value={queryInput}
                   onChange={(e) => setQueryInput(e.target.value)}
-                  placeholder="Search datasets and organisations..."
+                  placeholder="Search datasets and development partners..."
                   className="pl-10"
-                  aria-label="Search datasets and organisations"
+                  aria-label="Search datasets and development partners"
                 />
               </div>
               <Button type="submit">Search</Button>
@@ -181,17 +181,17 @@ function SearchContent() {
                   </section>
                 )}
 
-                {(tab === "all" || tab === "organisation") && counts.organisation > 0 && (
+                {(tab === "all" || tab === "development-partner") && counts.organisation > 0 && (
                   <section>
                     <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                       <Building2 className="size-5" />
-                      Organisations ({counts.organisation})
+                      Development Partners ({counts.organisation})
                     </h2>
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {results
-                        .filter((r) => r.type === "organisation")
+                        .filter((r) => r.type === "development-partner")
                         .map((r) => (
-                          <OrgCard key={(r.item as Organisation).id} organisation={r.item as Organisation} />
+                          <DevelopmentPartnerCard key={(r.item as DevelopmentPartner).id} organisation={r.item as DevelopmentPartner} />
                         ))}
                     </div>
                   </section>

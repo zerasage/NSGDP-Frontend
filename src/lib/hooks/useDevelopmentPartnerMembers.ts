@@ -1,17 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  getOrganisationMembers,
+  getDevelopmentPartnerMembers,
   updateMemberRole,
   removeMember,
-} from '../api/organisations';
+} from '../api/development-partners';
 
 /**
- * Hook to fetch organisation members
+ * Hook to fetch development partner members
  */
-export function useOrganisationMembers(orgId: string | undefined) {
+export function useDevelopmentPartnerMembers(orgId: string | undefined) {
   return useQuery({
-    queryKey: ['organisation-members', orgId],
-    queryFn: () => getOrganisationMembers(orgId!),
+    queryKey: ['developmentPartner-members', orgId],
+    queryFn: () => getDevelopmentPartnerMembers(orgId!),
     enabled: !!orgId,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
@@ -36,14 +36,14 @@ export function useUpdateMemberRole() {
     onSuccess: (_, variables) => {
       // Invalidate members list to refetch
       queryClient.invalidateQueries({
-        queryKey: ['organisation-members', variables.orgId],
+        queryKey: ['developmentPartner-members', variables.orgId],
       });
     },
   });
 }
 
 /**
- * Hook to remove member from organisation
+ * Hook to remove member from development partner
  */
 export function useRemoveMember() {
   const queryClient = useQueryClient();
@@ -52,9 +52,8 @@ export function useRemoveMember() {
     mutationFn: ({ orgId, userId }: { orgId: string; userId: string }) =>
       removeMember(orgId, userId),
     onSuccess: (_, variables) => {
-      // Invalidate members list to refetch
       queryClient.invalidateQueries({
-        queryKey: ['organisation-members', variables.orgId],
+        queryKey: ['developmentPartner-members', variables.orgId],
       });
     },
   });

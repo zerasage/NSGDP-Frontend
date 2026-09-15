@@ -37,14 +37,14 @@ import { usePublicDatasetPreview } from "@/lib/hooks/usePublicDatasetPreview";
 import { usePublicDatasetInsights } from "@/lib/hooks/usePublicDatasetInsights";
 import { useAuth } from "@/lib/auth";
 import { useCategories } from "@/lib/hooks/useCategories";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import { transformDataset } from "@/lib/adapters/dataset-adapter";
 import { DatasetCardSkeleton } from "@/components/feedback/skeletons";
 import { SPATIAL_ONLY_PREVIEW_FORMATS } from "@/lib/constants/core";
 import { formatDate } from "@/lib/utils/date";
 import type { PaginatedResponse } from "@/lib/types/common";
 import type { Category } from "@/lib/api/categories";
-import type { Organisation } from "@/lib/api/organisations";
+import type { DevelopmentPartner } from "@/lib/api/development-partners";
 import { bulkDownloadFiles } from "@/lib/api/datasets";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -110,7 +110,7 @@ export default function DatasetPage({ params }: DatasetPageProps) {
   
   // Fetch reference data for transformation
   const { data: categoriesResponse } = useCategories() as { data?: PaginatedResponse<Category> };
-  const { data: organisationsResponse } = useOrganisations(1, 100) as { data?: PaginatedResponse<Organisation> };
+  const { data: organisationsResponse } = useDevelopmentPartners(1, 100) as { data?: PaginatedResponse<DevelopmentPartner> };
   
   // Transform backend dataset to frontend format
   const dataset = backendDataset
@@ -331,7 +331,7 @@ export default function DatasetPage({ params }: DatasetPageProps) {
       <div className="border-b bg-background">
         <Container size="wide" className="py-8">
           <div className="flex items-start gap-4">
-            {/* Organisation Logo */}
+            {/* Development Partner Logo */}
             {dataset.organisation.logoUrl ? (
               <Image
                 src={dataset.organisation.logoUrl}
@@ -351,7 +351,7 @@ export default function DatasetPage({ params }: DatasetPageProps) {
                 <div>
                   <h1 className="text-3xl font-bold">{dataset.title}</h1>
                   <Link
-                    href={`/organisations/${dataset.organisation.slug}`}
+                    href={`/development-partners/${dataset.organisation.slug}`}
                     className="mt-2 inline-block text-sm text-muted-foreground hover:text-primary"
                   >
                     {dataset.organisation.name}

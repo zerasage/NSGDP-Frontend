@@ -27,7 +27,7 @@ import { useDashboardSummary } from "@/lib/hooks/useDashboardSummary";
 import { useDownloadHistory } from "@/lib/hooks/useDownloadHistory";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { useOrganizationDatasets } from "@/lib/hooks/useDatasets";
-import { useOrganisationActivityStats } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartnerActivityStats } from "@/lib/hooks/useDevelopmentPartners";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { formatDistanceToNow } from "date-fns";
@@ -69,11 +69,11 @@ export default function DashboardPage() {
       sortBy: "created_at",
       sortOrder: "DESC",
     },
-    { enabled: !!user?.organisationId && isMember },
+    { enabled: !!user?.developmentPartnerId && isMember },
   );
 
-  const { data: activityStats, isLoading: activityStatsLoading } = useOrganisationActivityStats(
-    user?.organisationId
+  const { data: activityStats, isLoading: activityStatsLoading } = useDevelopmentPartnerActivityStats(
+    user?.developmentPartnerId
   );
 
   const myDatasets = datasetsData?.data ?? [];
@@ -87,7 +87,7 @@ export default function DashboardPage() {
 
   const welcomeDescription = isMember
     ? isAdmin
-      ? "Manage your organisation, datasets, and team."
+      ? "Manage your development partner, datasets, and team."
       : "Track your datasets and contributions."
     : "Browse datasets and track your downloads.";
 
@@ -123,7 +123,7 @@ export default function DashboardPage() {
                   <QuickActionChip href="/my-programs" icon={ClipboardList} label="Programmes" />
                 ) : null}
                 <QuickActionChip href="/dashboard/documents" icon={FileText} label="Documents" />
-                <QuickActionChip href="/organisation" icon={Users} label="Team" />
+                <QuickActionChip href="/development-partner" icon={Users} label="Team" />
               </>
             ) : (
               <QuickActionChip href="/dataportal" icon={Search} label="Explore datasets" primary />
@@ -149,7 +149,7 @@ export default function DashboardPage() {
             ) : null}
             {isAdmin && pendingInvites > 0 ? (
               <Link
-                href="/organisation"
+                href="/development-partner"
                 className="flex min-h-11 items-center gap-3 rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm transition-colors hover:bg-info/[0.1]"
               >
                 <Users className="size-5 shrink-0 text-info" />
@@ -174,8 +174,8 @@ export default function DashboardPage() {
             <>
               <HeroMetricCard
                 className="sm:col-span-2 xl:row-span-2"
-                label="Organisation datasets"
-                description="All datasets owned by your organisation"
+                label="Development Partner datasets"
+                description="All datasets owned by your development partner"
                 value={summary?.myDatasetsCount ?? 0}
                 icon={Database}
                 tone="success"
@@ -206,7 +206,7 @@ export default function DashboardPage() {
                 icon={Users}
                 tone="info"
                 tip={PORTAL_DASHBOARD_TEAM_TIP}
-                onClick={() => router.push("/organisation")}
+                onClick={() => router.push("/development-partner")}
               />
               <MetricCard
                 label="My contributions"
@@ -259,8 +259,8 @@ export default function DashboardPage() {
           <div className="space-y-4 lg:col-span-2 lg:space-y-6">
             {isMember ? (
               <DashboardPanel
-                title="Recent organisation datasets"
-                description="Latest uploads from your organisation."
+                title="Recent development partner datasets"
+                description="Latest uploads from your development partner."
                 icon={Database}
                 tone="success"
                 action={
@@ -318,7 +318,7 @@ export default function DashboardPage() {
                         "mt-2 h-11 w-full",
                       )}
                     >
-                      View all organisation datasets
+                      View all development partner datasets
                     </Link>
                   </ul>
                 ) : (

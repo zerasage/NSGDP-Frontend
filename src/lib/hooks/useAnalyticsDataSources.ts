@@ -15,7 +15,7 @@ export function useAnalyticsDataSources() {
         id: ALL_SOURCES_ID,
         name: 'All Sources (Aggregated)',
         acronym: 'ALL',
-        description: 'Combined indicators from all contributing organisations',
+        description: 'Combined indicators from all contributing development partners',
       },
       ...rows.map((row) => ({
         id: row.id,

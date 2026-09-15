@@ -24,7 +24,7 @@ export default function ApiDocsPage() {
             <CardContent className="space-y-4">
               <p className="text-muted-foreground">
                 The Niger State Open Data Portal provides a RESTful API for programmatic
-                access to datasets, organisations, and groups. All responses are in JSON
+                access to datasets, development partners, and groups. All responses are in JSON
                 format.
               </p>
               <div>
@@ -65,7 +65,7 @@ export default function ApiDocsPage() {
                   <code className="text-sm">/datasets</code>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  List all datasets with optional filters (groups, organisations, lgas,
+                  List all datasets with optional filters (groups, development partners, lgas,
                   formats, visibility, status, sort, page, pageSize)
                 </p>
               </div>
@@ -80,24 +80,24 @@ export default function ApiDocsPage() {
                 </p>
               </div>
 
-              {/* Organisations */}
+              {/* Development Partners */}
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <Badge variant="secondary">GET</Badge>
-                  <code className="text-sm">/organisations</code>
+                  <code className="text-sm">/development-partners</code>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  List all organisations with optional sector filter
+                  List all development partners with optional sector filter
                 </p>
               </div>
 
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <Badge variant="secondary">GET</Badge>
-                  <code className="text-sm">/organisations/:slug</code>
+                  <code className="text-sm">/development-partners/:slug</code>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Get a single organisation by slug
+                  Get a single development partner by slug
                 </p>
               </div>
 
@@ -129,7 +129,7 @@ export default function ApiDocsPage() {
                   <code className="text-sm">/search?q=query</code>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Search across datasets, organisations, and groups
+                  Search across datasets, development partners, and groups
                 </p>
               </div>
             </CardContent>

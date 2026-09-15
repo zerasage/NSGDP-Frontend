@@ -6,7 +6,7 @@ export const UPLOAD_FIELD_TOOLTIPS = {
   datasetName:
     "A clear, descriptive title that helps users find your dataset in search results. E.g. 'Niger State Malaria Burden by LGA, 2024'.",
   organisation:
-    "The agency or organisation that owns or produced this dataset. Use your official organisation name.",
+    "The agency or development partner that owns or produced this dataset. Use your official development partner name.",
   responsibleDept:
     "The specific directorate, department, or unit responsible for managing this dataset. E.g. 'DPRS', 'Surveillance Unit'.",
   contactPerson:
@@ -45,6 +45,6 @@ export const UPLOAD_FIELD_TOOLTIPS = {
   // Legacy
   lgas: "Select all Local Government Areas covered by this dataset. Choose multiple if applicable.",
   visibility:
-    "Public datasets are open to all. Restricted requires approval. Private is visible only to your organisation.",
+    "Public datasets are open to all. Restricted requires approval. Private is visible only to your development partner.",
   files: "Supported formats include CSV, XLSX, JSON, GeoJSON, Shapefile, and PDF documentation.",
 } as const;

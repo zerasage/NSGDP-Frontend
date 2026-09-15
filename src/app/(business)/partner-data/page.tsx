@@ -12,7 +12,7 @@ import { statusPill } from "@/lib/constants/status-surfaces";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { useSubmitPartnerInterest } from "@/lib/hooks/usePartnerInterest";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import { 
   ArrowRight, 
   CheckCircle2, 
@@ -75,7 +75,7 @@ export default function PartnerDataPage() {
   const canUpload =
     isAuthenticated &&
     (user?.role === "contributor" || user?.role === "admin") &&
-    Boolean(user?.organisationId);
+    Boolean(user?.developmentPartnerId);
 
   const [formData, setFormData] = useState({
     organisationName: "",
@@ -88,7 +88,7 @@ export default function PartnerDataPage() {
 
   const [submitted, setSubmitted] = useState(false);
   const mutation = useSubmitPartnerInterest();
-  const { data: orgsData, isLoading: orgsLoading } = useOrganisations(1, 6);
+  const { data: orgsData, isLoading: orgsLoading } = useDevelopmentPartners(1, 6);
   const partners = (orgsData?.data ?? []).filter((org) => org.acronym !== "NSPHCDA");
 
   const handleSubmit = async (e: React.FormEvent) => {

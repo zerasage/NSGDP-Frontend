@@ -17,13 +17,13 @@ const PROGRAM_DATA_SOURCE: Record<string, string> = {
 const orgNameById = Object.fromEntries(mockOrganisations.map((o) => [o.id, o.name]));
 
 function enrichProgram(p: Program): Program {
-  const orgId = p.organisationId ?? PROGRAM_DATA_SOURCE[p.id] ?? "org-1";
+  const orgId = p.developmentPartnerId ?? PROGRAM_DATA_SOURCE[p.id] ?? "org-1";
   return {
     ...p,
     targetLgas: p.targetLgas ?? [],
     coveredLgas: p.coveredLgas ?? [],
     objectives: p.objectives ?? [],
-    organisationId: orgId,
+    developmentPartnerId: orgId,
     organisationName: orgNameById[orgId] ?? "NSPHCDA",
   };
 }

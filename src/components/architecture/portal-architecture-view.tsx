@@ -71,7 +71,7 @@ const roles = [
       { page: "Governance Health", desc: "% on schedule · metadata completeness · turnaround" },
       { page: "System Analytics", desc: "Platform KPIs · download trends · contributor counts" },
       { page: "Programme CRUD", desc: "Create · edit · delete · upload reports · org-scoped edit" },
-      { page: "Partner Organisations", desc: "Data-sharing agreements · partner dataset visibility" },
+      { page: "Development Partners", desc: "Data-sharing agreements · partner dataset visibility" },
     ],
   },
   {

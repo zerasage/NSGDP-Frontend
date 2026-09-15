@@ -15,7 +15,7 @@ export function DatasetActivityPanel({ views, downloads }: DatasetActivityPanelP
       description={
         hasDatasetActivity
           ? "Lifetime activity for this dataset."
-          : "Activity for your organisation's datasets."
+          : "Activity for your development partner's datasets."
       }
       icon={BarChart3}
       tone="info"

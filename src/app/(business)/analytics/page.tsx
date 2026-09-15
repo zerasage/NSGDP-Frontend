@@ -360,13 +360,13 @@ function HealthAnalyticsContent() {
   } = useWardBurden(
     resolvedIndicator || undefined,
     wardLga || undefined,
-    { organisationId: orgFilterId, year: selectedYear }
+    { developmentPartnerId: orgFilterId, year: selectedYear }
   );
 
   const { data: programmesPage, isLoading: programmesLoading } = usePrograms(
     {
       status: "active",
-      organisationId: orgFilterId,
+      developmentPartnerId: orgFilterId,
       limit: 50,
     },
     { enabled: analyticsTab === "programmes" }
@@ -601,18 +601,18 @@ function HealthAnalyticsContent() {
           ))}
         </div>
 
-        {/* Organisation filter — ward + programmes */}
+        {/* Development Partner filter — ward + programmes */}
         {analyticsTab !== "indicators" && (
           <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
             <div className="space-y-1">
               <p className="inline-flex items-center gap-1.5 text-[13px] font-medium">
-                Organisation filter
+                Development Partner filter
                 <HelpTooltip content={ANALYTICS_ORG_FILTER_TIP} />
               </p>
               <p className="text-xs text-muted-foreground">
                 {analyticsTab === "ward"
-                  ? "Limit ward burden to datasets published by one organisation."
-                  : "Show programmes owned by one organisation."}
+                  ? "Limit ward burden to datasets published by one development partner."
+                  : "Show programmes owned by one development partner."}
               </p>
             </div>
             <Select
@@ -620,10 +620,10 @@ function HealthAnalyticsContent() {
               onValueChange={(v) => v && setDataSource(v as AnalyticsDataSourceId)}
             >
               <SelectTrigger className="h-9 w-full sm:w-72">
-                <SelectValue placeholder="Select organisation" />
+                <SelectValue placeholder="Select development partner" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_SOURCES_ID}>All organisations</SelectItem>
+                <SelectItem value={ALL_SOURCES_ID}>All development partners</SelectItem>
                 {dataSources.map((source) => (
                   <SelectItem key={source.id} value={source.id}>
                     {source.acronym} — {source.name}
@@ -646,7 +646,7 @@ function HealthAnalyticsContent() {
               Self-reported programme progress (reach / target from programme owners).
               <HelpTooltip content={ANALYTICS_PROGRAMMES_TIP} />
               {dataSource === ALL_SOURCES_ID
-                ? " Showing active programmes across organisations."
+                ? " Showing active programmes across development partners."
                 : ` Filtered to programmes owned by ${sourceLabel}.`}
             </p>
             {programmesLoading ? (
@@ -669,7 +669,7 @@ function HealthAnalyticsContent() {
                     className="mt-2 h-auto p-0"
                     onClick={() => setDataSource(ALL_SOURCES_ID)}
                   >
-                    Show all organisations
+                    Show all development partners
                   </Button>
                 )}
               </div>
@@ -677,7 +677,7 @@ function HealthAnalyticsContent() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {monitoringProgrammes.map((p) => {
                   const orgLabel =
-                    (p.organisationId && orgNameById.get(p.organisationId)) ||
+                    (p.developmentPartnerId && orgNameById.get(p.developmentPartnerId)) ||
                     p.organisationName ||
                     null;
                   return (

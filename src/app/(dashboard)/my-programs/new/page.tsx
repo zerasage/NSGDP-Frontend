@@ -40,8 +40,8 @@ export default function NewProgrammePage() {
             icon={ClipboardList}
             message={
               !canAccess
-                ? "Your organisation does not have permission to manage programmes."
-                : "You do not have permission to create programmes. Contact your organisation admin."
+                ? "Your development partner does not have permission to manage programmes."
+                : "You do not have permission to create programmes. Contact your development partner admin."
             }
             action={
               <Link
@@ -94,7 +94,7 @@ export default function NewProgrammePage() {
               <HelpTip content={PORTAL_PROGRAM_CREATE_TIP} label="Create programme help" />
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Register a health programme for {user.organisationName ?? "your organisation"}.
+              Register a health programme for {user.organisationName ?? "your development partner"}.
             </p>
           </div>
         </div>

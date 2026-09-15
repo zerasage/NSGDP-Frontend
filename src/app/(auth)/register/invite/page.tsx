@@ -85,7 +85,7 @@ function InviteRegistrationForm() {
         lastName: data.lastName,
         password: data.password,
         phoneNumber: data.phone,
-        consentAccepted: inviteData?.organisationConsentGiven ? undefined : consentAccepted,
+        consentAccepted: inviteData?.developmentPartnerConsentGiven ? undefined : consentAccepted,
       });
 
       // Store tokens for auto-login
@@ -121,7 +121,7 @@ function InviteRegistrationForm() {
     try {
       const response = await acceptInviteForExistingUser(
         inviteToken,
-        inviteData?.organisationConsentGiven ? undefined : consentAccepted
+        inviteData?.developmentPartnerConsentGiven ? undefined : consentAccepted
       );
 
       if (response.tokens) {
@@ -215,7 +215,7 @@ function InviteRegistrationForm() {
               <CardTitle className="text-2xl">You&apos;ve Been Invited!</CardTitle>
             </div>
             <CardDescription>
-              {inviteData.invitedByName} invited you to join {inviteData.organisationName} as {roleLabel}
+              {inviteData.invitedByName} invited you to join {inviteData.developmentPartnerName} as {roleLabel}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -223,8 +223,8 @@ function InviteRegistrationForm() {
               <div className="flex items-start gap-3">
                 <Building className="size-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Organisation</p>
-                  <p className="text-sm text-muted-foreground">{inviteData.organisationName}</p>
+                  <p className="text-sm font-medium">Development Partner</p>
+                  <p className="text-sm text-muted-foreground">{inviteData.developmentPartnerName}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -250,15 +250,15 @@ function InviteRegistrationForm() {
                   your account.
                 </p>
 
-                {!inviteData.organisationConsentGiven && (
+                {!inviteData.developmentPartnerConsentGiven && (
                   <div className="space-y-3">
                     <p className="text-sm">
-                      {inviteData.organisationName} hasn&apos;t yet consented to our Data
+                      {inviteData.developmentPartnerName} hasn&apos;t yet consented to our Data
                       Contribution &amp; Usage Consent Agreement. As the first member accepting an
                       invite on its behalf, please review and agree to the terms below.
                     </p>
                     <div className="max-h-64 overflow-y-auto rounded-lg border p-4 bg-muted/20">
-                      <DataConsentAgreement organisationName={inviteData.organisationName} />
+                      <DataConsentAgreement organisationName={inviteData.developmentPartnerName} />
                     </div>
                     <label className="flex items-start gap-2 text-sm cursor-pointer">
                       <Checkbox
@@ -268,7 +268,7 @@ function InviteRegistrationForm() {
                       />
                       <span>
                         I have read and agree to the Data Contribution &amp; Usage Consent
-                        Agreement on behalf of {inviteData.organisationName}.
+                        Agreement on behalf of {inviteData.developmentPartnerName}.
                       </span>
                     </label>
                   </div>
@@ -277,7 +277,7 @@ function InviteRegistrationForm() {
                 <Button
                   className="w-full"
                   onClick={onAcceptExisting}
-                  disabled={loading || (!inviteData.organisationConsentGiven && !consentAccepted)}
+                  disabled={loading || (!inviteData.developmentPartnerConsentGiven && !consentAccepted)}
                 >
                   {loading ? (
                     <>
@@ -337,7 +337,7 @@ function InviteRegistrationForm() {
             <CardTitle className="text-2xl">You&apos;ve Been Invited!</CardTitle>
           </div>
           <CardDescription>
-            Complete your registration to join {inviteData.organisationName}
+            Complete your registration to join {inviteData.developmentPartnerName}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -346,8 +346,8 @@ function InviteRegistrationForm() {
             <div className="flex items-start gap-3">
               <Building className="size-5 text-muted-foreground mt-0.5" />
               <div>
-                <p className="text-sm font-medium">Organisation</p>
-                <p className="text-sm text-muted-foreground">{inviteData.organisationName}</p>
+                <p className="text-sm font-medium">Development Partner</p>
+                <p className="text-sm text-muted-foreground">{inviteData.developmentPartnerName}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -469,20 +469,20 @@ function InviteRegistrationForm() {
                   {" "}and{" "}
                   <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
                 </li>
-                <li>• Follow your organisation&apos;s data governance policies</li>
+                <li>• Follow your development partner&apos;s data governance policies</li>
                 <li>• Use the platform responsibly and ethically</li>
               </ul>
             </div>
 
-            {!inviteData.organisationConsentGiven && (
+            {!inviteData.developmentPartnerConsentGiven && (
               <div className="space-y-3">
                 <p className="text-sm">
-                  {inviteData.organisationName} hasn&apos;t yet consented to our Data Contribution
+                  {inviteData.developmentPartnerName} hasn&apos;t yet consented to our Data Contribution
                   &amp; Usage Consent Agreement. As the first member accepting an invite on its
                   behalf, please review and agree to the terms below.
                 </p>
                 <div className="max-h-64 overflow-y-auto rounded-lg border p-4 bg-muted/20">
-                  <DataConsentAgreement organisationName={inviteData.organisationName} />
+                  <DataConsentAgreement organisationName={inviteData.developmentPartnerName} />
                 </div>
                 <label className="flex items-start gap-2 text-sm cursor-pointer">
                   <Checkbox
@@ -492,7 +492,7 @@ function InviteRegistrationForm() {
                   />
                   <span>
                     I have read and agree to the Data Contribution &amp; Usage Consent Agreement on
-                    behalf of {inviteData.organisationName}.
+                    behalf of {inviteData.developmentPartnerName}.
                   </span>
                 </label>
               </div>
@@ -501,7 +501,7 @@ function InviteRegistrationForm() {
             <Button
               type="submit"
               className="w-full"
-              disabled={loading || (!inviteData.organisationConsentGiven && !consentAccepted)}
+              disabled={loading || (!inviteData.developmentPartnerConsentGiven && !consentAccepted)}
             >
               {loading ? (
                 <>

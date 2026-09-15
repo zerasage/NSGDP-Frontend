@@ -494,7 +494,7 @@ export default function MapExplorePage() {
                 <MapTooltip
                   title={dataset.title}
                   rows={[
-                    { label: "Organisation", value: dataset.organisationName ?? "—" },
+                    { label: "Development Partner", value: dataset.organisationName ?? "—" },
                     { label: "Format", value: dataset.format },
                     { label: "Coverage", value: coverageLabel(dataset.geographicCoverage) },
                     { label: "Downloads", value: dataset.downloadCount.toLocaleString() },
@@ -675,7 +675,7 @@ export default function MapExplorePage() {
                   >
                     <p className="line-clamp-2 text-sm font-medium">{dataset.title}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {dataset.organisationName ?? "Unknown organisation"} ·{" "}
+                      {dataset.organisationName ?? "Unknown development partner"} ·{" "}
                       {coverageLabel(dataset.geographicCoverage)}
                     </p>
                       </button>

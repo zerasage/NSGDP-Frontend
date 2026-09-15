@@ -46,7 +46,7 @@ export function HomeHeroSection() {
 
   const statItems = [
     { value: stats?.datasets, label: "Active datasets" },
-    { value: stats?.organisations, label: "Organisations" },
+    { value: stats?.organisations, label: "Development Partners" },
     {
       value: stats?.downloads != null ? stats.downloads.toLocaleString() : undefined,
       label: "Downloads",

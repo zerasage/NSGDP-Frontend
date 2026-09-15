@@ -22,7 +22,7 @@ import { DatasetCardSkeleton } from "@/components/feedback/skeletons";
 import { ScrollToTopButton } from "@/components/layout/scroll-to-top-button";
 import { DEFAULT_PORTAL_FILTERS } from "@/lib/constants/dataset-filters";
 import { useCategories } from "@/lib/hooks/useCategories";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import { useBulkDownloadDatasets, useDatasets } from "@/lib/hooks/useDatasets";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { transformDatasets } from "@/lib/adapters/dataset-adapter";
@@ -64,7 +64,7 @@ function DataportalContent() {
   const [loginOpen, setLoginOpen] = useState(false);
 
   const { data: categoriesResponse, isLoading: categoriesLoading } = useCategories();
-  const { data: organisationsResponse, isLoading: organisationsLoading } = useOrganisations(1, 100);
+  const { data: organisationsResponse, isLoading: organisationsLoading } = useDevelopmentPartners(1, 100);
 
   const datasetParams: DatasetListParams = useMemo(() => {
     const params: DatasetListParams = {
@@ -99,7 +99,7 @@ function DataportalContent() {
       const orgSlug = filters.organisations[0];
       const org = organisationsResponse.data.find((o) => o.slug === orgSlug);
       if (org) {
-        params.organisationId = org.id;
+        params.developmentPartnerId = org.id;
       }
     }
 
@@ -285,7 +285,7 @@ function DataportalContent() {
         <Container size="wide" className="py-8">
           <h1 className="text-3xl font-bold">Health Data Portal</h1>
           <p className="mt-2 text-muted-foreground">
-            Browse {total} health datasets from NSPHCDA and partner organisations
+            Browse {total} health datasets from NSPHCDA and development partners
           </p>
         </Container>
       </div>

@@ -34,7 +34,7 @@ export function DatasetCard({ dataset, className }: DatasetCardProps) {
         </div>
 
         <CardHeader className="pb-3">
-          {/* Organisation Header */}
+          {/* Development Partner Header */}
           <div className="dataset-org-header flex items-center gap-2.5 mb-3">
             {dataset.organisation.logoUrl ? (
               <Image

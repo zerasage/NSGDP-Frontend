@@ -1,19 +1,19 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Database } from "lucide-react";
-import type { Organisation } from "@/types";
+import type { DevelopmentPartner } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-interface OrgCardProps {
-  organisation: Organisation;
+interface DevelopmentPartnerCardProps {
+  organisation: DevelopmentPartner;
   className?: string;
 }
 
-export function OrgCard({ organisation, className }: OrgCardProps) {
+export function DevelopmentPartnerCard({ organisation, className }: DevelopmentPartnerCardProps) {
   return (
-    <Link href={`/organisations/${organisation.slug}`}>
+    <Link href={`/development-partners/${organisation.slug}`}>
       <Card
         className={cn(
           "group transition-all hover:shadow-md hover:border-primary/50",

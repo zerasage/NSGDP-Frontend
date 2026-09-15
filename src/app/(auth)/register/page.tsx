@@ -335,7 +335,7 @@ function RegisterForm() {
               </p>
 
               <p className="text-center text-xs text-muted-foreground">
-                Need to contribute data on behalf of an organisation? Contributor and admin
+                Need to contribute data on behalf of a development partner? Contributor and admin
                 accounts are set up by invitation — contact{" "}
                 <a href="mailto:admin@nigerstate-geohealth.ng" className="text-primary hover:underline">
                   admin@nigerstate-geohealth.ng

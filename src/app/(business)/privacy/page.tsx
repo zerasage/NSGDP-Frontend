@@ -23,7 +23,7 @@ export default function PrivacyPage() {
               </p>
               <ul className="list-disc pl-6 text-muted-foreground space-y-2">
                 <li>Full name and email address</li>
-                <li>Organisation affiliation (for contributors)</li>
+                <li>Development Partner affiliation (for contributors)</li>
                 <li>Phone number (optional, for account recovery)</li>
                 <li>Usage data (datasets viewed, downloaded, and uploaded)</li>
               </ul>

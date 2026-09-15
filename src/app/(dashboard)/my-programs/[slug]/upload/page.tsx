@@ -87,7 +87,7 @@ export default function UploadProgrammeReportPage() {
             icon={ClipboardList}
             message={
               !canAccess
-                ? "Your organisation does not have permission to manage programmes."
+                ? "Your development partner does not have permission to manage programmes."
                 : "You do not have permission to upload programme reports."
             }
             action={
@@ -110,7 +110,7 @@ export default function UploadProgrammeReportPage() {
         <DashboardPageContent>
           <EmptyPanelState
             icon={FileText}
-            message="Programme not found, or it doesn't belong to your organisation."
+            message="Programme not found, or it doesn't belong to your development partner."
             action={
               <Link href="/my-programs" className={cn(buttonVariants({ variant: "outline" }), "h-11")}>
                 Back to programmes

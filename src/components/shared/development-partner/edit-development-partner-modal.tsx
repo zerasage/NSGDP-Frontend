@@ -7,7 +7,7 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
-import type { Organisation } from "@/lib/api/organisations";
+import type { DevelopmentPartner } from "@/lib/api/development-partners";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-const updateOrganisationSchema = z.object({
+const updateDevelopmentPartnerSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").max(100, "Name must not exceed 100 characters").optional(),
   description: z.string().max(500, "Description must not exceed 500 characters").optional(),
   type: z.enum(["government", "ngo", "private", "academic", "international", "community", "healthcare", "other"]).optional(),
@@ -38,19 +38,19 @@ const updateOrganisationSchema = z.object({
   address: z.string().max(200, "Address must not exceed 200 characters").optional(),
 });
 
-type UpdateOrganisationFormData = z.infer<typeof updateOrganisationSchema>;
+type UpdateDevelopmentPartnerFormData = z.infer<typeof updateDevelopmentPartnerSchema>;
 
-interface EditOrganisationModalProps {
+interface EditDevelopmentPartnerModalProps {
   open: boolean;
   onClose: () => void;
-  organisation: Organisation;
+  organisation: DevelopmentPartner;
 }
 
-export function EditOrganisationModal({
+export function EditDevelopmentPartnerModal({
   open,
   onClose,
   organisation,
-}: EditOrganisationModalProps) {
+}: EditDevelopmentPartnerModalProps) {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -60,8 +60,8 @@ export function EditOrganisationModal({
     control,
     reset,
     formState: { errors },
-  } = useForm<UpdateOrganisationFormData>({
-    resolver: zodResolver(updateOrganisationSchema),
+  } = useForm<UpdateDevelopmentPartnerFormData>({
+    resolver: zodResolver(updateDevelopmentPartnerSchema),
     defaultValues: {
       name: organisation.name,
       description: organisation.description || "",
@@ -87,25 +87,25 @@ export function EditOrganisationModal({
   }, [organisation, reset]);
 
   const updateMutation = useMutation({
-    mutationFn: async (data: UpdateOrganisationFormData) => {
-      const response = await apiClient.patch<{ data: Organisation }>(
-        `/organisations/${organisation.id}`,
+    mutationFn: async (data: UpdateDevelopmentPartnerFormData) => {
+      const response = await apiClient.patch<{ data: DevelopmentPartner }>(
+        `/development-partners/${organisation.id}`,
         data
       );
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["organisation", organisation.id] });
-      toast.success("Organisation updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["developmentPartner", organisation.id] });
+      toast.success("Development Partner updated successfully");
       onClose();
     },
     onError: (error: Error & { response?: { data?: { message?: string } } }) => {
-      const message = error.response?.data?.message || "Failed to update organisation";
+      const message = error.response?.data?.message || "Failed to update development partner";
       toast.error(message);
     },
   });
 
-  const onSubmit = async (data: UpdateOrganisationFormData) => {
+  const onSubmit = async (data: UpdateDevelopmentPartnerFormData) => {
     setIsSubmitting(true);
     try {
       // Remove empty strings and convert to undefined
@@ -125,16 +125,16 @@ export function EditOrganisationModal({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Organization</DialogTitle>
+          <DialogTitle>Edit Development Partner</DialogTitle>
           <DialogDescription>
-            Update your organization&apos;s information
+            Update your development partner&apos;s information
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-2">
             <label htmlFor="name" className="text-sm font-medium">
-              Organization Name
+              Development Partner Name
             </label>
             <Input
               id="name"
@@ -152,7 +152,7 @@ export function EditOrganisationModal({
             </label>
             <Textarea
               id="description"
-              placeholder="Brief description of your organization"
+              placeholder="Brief description of your development partner"
               rows={4}
               {...register("description")}
             />
@@ -164,7 +164,7 @@ export function EditOrganisationModal({
 
           <div className="space-y-2">
             <label htmlFor="type" className="text-sm font-medium">
-              Organization Type
+              Development Partner Type
             </label>
             <Controller
               name="type"
@@ -172,7 +172,7 @@ export function EditOrganisationModal({
               render={({ field }) => (
                 <Select onValueChange={field.onChange} value={field.value}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select organization type" />
+                    <SelectValue placeholder="Select development partner type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="government">Government</SelectItem>
@@ -181,7 +181,7 @@ export function EditOrganisationModal({
                     <SelectItem value="private">Private</SelectItem>
                     <SelectItem value="academic">Academic</SelectItem>
                     <SelectItem value="international">International</SelectItem>
-                    <SelectItem value="community">Community Organisation</SelectItem>
+                    <SelectItem value="community">Community Development Partner</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>

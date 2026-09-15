@@ -97,13 +97,13 @@ export default function MyDocumentsPage() {
       limit: 50,
       status: statusFilter !== "all" ? statusFilter : undefined,
       search: searchQuery || undefined,
-      organisationId: user?.organisationId,
+      developmentPartnerId: user?.developmentPartnerId,
     },
     { enabled: !!user?.id },
   );
 
   const { data: countsData } = useOrgDocuments(
-    { page: 1, limit: 100, organisationId: user?.organisationId },
+    { page: 1, limit: 100, developmentPartnerId: user?.developmentPartnerId },
     { enabled: !!user?.id },
   );
 
@@ -153,7 +153,7 @@ export default function MyDocumentsPage() {
             <div className="mb-2 inline-flex items-center gap-2 rounded-lg border border-success/25 bg-success/[0.06] px-2.5 py-1">
               <FileText className="size-3.5 text-success" aria-hidden />
               <span className="text-[11px] font-semibold uppercase tracking-wide text-success">
-                Organisation
+                Development Partner
               </span>
             </div>
             <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight sm:text-2xl">
@@ -182,7 +182,7 @@ export default function MyDocumentsPage() {
           <MetricCard
             label="Total"
             value={statusCounts.all}
-            hint="All organisation documents"
+            hint="All development partner documents"
             icon={FileText}
             tone="success"
           />

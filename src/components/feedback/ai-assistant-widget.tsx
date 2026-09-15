@@ -30,7 +30,7 @@ const LOCAL_FAQ: Array<{ match: RegExp; answer: string; links?: AssistantSourceL
   {
     match: /how (do i|to) submit|upload (a )?dataset|contribute data/i,
     answer:
-      "To submit a dataset: sign in, open Contribute Data / Upload at /upload (or Submit Data from the menu), fill in the metadata, then attach CSV, Excel, JSON, or GeoPackage. Your organisation’s submission goes to admin review before it appears on the public catalogue.",
+      "To submit a dataset: sign in, open Contribute Data / Upload at /upload (or Submit Data from the menu), fill in the metadata, then attach CSV, Excel, JSON, or GeoPackage. Your development partner’s submission goes to admin review before it appears on the public catalogue.",
     links: [{ label: "Upload", href: "/upload" }],
   },
   {
@@ -48,7 +48,7 @@ const LOCAL_FAQ: Array<{ match: RegExp; answer: string; links?: AssistantSourceL
   {
     match: /document library|find (a )?document|sops?|policies/i,
     answer:
-      "Published documents (SOPs, policies, reports) are in the Document Library. Organisation users can also manage uploads under Dashboard → My documents.",
+      "Published documents (SOPs, policies, reports) are in the Document Library. Development Partner users can also manage uploads under Dashboard → My documents.",
     links: [
       { label: "Documents", href: "/documents" },
       { label: "My documents", href: "/dashboard/documents" },

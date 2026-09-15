@@ -10,7 +10,7 @@ interface ApiResponse<T> {
 }
 
 export interface BackendSearchResult {
-  type: 'dataset' | 'organisation' | 'user';
+  type: 'dataset' | 'development-partner' | 'user';
   id: string;
   title: string;
   description?: string;
@@ -29,7 +29,7 @@ export interface BackendSearchResponse {
 
 /**
  * Cross-entity search against the real backend. The public portal only ever
- * requests datasets + organisations — `user` results are an admin-only
+ * requests datasets + development partners — `user` results are an admin-only
  * concept and there's no "People" surface here.
  */
 export async function searchAll(
@@ -42,7 +42,7 @@ export async function searchAll(
       q: query,
       page,
       limit,
-      types: 'dataset,organisation',
+      types: 'dataset,development-partner',
       catalogue: true,
     },
   });

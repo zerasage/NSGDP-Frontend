@@ -23,7 +23,7 @@ export {
   acceptInvite,
   acceptInviteForExistingUser,
   createInvite,
-  getOrganisationInvites,
+  getDevelopmentPartnerInvites,
   revokeInvite,
   resendInvite,
   type ValidateInviteResponse,
@@ -33,15 +33,15 @@ export {
   type InviteResponse,
 } from "./invites";
 
-// Organisations API functions
+// Development Partners API functions
 export {
-  getOrganisations,
-  getOrganisationBySlug,
-  type Organisation,
-  type OrganisationType,
-  type OrganisationWithDatasets,
-  type GetOrganisationsParams,
-} from "./organisations";
+  getDevelopmentPartners,
+  getDevelopmentPartnerBySlug,
+  type DevelopmentPartner,
+  type DevelopmentPartnerType,
+  type DevelopmentPartnerWithDatasets,
+  type GetDevelopmentPartnersParams,
+} from "./development-partners";
 
 // Categories API functions
 export {

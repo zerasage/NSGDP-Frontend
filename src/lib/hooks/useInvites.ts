@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  getOrganisationInvites,
+  getDevelopmentPartnerInvites,
   createInvite,
   revokeInvite,
   resendInvite,
@@ -8,13 +8,13 @@ import {
 } from "@/lib/api/invites";
 
 /**
- * Get all invites for an organisation
+ * Get all invites for a development partner
  */
-export function useOrganisationInvites(organisationId: string) {
+export function useDevelopmentPartnerInvites(developmentPartnerId: string) {
   return useQuery({
-    queryKey: ["invites", organisationId],
-    queryFn: () => getOrganisationInvites(organisationId),
-    enabled: !!organisationId,
+    queryKey: ["invites", developmentPartnerId],
+    queryFn: () => getDevelopmentPartnerInvites(developmentPartnerId),
+    enabled: !!developmentPartnerId,
     retry: false, // Don't retry on error
   });
 }
@@ -27,16 +27,16 @@ export function useCreateInvite() {
 
   return useMutation({
     mutationFn: ({
-      organisationId,
+      developmentPartnerId,
       data,
     }: {
-      organisationId: string;
+      developmentPartnerId: string;
       data: CreateInviteRequest;
-    }) => createInvite(organisationId, data),
+    }) => createInvite(developmentPartnerId, data),
     onSuccess: (_, variables) => {
-      // Invalidate invites list for this org
+      // Invalidate invites list for this development partner
       queryClient.invalidateQueries({
-        queryKey: ["invites", variables.organisationId],
+        queryKey: ["invites", variables.developmentPartnerId],
       });
     },
   });
@@ -50,15 +50,15 @@ export function useRevokeInvite() {
 
   return useMutation({
     mutationFn: ({
-      organisationId,
+      developmentPartnerId,
       inviteId,
     }: {
-      organisationId: string;
+      developmentPartnerId: string;
       inviteId: string;
-    }) => revokeInvite(organisationId, inviteId),
+    }) => revokeInvite(developmentPartnerId, inviteId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ["invites", variables.organisationId],
+        queryKey: ["invites", variables.developmentPartnerId],
       });
     },
   });
@@ -72,15 +72,15 @@ export function useResendInvite() {
 
   return useMutation({
     mutationFn: ({
-      organisationId,
+      developmentPartnerId,
       inviteId,
     }: {
-      organisationId: string;
+      developmentPartnerId: string;
       inviteId: string;
-    }) => resendInvite(organisationId, inviteId),
+    }) => resendInvite(developmentPartnerId, inviteId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ["invites", variables.organisationId],
+        queryKey: ["invites", variables.developmentPartnerId],
       });
     },
   });

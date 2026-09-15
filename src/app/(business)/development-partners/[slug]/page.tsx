@@ -10,25 +10,25 @@ import { DatasetCard } from "@/components/data/dataset-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DatasetCardSkeleton } from "@/components/feedback/skeletons";
-import { useOrganisationBySlug } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartnerBySlug } from "@/lib/hooks/useDevelopmentPartners";
 import { useDatasets } from "@/lib/hooks/useDatasets";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { transformDatasets } from "@/lib/adapters/dataset-adapter";
 
-interface OrganisationPageProps {
+interface DevelopmentPartnerPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export default function OrganisationPage({ params }: OrganisationPageProps) {
+export default function DevelopmentPartnerPage({ params }: DevelopmentPartnerPageProps) {
   const { slug } = use(params);
 
-  const { data: organisation, isLoading, error } = useOrganisationBySlug(slug);
+  const { data: organisation, isLoading, error } = useDevelopmentPartnerBySlug(slug);
   const { data: categoriesResponse } = useCategories();
 
   const { data: datasetsResponse, isLoading: isDatasetsLoading } = useDatasets(
     organisation
       ? {
-          organisationId: organisation.id,
+          developmentPartnerId: organisation.id,
           catalogue: true,
           status: "approved",
           published: true,
@@ -76,8 +76,8 @@ export default function OrganisationPage({ params }: OrganisationPageProps) {
               Home
             </Link>
             <ChevronRight className="size-4" />
-            <Link href="/organisations" className="hover:text-foreground">
-              Organisations
+            <Link href="/development-partners" className="hover:text-foreground">
+              Development Partners
             </Link>
             <ChevronRight className="size-4" />
             <span className="text-foreground">{organisation.name}</span>

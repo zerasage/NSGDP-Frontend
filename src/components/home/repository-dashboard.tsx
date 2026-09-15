@@ -17,8 +17,8 @@ export function RepositoryDashboard() {
     limit: 4,
   });
 
-  // NOTE: organisation names are deliberately not resolved here — GET
-  // /organisations requires auth (401 for anonymous visitors), and this
+  // NOTE: development partner names are deliberately not resolved here — GET
+  // /development-partners requires auth (401 for anonymous visitors), and this
   // section must stay visible on the public, logged-out homepage.
   const topDatasets = (datasetsData?.data ?? []).filter(
     (dataset) =>

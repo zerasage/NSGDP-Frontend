@@ -66,7 +66,7 @@ export default function EditProgrammePage() {
             icon={ClipboardList}
             message={
               !canAccess
-                ? "Your organisation does not have permission to manage programmes."
+                ? "Your development partner does not have permission to manage programmes."
                 : "You do not have permission to edit programmes."
             }
             action={
@@ -89,7 +89,7 @@ export default function EditProgrammePage() {
         <DashboardPageContent>
           <EmptyPanelState
             icon={ClipboardList}
-            message="Programme not found, or it doesn't belong to your organisation."
+            message="Programme not found, or it doesn't belong to your development partner."
             action={
               <Link href="/my-programs" className={cn(buttonVariants({ variant: "outline" }), "h-11")}>
                 Back to programmes

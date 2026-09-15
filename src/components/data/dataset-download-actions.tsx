@@ -74,7 +74,7 @@ export function DatasetDownloadActions({
   // be group members, and staff don't use this portal — nothing to check here.
   const hasRoleAccess =
     user?.role === "super_admin" ||
-    (!!datasetOrganisationId && user?.organisationId === datasetOrganisationId);
+    (!!datasetOrganisationId && user?.developmentPartnerId === datasetOrganisationId);
   const { data: myRequests } = useMyAccessRequests(isAuthenticated && visibility === "restricted" && !hasRoleAccess);
   const matchingRequest = myRequests?.find((r) => r.dataset_id === datasetId);
 

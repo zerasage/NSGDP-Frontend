@@ -1,8 +1,8 @@
 "use client";
 
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import { useCategories } from "@/lib/hooks/useCategories";
-import type { Organisation } from "@/lib/api/organisations";
+import type { DevelopmentPartner } from "@/lib/api/development-partners";
 import type { Category } from "@/lib/api/categories";
 import {
   DashboardPage,
@@ -13,27 +13,27 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default function ApiTestPage() {
-  const { data: organisations, isLoading: orgsLoading, error: orgsError } = useOrganisations(1, 10);
+  const { data: organisations, isLoading: orgsLoading, error: orgsError } = useDevelopmentPartners(1, 10);
   const { data: categories, isLoading: catsLoading, error: catsError } = useCategories();
 
   return (
     <DashboardPage>
       <DashboardPageHeader
         title="API Integration Test"
-        description="Testing Organisations and Categories API endpoints"
+        description="Testing Development Partners and Categories API endpoints"
       />
 
       <DashboardPageContent className="space-y-6">
-        {/* Organisations */}
+        {/* Development Partners */}
         <Card>
           <CardHeader>
-            <CardTitle>Organisations API</CardTitle>
+            <CardTitle>Development Partners API</CardTitle>
           </CardHeader>
           <CardContent>
-            {orgsLoading && <p className="text-muted-foreground">Loading organisations...</p>}
+            {orgsLoading && <p className="text-muted-foreground">Loading development partners...</p>}
             {orgsError && (
               <div className="rounded-lg bg-destructive/10 p-4 text-destructive">
-                Error: {orgsError instanceof Error ? orgsError.message : 'Failed to load organisations'}
+                Error: {orgsError instanceof Error ? orgsError.message : 'Failed to load development partners'}
               </div>
             )}
             {organisations && (
@@ -42,7 +42,7 @@ export default function ApiTestPage() {
                   Total: {organisations.meta.total} | Page: {organisations.meta.page}/{organisations.meta.totalPages}
                 </div>
                 <div className="grid gap-3">
-                  {organisations.data.map((org: Organisation) => (
+                  {organisations.data.map((org: DevelopmentPartner) => (
                     <div
                       key={org.id}
                       className="flex items-start justify-between rounded-lg border p-4"

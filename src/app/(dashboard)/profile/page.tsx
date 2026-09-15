@@ -224,7 +224,7 @@ function ProfileForm({
         </div>
         <div>
           <label htmlFor="organization" className="mb-1.5 block text-sm font-medium">
-            Organisation
+            Development Partner
           </label>
           <Input id="organization" className="h-11" {...register("organization")} disabled />
           <p className="mt-1 text-xs text-muted-foreground">Contact your org admin to change</p>

@@ -15,7 +15,7 @@ export interface GetDocumentsParams {
   page?: number;
   limit?: number;
   type?: DocumentCategory;
-  organisationId?: string;
+  developmentPartnerId?: string;
   programmeId?: string;
   search?: string;
   status?: OrgDocumentStatus;
@@ -126,7 +126,7 @@ export async function getDocuments(
         page: params?.page ?? 1,
         limit: params?.limit ?? 50,
         type: params?.type,
-        organisationId: params?.organisationId,
+        developmentPartnerId: params?.developmentPartnerId,
         programmeId: params?.programmeId,
         search: params?.search,
         status: params?.status,
@@ -148,7 +148,7 @@ export async function getOrgDocuments(
         page: params?.page ?? 1,
         limit: params?.limit ?? 50,
         type: params?.type,
-        organisationId: params?.organisationId,
+        developmentPartnerId: params?.developmentPartnerId,
         programmeId: params?.programmeId,
         search: params?.search,
         status: params?.status,

@@ -191,7 +191,7 @@ export async function getAnalyticsDataSources(): Promise<AnalyticsDataSourceRow[
 export async function getWardBurden(
   indicator: string,
   lga: string,
-  opts?: { year?: number; organisationId?: string; limit?: number }
+  opts?: { year?: number; developmentPartnerId?: string; limit?: number }
 ): Promise<WardBurdenRow[]> {
   const response = await apiClient.get<ApiResponse<WardBurdenRow[]>>(
     '/analytics/ward-burden',
@@ -200,7 +200,7 @@ export async function getWardBurden(
         indicator,
         lga,
         ...(opts?.year != null ? { year: opts.year } : {}),
-        ...(opts?.organisationId ? { organisationId: opts.organisationId } : {}),
+        ...(opts?.developmentPartnerId ? { developmentPartnerId: opts.developmentPartnerId } : {}),
         ...(opts?.limit != null ? { limit: opts.limit } : {}),
       },
     }

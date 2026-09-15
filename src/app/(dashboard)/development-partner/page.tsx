@@ -27,7 +27,7 @@ import {
 import { useAuth, isOrgAdmin } from "@/lib/auth";
 import { isOrgMember } from "@/lib/auth/portal-access";
 import { apiClient } from "@/lib/api/client";
-import type { Organisation } from "@/lib/api/organisations";
+import type { DevelopmentPartner } from "@/lib/api/development-partners";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,9 +43,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { HelpTip } from "@/components/ui/help-tip";
 import { formatDate } from "@/lib/utils/date";
 import { InviteModal } from "@/components/shared/invite/invite-modal";
-import { EditOrganisationModal } from "@/components/shared/organisation/edit-organisation-modal";
-import { useOrganisationInvites, useRevokeInvite, useResendInvite } from "@/lib/hooks/useInvites";
-import { useOrganisationMembers, useUpdateMemberRole, useRemoveMember } from "@/lib/hooks/useOrganisationMembers";
+import { EditDevelopmentPartnerModal } from "@/components/shared/development-partner/edit-development-partner-modal";
+import { useDevelopmentPartnerInvites, useRevokeInvite, useResendInvite } from "@/lib/hooks/useInvites";
+import { useDevelopmentPartnerMembers, useUpdateMemberRole, useRemoveMember } from "@/lib/hooks/useDevelopmentPartnerMembers";
 import { useOrganizationDatasets } from "@/lib/hooks/useDatasets";
 import type { InviteResponse } from "@/lib/api/invites";
 import { toast } from "sonner";
@@ -116,7 +116,7 @@ function InviteStatusBadge({ status }: { status: string }) {
   }
 }
 
-export default function OrganisationManagementPage() {
+export default function DevelopmentPartnerManagementPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
@@ -133,21 +133,21 @@ export default function OrganisationManagementPage() {
     null,
   );
 
-  const orgId = user?.organisationId;
+  const orgId = user?.developmentPartnerId;
   const orgName = user?.organisationName;
   const isAdmin = isOrgAdmin(user?.role);
 
   const { data: organisation, isLoading: orgLoading } = useQuery({
-    queryKey: ["organisation", orgId],
+    queryKey: ["developmentPartner", orgId],
     queryFn: async () => {
       if (!orgId) return null;
-      const response = await apiClient.get<{ data: Organisation }>(`/organisations/${orgId}`);
+      const response = await apiClient.get<{ data: DevelopmentPartner }>(`/development-partners/${orgId}`);
       return response.data.data;
     },
     enabled: !!orgId,
   });
 
-  const { data: invites, isLoading: invitesLoading } = useOrganisationInvites(
+  const { data: invites, isLoading: invitesLoading } = useDevelopmentPartnerInvites(
     isAdmin && orgId ? orgId : "",
   );
 
@@ -178,7 +178,7 @@ export default function OrganisationManagementPage() {
 
   const denyAccessRequestMutation = useMutation({
     mutationFn: (id: string) =>
-      apiClient.post(`/admin/access-requests/${id}/deny`, { comment: "Denied by organisation admin" }),
+      apiClient.post(`/admin/access-requests/${id}/deny`, { comment: "Denied by development partner admin" }),
     onSuccess: () => {
       toast.success("Access request denied");
       queryClient.invalidateQueries({ queryKey: ["organisation-access-requests", orgId] });
@@ -186,7 +186,7 @@ export default function OrganisationManagementPage() {
     onError: (error: Error) => toast.error(error.message || "Failed to deny access request"),
   });
 
-  const { data: members, isLoading: membersLoading } = useOrganisationMembers(orgId);
+  const { data: members, isLoading: membersLoading } = useDevelopmentPartnerMembers(orgId);
   const revokeMutation = useRevokeInvite();
   const resendMutation = useResendInvite();
   const updateRoleMutation = useUpdateMemberRole();
@@ -216,7 +216,7 @@ export default function OrganisationManagementPage() {
         <DashboardPageContent>
           <EmptyPanelState
             icon={Building2}
-            message="You must belong to an organisation to access this page."
+            message="You must belong to a development partner to access this page."
             action={
               <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }), "h-11")}>
                 Back to dashboard
@@ -239,7 +239,7 @@ export default function OrganisationManagementPage() {
   const confirmRevoke = () => {
     if (!revokeTarget || !orgId) return;
     revokeMutation.mutate(
-      { organisationId: orgId, inviteId: revokeTarget.id },
+      { developmentPartnerId: orgId, inviteId: revokeTarget.id },
       {
         onSuccess: () => {
           toast.success("Invite revoked");
@@ -288,17 +288,17 @@ export default function OrganisationManagementPage() {
             <div className="mb-2 inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1">
               <Building2 className="size-3.5 text-primary" aria-hidden />
               <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-                Organisation
+                Development Partner
               </span>
             </div>
             <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight sm:text-2xl">
-              {orgName || "Organisation"}
-              <HelpTip content={PORTAL_ORG_PAGE_TIP} label="Organisation page help" />
+              {orgName || "Development Partner"}
+              <HelpTip content={PORTAL_ORG_PAGE_TIP} label="Development Partner page help" />
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {isAdmin
                 ? "Manage your profile, team, invites, and dataset access requests."
-                : "View your organisation profile and team roster."}
+                : "View your development partner profile and team roster."}
             </p>
           </div>
           {isAdmin ? (
@@ -356,7 +356,7 @@ export default function OrganisationManagementPage() {
           <MetricCard
             label="Datasets"
             value={datasetCount}
-            hint="Organisation uploads"
+            hint="Development Partner uploads"
             icon={Database}
             tone="primary"
             onClick={() => router.push("/datasets")}
@@ -383,7 +383,7 @@ export default function OrganisationManagementPage() {
         </div>
 
         {activeSection === "overview" ? (
-          <DashboardPanel title="Organisation profile" icon={Building2} tone="primary">
+          <DashboardPanel title="Development Partner profile" icon={Building2} tone="primary">
             {orgLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-16 rounded-xl" />
@@ -560,7 +560,7 @@ export default function OrganisationManagementPage() {
                             }
                           >
                             <Ban className="size-4" />
-                            Remove from organisation
+                            Remove from development partner
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -617,7 +617,7 @@ export default function OrganisationManagementPage() {
                               onClick={() =>
                                 orgId &&
                                 resendMutation.mutate(
-                                  { organisationId: orgId, inviteId: invite.id },
+                                  { developmentPartnerId: orgId, inviteId: invite.id },
                                   {
                                     onSuccess: () => toast.success("Invite resent"),
                                     onError: () => toast.error("Failed to resend invite"),
@@ -749,10 +749,10 @@ export default function OrganisationManagementPage() {
           <InviteModal
             open={inviteModalOpen}
             onClose={() => setInviteModalOpen(false)}
-            organisationId={orgId}
+            developmentPartnerId={orgId}
           />
           {organisation ? (
-            <EditOrganisationModal
+            <EditDevelopmentPartnerModal
               open={editModalOpen}
               onClose={() => setEditModalOpen(false)}
               organisation={organisation}
@@ -790,7 +790,7 @@ export default function OrganisationManagementPage() {
         open={!!removeTarget}
         onOpenChange={(open) => !open && setRemoveTarget(null)}
         title="Remove member"
-        description={`Remove ${removeTarget?.userName} from the organisation? They will lose access to organisation data.`}
+        description={`Remove ${removeTarget?.userName} from the development partner? They will lose access to development partner data.`}
         confirmLabel="Remove"
         variant="destructive"
         isLoading={removeMemberMutation.isPending}

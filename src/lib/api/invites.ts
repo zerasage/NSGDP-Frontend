@@ -2,8 +2,8 @@ import { apiClient } from './client';
 
 export interface ValidateInviteResponse {
   valid: boolean;
-  organisationId: string;
-  organisationName: string;
+  developmentPartnerId: string;
+  developmentPartnerName: string;
   invitedEmail: string;
   role: 'contributor' | 'admin';
   expiresAt: string;
@@ -12,12 +12,12 @@ export interface ValidateInviteResponse {
    * their role/org) — they must log in as that account to accept it,
    * instead of setting a new password. */
   isExistingUser: boolean;
-  /** True if this organisation has already given electronic consent to the
+  /** True if this development partner has already given electronic consent to the
    * Data Contribution & Usage Consent Agreement (captured the first time
    * anyone accepted an invite to join it). When false, this invitee is the
-   * organisation's first representative to accept, and must be shown and
+   * development partner's first representative to accept, and must be shown and
    * agree to the full consent agreement before their account is created. */
-  organisationConsentGiven: boolean;
+  developmentPartnerConsentGiven: boolean;
 }
 
 export interface AcceptInviteRequest {
@@ -85,8 +85,8 @@ export interface CreateInviteRequest {
 
 export interface InviteResponse {
   id: string;
-  organisationId: string;
-  organisationName: string;
+  developmentPartnerId: string;
+  developmentPartnerName: string;
   invitedEmail: string;
   invitedByEmail: string;
   invitedByName: string;
@@ -98,24 +98,24 @@ export interface InviteResponse {
 }
 
 export async function createInvite(
-  organisationId: string,
+  developmentPartnerId: string,
   data: CreateInviteRequest
 ): Promise<InviteResponse> {
   const response = await apiClient.post<{ data: InviteResponse }>(
-    `/admin/organisations/${organisationId}/invites`,
+    `/admin/development-partners/${developmentPartnerId}/invites`,
     data
   );
   return response.data.data;
 }
 
 /**
- * Get all invites for an organisation (Admin only)
+ * Get all invites for a development partner (Admin only)
  */
-export async function getOrganisationInvites(
-  organisationId: string
+export async function getDevelopmentPartnerInvites(
+  developmentPartnerId: string
 ): Promise<InviteResponse[]> {
   const response = await apiClient.get<{ data: InviteResponse[] }>(
-    `/admin/organisations/${organisationId}/invites`
+    `/admin/development-partners/${developmentPartnerId}/invites`
   );
   return response.data.data;
 }
@@ -124,11 +124,11 @@ export async function getOrganisationInvites(
  * Revoke an invite (Admin only)
  */
 export async function revokeInvite(
-  organisationId: string,
+  developmentPartnerId: string,
   inviteId: string
 ): Promise<{ message: string }> {
   const response = await apiClient.delete<{ data: { message: string } }>(
-    `/admin/organisations/${organisationId}/invites/${inviteId}`
+    `/admin/development-partners/${developmentPartnerId}/invites/${inviteId}`
   );
   return response.data.data;
 }
@@ -137,11 +137,11 @@ export async function revokeInvite(
  * Resend an invite (Admin only)
  */
 export async function resendInvite(
-  organisationId: string,
+  developmentPartnerId: string,
   inviteId: string
 ): Promise<{ message: string }> {
   const response = await apiClient.post<{ data: { message: string } }>(
-    `/admin/organisations/${organisationId}/invites/${inviteId}/resend`
+    `/admin/development-partners/${developmentPartnerId}/invites/${inviteId}/resend`
   );
   return response.data.data;
 }
