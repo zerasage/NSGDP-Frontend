@@ -1,5 +1,6 @@
 "use client";
 
+import type { ClipboardEvent as ReactClipboardEvent } from "react";
 import { FileText, Database, Map as MapIcon } from "lucide-react";
 import { DashboardPanel } from "@/components/dashboard/portal-dashboard-ui";
 import { Badge } from "@/components/ui/badge";
@@ -180,10 +181,27 @@ function TabularPreviewContent({ preview }: { preview: unknown }) {
     );
   }
 
+  // Copy is a light deterrent layered on top of the real protection (the
+  // backend already caps this payload to ~20 rows) — swap the clipboard
+  // content for an attribution note instead of blocking the event outright,
+  // since a hard block just breaks screen readers / legitimate single-cell
+  // copies without stopping anyone who actually wants the data (devtools,
+  // screenshot+OCR, etc. all still work).
+  const handleCopy = (event: ReactClipboardEvent<HTMLTableElement>) => {
+    event.preventDefault();
+    event.clipboardData.setData(
+      "text/plain",
+      "This is a limited preview from the National Statistics & Geospatial Data Platform. Request access to download the full dataset."
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="max-h-[500px] overflow-auto border rounded-lg">
-        <table className="w-full text-sm">
+        <table
+          className="w-full text-sm select-none"
+          onCopy={handleCopy}
+        >
           <thead className="sticky top-0 bg-muted/50 backdrop-blur">
             <tr className="border-b">
               {p.columns.map((col, i) => (
@@ -197,7 +215,7 @@ function TabularPreviewContent({ preview }: { preview: unknown }) {
             </tr>
           </thead>
           <tbody>
-            {p.rows.slice(0, 100).map((row, rowIdx) => (
+            {p.rows.map((row, rowIdx) => (
               <tr key={rowIdx} className="border-b hover:bg-muted/30">
                 {p.columns!.map((col, colIdx) => (
                   <td key={colIdx} className="px-4 py-2">
@@ -210,11 +228,11 @@ function TabularPreviewContent({ preview }: { preview: unknown }) {
         </table>
       </div>
 
-      {p.isPartialPreview && (
-        <p className="text-xs text-muted-foreground text-center">
-          Showing {p.previewRows || p.rows.length} of {p.totalRows} rows
-        </p>
-      )}
+      <p className="text-xs text-muted-foreground text-center">
+        {p.isPartialPreview
+          ? `Showing a limited preview (${p.previewRows || p.rows.length} rows). Request access to download the full dataset.`
+          : "This is a preview only. Request access to download the full dataset."}
+      </p>
     </div>
   );
 }
