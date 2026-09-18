@@ -62,4 +62,4 @@ export const ANALYTICS_PROGRAMMES_TIP =
   "Self-reported programme progress (reach vs target) from development partner owners. Filter by development partner to compare monitoring programmes.";
 
 export const ANALYTICS_ORG_FILTER_TIP =
-  "Limit ward burden or programme cards to datasets and programmes published by one development partner.";
+  "Limit indicator charts, ward burden, or programme cards to datasets and programmes published by one development partner.";

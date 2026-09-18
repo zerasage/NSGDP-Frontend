@@ -114,38 +114,65 @@ export async function getAnalyticsDashboard(): Promise<DashboardAggregate> {
   return response.data.data;
 }
 
-export async function getDiseaseIndicators(): Promise<DiseaseIndicator[]> {
+export async function getDiseaseIndicators(
+  developmentPartnerId?: string
+): Promise<DiseaseIndicator[]> {
   const response = await apiClient.get<ApiResponse<DiseaseIndicator[]>>(
-    '/analytics/indicators'
+    '/analytics/indicators',
+    {
+      params: {
+        ...(developmentPartnerId
+          ? { developmentPartnerId }
+          : {}),
+      },
+    }
   );
   return response.data.data;
 }
 
 export async function getBurdenKpis(
   indicator: string,
-  year?: number
+  year?: number,
+  developmentPartnerId?: string
 ): Promise<BurdenKpis> {
   const response = await apiClient.get<ApiResponse<BurdenKpis>>(
     '/analytics/kpis',
-    { params: { indicator, ...(year != null ? { year } : {}) } }
+    {
+      params: {
+        indicator,
+        ...(year != null ? { year } : {}),
+        ...(developmentPartnerId ? { developmentPartnerId } : {}),
+      },
+    }
   );
   return response.data.data;
 }
 
 export async function getBurdenLgaBurden(
   indicator: string,
-  year?: number
+  year?: number,
+  developmentPartnerId?: string
 ): Promise<LgaBurdenRow[]> {
   const response = await apiClient.get<ApiResponse<LgaBurdenRow[]>>(
     '/analytics/lga-burden',
-    { params: { indicator, ...(year != null ? { year } : {}) } }
+    {
+      params: {
+        indicator,
+        ...(year != null ? { year } : {}),
+        ...(developmentPartnerId ? { developmentPartnerId } : {}),
+      },
+    }
   );
   return response.data.data;
 }
 
 export async function getBurdenTrends(
   indicator: string,
-  opts?: { year?: number; granularity?: 'annual' | 'monthly' }
+  opts?: {
+    year?: number;
+    granularity?: 'annual' | 'monthly';
+    developmentPartnerId?: string;
+  }
 ): Promise<BurdenTrendAnnual[] | BurdenTrendMonthly[]> {
   const response = await apiClient.get<
     ApiResponse<BurdenTrendAnnual[] | BurdenTrendMonthly[]>
@@ -154,6 +181,9 @@ export async function getBurdenTrends(
       indicator,
       ...(opts?.year != null ? { year: opts.year } : {}),
       ...(opts?.granularity ? { granularity: opts.granularity } : {}),
+      ...(opts?.developmentPartnerId
+        ? { developmentPartnerId: opts.developmentPartnerId }
+        : {}),
     },
   });
   return response.data.data;
@@ -161,22 +191,36 @@ export async function getBurdenTrends(
 
 export async function getBurdenTopLgas(
   indicator: string,
-  year?: number
+  year?: number,
+  developmentPartnerId?: string
 ): Promise<LgaBurdenRow[]> {
   const response = await apiClient.get<ApiResponse<LgaBurdenRow[]>>(
     '/analytics/top-lgas',
-    { params: { indicator, ...(year != null ? { year } : {}) } }
+    {
+      params: {
+        indicator,
+        ...(year != null ? { year } : {}),
+        ...(developmentPartnerId ? { developmentPartnerId } : {}),
+      },
+    }
   );
   return response.data.data;
 }
 
 export async function getBurdenOutliers(
   indicator: string,
-  year?: number
+  year?: number,
+  developmentPartnerId?: string
 ): Promise<FacilityOutlierRow[]> {
   const response = await apiClient.get<ApiResponse<FacilityOutlierRow[]>>(
     '/analytics/outliers',
-    { params: { indicator, ...(year != null ? { year } : {}) } }
+    {
+      params: {
+        indicator,
+        ...(year != null ? { year } : {}),
+        ...(developmentPartnerId ? { developmentPartnerId } : {}),
+      },
+    }
   );
   return response.data.data;
 }

@@ -110,7 +110,7 @@ export const uploadStep1Schema = z.object({
   title: z.string().min(3, "Title is required").max(100, "Max 100 characters"),
   description: z.string().min(20, "Description must be at least 20 characters"),
   categoryId: z.string().min(1, "Category is required"),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string().min(1)).min(1, "Add at least one tag"),
 });
 
 export const uploadStep2Schema = z

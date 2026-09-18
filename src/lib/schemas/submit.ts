@@ -25,19 +25,16 @@ export const submitDatasetSchema = z.object({
     { message: "Select a data format" }
   ),
   updateFrequency: z.enum(
-    ["Daily", "Weekly", "Monthly", "Quarterly", "Annually", "One-time"],
+    ["Daily", "Weekly", "Monthly", "Quarterly", "Bi-annually", "Annually", "One-time"],
     { message: "Select update frequency" }
   ),
 
   // ── Governance ───────────────────────────────────────────────────────
-  dataLicense: z.enum(
-    ["CC BY 4.0", "CC BY-NC 4.0", "Open Government License", "Restricted Use", "Other"],
-    { message: "Select a license" }
-  ),
+  dataLicense: z.string().min(1, "Enter or select a license"),
 
   // ── Description & keywords ───────────────────────────────────────────
   description: z.string().min(20, "Description must be at least 20 characters"),
-  tags: z.string().optional(), // comma-separated, parsed on submit
+  tags: z.string().min(1, "Add at least one tag"),
 });
 
 export type SubmitDatasetFormData = z.infer<typeof submitDatasetSchema>;

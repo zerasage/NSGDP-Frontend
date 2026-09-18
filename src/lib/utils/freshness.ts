@@ -8,7 +8,14 @@ function getNextDueDate(updatedAt: string, frequency?: string): Date | null {
   if (freq.includes("weekly"))    { base.setDate(base.getDate() + 7);    return base; }
   if (freq.includes("monthly"))   { base.setMonth(base.getMonth() + 1);  return base; }
   if (freq.includes("quarterly")) { base.setMonth(base.getMonth() + 3);  return base; }
-  if (freq.includes("annually"))  { base.setFullYear(base.getFullYear() + 1); return base; }
+  if (freq.includes("bi-annual") || freq.includes("biannual")) {
+    base.setMonth(base.getMonth() + 6);
+    return base;
+  }
+  if (freq.includes("annually") || freq.includes("annual")) {
+    base.setFullYear(base.getFullYear() + 1);
+    return base;
+  }
   return null;
 }
 

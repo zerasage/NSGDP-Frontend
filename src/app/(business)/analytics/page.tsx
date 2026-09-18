@@ -305,7 +305,7 @@ function HealthAnalyticsContent() {
 
   const { data: dashboard, isPending: dashboardPending } = useAnalyticsDashboard();
   const { data: allIndicators, isLoading: indicatorsLoading } =
-    useDiseaseIndicators();
+    useDiseaseIndicators(dataSource === ALL_SOURCES_ID ? undefined : dataSource);
 
   const indicators = useMemo(() => {
     if (!allIndicators?.length) return allIndicators;
@@ -352,7 +352,11 @@ function HealthAnalyticsContent() {
     isPending: burdenPending,
     isFetching: burdenFetching,
     isPlaceholderData: burdenIsPlaceholder,
-  } = useDiseaseBurdenAnalytics(resolvedIndicator || undefined, selectedYear);
+  } = useDiseaseBurdenAnalytics(
+    resolvedIndicator || undefined,
+    selectedYear,
+    orgFilterId
+  );
   const {
     data: wardBurden,
     isPending: wardPending,
@@ -601,9 +605,8 @@ function HealthAnalyticsContent() {
           ))}
         </div>
 
-        {/* Development Partner filter — ward + programmes */}
-        {analyticsTab !== "indicators" && (
-          <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
+        {/* Development Partner filter */}
+        <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
             <div className="space-y-1">
               <p className="inline-flex items-center gap-1.5 text-[13px] font-medium">
                 Development Partner filter
@@ -612,7 +615,9 @@ function HealthAnalyticsContent() {
               <p className="text-xs text-muted-foreground">
                 {analyticsTab === "ward"
                   ? "Limit ward burden to datasets published by one development partner."
-                  : "Show programmes owned by one development partner."}
+                  : analyticsTab === "programmes"
+                    ? "Show programmes owned by one development partner."
+                    : "Limit indicator selection and charts to datasets published by one development partner."}
               </p>
             </div>
             <Select
@@ -632,9 +637,8 @@ function HealthAnalyticsContent() {
               </SelectContent>
             </Select>
           </div>
-        )}
 
-        {dataSource !== ALL_SOURCES_ID && analyticsTab !== "indicators" && (
+        {dataSource !== ALL_SOURCES_ID && (
           <p className="text-xs text-muted-foreground">
             Filtered to <span className="font-medium text-foreground">{sourceLabel}</span>
           </p>

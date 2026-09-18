@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HelpTip } from "@/components/ui/help-tip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Autocomplete } from "@/components/ui/autocomplete";
 import {
   DashboardPage,
   DashboardPageContent,
@@ -36,6 +37,10 @@ import {
   uploadStep4Schema,
   uploadStep5Schema,
 } from "@/lib/schemas/auth";
+import {
+  LICENSE_OPTIONS,
+  UPDATE_FREQUENCY_OPTIONS,
+} from "@/lib/constants/dataset-metadata";
 import type { DatasetVisibility, DatasetFormat } from "@/lib/api/datasets";
 
 const steps = [
@@ -53,14 +58,6 @@ const STEP_DESCRIPTIONS: Record<number, string> = {
   4: "Usage rights and data quality notes for reviewers.",
   5: "Contact details and who can access the dataset.",
 };
-
-const LICENSE_OPTIONS = [
-  "CC-BY-4.0",
-  "CC-BY-SA-4.0",
-  "CC0-1.0",
-  "Government Open Data License",
-  "Restricted — Internal Use Only",
-];
 
 export default function UploadDatasetPage() {
   const router = useRouter();
@@ -95,6 +92,7 @@ export default function UploadDatasetPage() {
   const [responsibleDept, setResponsibleDept] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [updateFrequency, setUpdateFrequency] = useState("");
 
   const [prefillTestData, setPrefillTestData] = useState(false);
   const togglePrefill = (checked: boolean) => {
@@ -293,6 +291,7 @@ export default function UploadDatasetPage() {
         responsibleDept: responsibleDept || undefined,
         contactPerson: contactPerson || undefined,
         contactEmail: contactEmail || undefined,
+        updateFrequency: updateFrequency || undefined,
       });
 
       // Step 2: Upload every selected file — a dataset can have more than
@@ -468,6 +467,7 @@ export default function UploadDatasetPage() {
                 <FieldLabelTooltip
                   htmlFor="tags"
                   label="Tags (Keywords)"
+                  required
                   tooltip={UPLOAD_FIELD_TOOLTIPS.tags}
                 />
                 <div className="flex flex-col sm:flex-row gap-2 mb-2">
@@ -502,6 +502,7 @@ export default function UploadDatasetPage() {
                     ))}
                   </div>
                 )}
+                <FormError message={stepErrors.tags} />
               </div>
 
               <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
@@ -688,18 +689,16 @@ export default function UploadDatasetPage() {
                   required
                   tooltip={UPLOAD_FIELD_TOOLTIPS.dataLicense}
                 />
-                <Input
+                <Autocomplete
                   id="license"
-                  list="license-options"
+                  items={[...LICENSE_OPTIONS]}
                   value={license}
-                  onChange={(e) => setLicense(e.target.value)}
+                  onValueChange={setLicense}
                   placeholder="Select a license or type your own…"
                 />
-                <datalist id="license-options">
-                  {LICENSE_OPTIONS.map((option) => (
-                    <option key={option} value={option} />
-                  ))}
-                </datalist>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Suggestions only — you can type a custom license.
+                </p>
                 <FormError message={stepErrors.license} />
               </div>
 
@@ -794,6 +793,26 @@ export default function UploadDatasetPage() {
                     />
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <FieldLabelTooltip
+                  htmlFor="updateFrequency"
+                  label="Update frequency"
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.updateFrequency}
+                />
+                <Select value={updateFrequency} onValueChange={(v) => setUpdateFrequency(v || "")}>
+                  <SelectTrigger id="updateFrequency" className="w-full h-10">
+                    <SelectValue placeholder="Select frequency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UPDATE_FREQUENCY_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

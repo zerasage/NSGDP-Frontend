@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HelpTip } from "@/components/ui/help-tip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Autocomplete } from "@/components/ui/autocomplete";
 import {
   DashboardPage,
   DashboardPageContent,
@@ -36,6 +37,10 @@ import {
   uploadStep4Schema,
   uploadStep5Schema,
 } from "@/lib/schemas/auth";
+import {
+  LICENSE_OPTIONS,
+  UPDATE_FREQUENCY_OPTIONS,
+} from "@/lib/constants/dataset-metadata";
 import type { DatasetVisibility } from "@/lib/api/datasets";
 
 const steps = [
@@ -53,14 +58,6 @@ const STEP_DESCRIPTIONS: Record<number, string> = {
   4: "Usage rights and data quality notes for reviewers.",
   5: "Contact details and who can access the dataset.",
 };
-
-const LICENSE_OPTIONS = [
-  { value: "CC-BY-4.0", label: "CC BY 4.0 — Attribution required" },
-  { value: "CC-BY-SA-4.0", label: "CC BY-SA 4.0 — Attribution, share-alike" },
-  { value: "CC0-1.0", label: "CC0 1.0 — Public domain" },
-  { value: "Government Open Data License", label: "Government Open Data License" },
-  { value: "Restricted — Internal Use Only", label: "Restricted — Internal use only" },
-];
 
 export default function EditDatasetPage({
   params,
@@ -105,6 +102,7 @@ export default function EditDatasetPage({
   const [responsibleDept, setResponsibleDept] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [updateFrequency, setUpdateFrequency] = useState("");
 
   useDraftAutoSave(
     !loading && Boolean(title || description || newFiles.length > 0),
@@ -128,6 +126,7 @@ export default function EditDatasetPage({
       setResponsibleDept(dataset.responsible_dept || "");
       setContactPerson(dataset.contact_person || "");
       setContactEmail(dataset.contact_email || "");
+      setUpdateFrequency(dataset.update_frequency || "");
       setVisibility(dataset.visibility);
     }
   }, [dataset]);
@@ -260,6 +259,7 @@ export default function EditDatasetPage({
           responsibleDept: responsibleDept || undefined,
           contactPerson: contactPerson || undefined,
           contactEmail: contactEmail || undefined,
+          updateFrequency: updateFrequency || undefined,
           visibility,
         },
       });
@@ -419,6 +419,7 @@ export default function EditDatasetPage({
                 <FieldLabelTooltip
                   htmlFor="tags"
                   label="Tags (Keywords)"
+                  required
                   tooltip={UPLOAD_FIELD_TOOLTIPS.tags}
                 />
                 <div className="flex flex-col sm:flex-row gap-2 mb-2">
@@ -453,6 +454,7 @@ export default function EditDatasetPage({
                     ))}
                   </div>
                 )}
+                <FormError message={stepErrors.tags} />
               </div>
 
               <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
@@ -658,18 +660,16 @@ export default function EditDatasetPage({
                   required
                   tooltip={UPLOAD_FIELD_TOOLTIPS.dataLicense}
                 />
-                <Select value={license} onValueChange={(v) => setLicense(v || "")}>
-                  <SelectTrigger className="w-full h-10">
-                    <SelectValue placeholder="Select a license" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LICENSE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Autocomplete
+                  id="license"
+                  items={[...LICENSE_OPTIONS]}
+                  value={license}
+                  onValueChange={setLicense}
+                  placeholder="Select a license or type your own…"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Suggestions only — you can type a custom license.
+                </p>
                 <FormError message={stepErrors.license} />
               </div>
 
@@ -764,6 +764,26 @@ export default function EditDatasetPage({
                     />
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <FieldLabelTooltip
+                  htmlFor="updateFrequency"
+                  label="Update frequency"
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.updateFrequency}
+                />
+                <Select value={updateFrequency} onValueChange={(v) => setUpdateFrequency(v || "")}>
+                  <SelectTrigger id="updateFrequency" className="w-full h-10">
+                    <SelectValue placeholder="Select frequency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UPDATE_FREQUENCY_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
