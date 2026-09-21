@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
+import { BusinessShell } from "@/components/layout/business-shell";
 import { BRAND } from "@/lib/constants/brand";
 
 export const metadata: Metadata = {
@@ -18,8 +18,7 @@ export default function BusinessLayout({
   return (
     <>
       <Navbar />
-      {children}
-      <Footer />
+      <BusinessShell>{children}</BusinessShell>
     </>
   );
 }

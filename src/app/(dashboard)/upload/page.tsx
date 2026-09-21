@@ -841,7 +841,7 @@ export default function UploadDatasetPage() {
                     selected={visibility === "private"}
                     onSelect={() => setVisibility("private")}
                     title="Private"
-                    description="Only you and your organization can access"
+                    description="Only you and your development partner can access"
                   />
                 </div>
                 <FormError message={stepErrors.visibility} />

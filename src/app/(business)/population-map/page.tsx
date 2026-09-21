@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { ChevronDown, ChevronUp, Filter, Loader2, RotateCcw, Users, X, Activity } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, RotateCcw, Users, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -29,15 +29,23 @@ import { useDiseaseIndicators } from "@/lib/hooks/useDiseaseIndicators";
 import { getBurdenTrends, getLgaTrend, type LgaTrendPoint } from "@/lib/api/analytics";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import {
-  MapLegend,
   POPULATION_DENSITY_LEGEND,
   FACILITY_DENSITY_LEGEND,
   diseaseBurdenLegendItems,
   getDiseaseBurdenColor,
 } from "@/components/map/map-legend";
+import { MapCollapsibleLegend } from "@/components/map/map-collapsible-legend";
+import { MapFilterSheet } from "@/components/map/map-filter-sheet";
+import { MapOverlayToggle } from "@/components/map/map-overlay-toggle";
+import {
+  MAP_VIEWPORT_CLASS,
+  useMapOverlayOpen,
+  useMapZoomPosition,
+} from "@/components/map/map-mobile-defaults";
 import { MapErrorBanner } from "@/components/map/map-error-banner";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
 import { useStateBoundary } from "@/lib/hooks/useStateBoundary";
+import { useIsMobileMap } from "@/lib/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import type { Feature, Geometry } from "geojson";
 import type { Path } from "leaflet";
@@ -210,9 +218,11 @@ function CardSkeleton() {
 
 export default function GisMappingPage() {
   const [mapReady, setMapReady] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
-  const [summaryOpen, setSummaryOpen] = useState(true);
-  const [rankingOpen, setRankingOpen] = useState(true);
+  const [filterOpen, setFilterOpen] = useMapOverlayOpen(true);
+  const [summaryOpen, setSummaryOpen] = useMapOverlayOpen(true);
+  const [rankingOpen, setRankingOpen] = useMapOverlayOpen(true);
+  const zoomPosition = useMapZoomPosition();
+  const isMobile = useIsMobileMap();
   const [activeLayer, setActiveLayer] = useState<ActiveLayer>("population");
   const [lga, setLga] = useState("all");
   const [ward, setWard] = useState("all");
@@ -389,14 +399,16 @@ export default function GisMappingPage() {
 
   if (!mapReady) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+      <div className="flex h-[calc(100dvh-4rem)] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
 
+  const popLabel = `${(totalPopulation / 1_000_000).toFixed(1)}M`;
+
   return (
-    <div className="relative h-[calc(100vh-4rem)] w-full overflow-hidden">
+    <div className={MAP_VIEWPORT_CLASS}>
       <MapContainer
         center={NIGER_STATE_CENTER}
         zoom={8}
@@ -407,7 +419,7 @@ export default function GisMappingPage() {
         zoomControl={false}
         className="absolute inset-0 z-0 h-full w-full"
       >
-        <ZoomControl position="topleft" />
+        <ZoomControl key={zoomPosition} position={zoomPosition} />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -539,32 +551,13 @@ export default function GisMappingPage() {
         )}
       </MapContainer>
 
-      {/* Filter toggle */}
-      {!filterOpen && (
-        <Button
-          size="sm"
-          className="absolute left-4 top-4 z-[1000] shadow-lg"
-          onClick={() => setFilterOpen(true)}
-        >
-          <Filter className="size-4 mr-2" />
-          Filters
-        </Button>
-      )}
-
-      {/* Sliding filter panel */}
-      <div
-        className={cn(
-          "absolute left-0 top-0 z-[1000] h-full w-80 transform border-r bg-background shadow-2xl transition-transform duration-300 flex flex-col",
-          filterOpen ? "translate-x-0" : "-translate-x-full"
-        )}
+      <MapFilterSheet
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        title="Population & Facility Map"
+        widthClassName="md:w-80"
       >
-        <div className="flex items-center justify-between border-b p-4">
-          <h2 className="font-semibold">Population & Facility Map</h2>
-          <Button size="icon" variant="ghost" onClick={() => setFilterOpen(false)}>
-            <X className="size-4" />
-          </Button>
-        </div>
-        <div className="space-y-4 overflow-y-auto thin-scrollbar p-4 flex-1">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4 thin-scrollbar">
           {lgaError && <MapErrorBanner message={lgaError} onRetry={loadLgaSummary} />}
 
           <div>
@@ -578,7 +571,7 @@ export default function GisMappingPage() {
                 size="sm"
                 variant={activeLayer === "population" ? "default" : "ghost"}
                 className={cn(
-                  "flex-1 rounded-r-none transition-colors",
+                  "flex-1 rounded-r-none px-1.5 text-xs transition-colors sm:px-3 sm:text-sm",
                   activeLayer === "population" && "rounded-l-lg"
                 )}
                 onClick={() => setActiveLayer("population")}
@@ -589,7 +582,7 @@ export default function GisMappingPage() {
                 type="button"
                 size="sm"
                 variant={activeLayer === "facilities" ? "default" : "ghost"}
-                className="flex-1 rounded-none border-l transition-colors"
+                className="flex-1 rounded-none border-l px-1.5 text-xs transition-colors sm:px-3 sm:text-sm"
                 onClick={() => setActiveLayer("facilities")}
               >
                 Facilities
@@ -598,10 +591,10 @@ export default function GisMappingPage() {
                 type="button"
                 size="sm"
                 variant={activeLayer === "disease-burden" ? "default" : "ghost"}
-                className="flex-1 rounded-l-none border-l transition-colors"
+                className="flex-1 rounded-l-none border-l px-1.5 text-xs transition-colors sm:px-3 sm:text-sm"
                 onClick={() => setActiveLayer("disease-burden")}
               >
-                <Activity className="size-3.5 mr-1" />
+                <Activity className="size-3.5 mr-1 shrink-0" />
                 Disease
               </Button>
             </div>
@@ -760,85 +753,88 @@ export default function GisMappingPage() {
             Reset
           </Button>
         </div>
-      </div>
+      </MapFilterSheet>
 
-      {/* Population badge */}
-      <div className="absolute right-4 top-4 z-[1000]">
-        <Badge variant="secondary" className="gap-2 px-3 py-2 text-sm shadow-lg">
-          <Users className="size-4" />
-          Niger State Population: {(totalPopulation / 1_000_000).toFixed(1)}M
+      <div
+        className={cn(
+          "absolute z-[1000] flex flex-col items-end gap-2",
+          isMobile ? "right-3 top-14" : "right-4 top-4"
+        )}
+      >
+        <Badge variant="secondary" className="gap-1.5 px-2.5 py-1.5 text-xs shadow-lg sm:gap-2 sm:px-3 sm:py-2 sm:text-sm">
+          <Users className="size-3.5 sm:size-4" />
+          <span className="md:hidden">Pop. {popLabel}</span>
+          <span className="hidden md:inline">Niger State Population: {popLabel}</span>
         </Badge>
+
+        {summaryOpen ? (
+          <Card className={cn("shadow-xl", isMobile ? "w-[min(100vw-1.5rem,20rem)] max-h-[38dvh] overflow-y-auto" : "w-72")}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm">{selectedLga ? selectedLga.properties.lga : "Niger State"} Summary</CardTitle>
+              <Button size="sm" variant="ghost" onClick={() => setSummaryOpen(false)}>
+                Hide
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              {lgaError ? (
+                <MapErrorBanner message={lgaError} onRetry={loadLgaSummary} />
+              ) : isLoadingLga ? (
+                <CardSkeleton />
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Population</p>
+                      <p className="font-semibold">
+                        {(selectedLga ? selectedLga.properties.population ?? 0 : totalPopulation).toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Facilities</p>
+                      <p className="font-semibold">
+                        {(selectedLga ? selectedLga.properties.facilityCount : totalFacilities).toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">LGAs</p>
+                      <p className="font-semibold">{selectedLga ? 1 : 25}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Wards</p>
+                      <p className="font-semibold">{ward === "all" ? (wardOptions.length || "—") : 1}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">Facilities by ownership</p>
+                    <ul className="space-y-1">
+                      {Object.entries(ownershipBreakdown)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([key, value]) => (
+                          <li key={key} className="flex justify-between">
+                            <span>{key}</span>
+                            <span className="font-medium">{value.toLocaleString()}</span>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <MapOverlayToggle label="Summary" onClick={() => setSummaryOpen(true)} />
+        )}
       </div>
 
-      {/* Summary panel */}
-      {summaryOpen ? (
-        <Card className="absolute right-4 top-16 z-[1000] w-72 shadow-xl transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">{selectedLga ? selectedLga.properties.lga : "Niger State"} Summary</CardTitle>
-            <Button size="sm" variant="ghost" onClick={() => setSummaryOpen(false)}>
-              Hide
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            {lgaError ? (
-              <MapErrorBanner message={lgaError} onRetry={loadLgaSummary} />
-            ) : isLoadingLga ? (
-              <CardSkeleton />
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Population</p>
-                    <p className="font-semibold">
-                      {(selectedLga ? selectedLga.properties.population ?? 0 : totalPopulation).toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Facilities</p>
-                    <p className="font-semibold">
-                      {(selectedLga ? selectedLga.properties.facilityCount : totalFacilities).toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">LGAs</p>
-                    <p className="font-semibold">{selectedLga ? 1 : 25}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Wards</p>
-                    <p className="font-semibold">{ward === "all" ? (wardOptions.length || "—") : 1}</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Facilities by ownership</p>
-                  <ul className="space-y-1">
-                    {Object.entries(ownershipBreakdown)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([key, value]) => (
-                        <li key={key} className="flex justify-between">
-                          <span>{key}</span>
-                          <span className="font-medium">{value.toLocaleString()}</span>
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <Button
-          size="sm"
-          variant="secondary"
-          className="absolute right-4 top-16 z-[1000] shadow-lg"
-          onClick={() => setSummaryOpen(true)}
-        >
-          Show Summary
-        </Button>
-      )}
-
-      {/* Top/bottom LGAs by facility density */}
       {rankingOpen ? (
-        <Card className={cn("absolute bottom-4 z-[1000] w-80 shadow-xl transition-[left]", filterOpen ? "left-[21rem]" : "left-4")}>
+        <Card
+          className={cn(
+            "absolute z-[1000] shadow-xl",
+            isMobile
+              ? "inset-x-3 bottom-28 max-h-[32dvh] overflow-y-auto"
+              : cn("bottom-4 w-80 transition-[left]", filterOpen ? "left-[21rem]" : "left-4")
+          )}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs">LGAs by Facility Count</CardTitle>
             <Button size="sm" variant="ghost" onClick={() => setRankingOpen(false)}>
@@ -892,19 +888,20 @@ export default function GisMappingPage() {
           </CardContent>
         </Card>
       ) : (
-        <Button
-          size="sm"
-          variant="secondary"
-          className={cn("absolute bottom-4 z-[1000] shadow-lg transition-[left]", filterOpen ? "left-[21rem]" : "left-4")}
+        <MapOverlayToggle
+          label="Rankings"
+          icon={<ChevronUp className="size-4 mr-1" />}
+          className={cn(
+            "absolute z-[1000]",
+            isMobile
+              ? "left-3 bottom-28"
+              : cn("bottom-4 transition-[left]", filterOpen ? "left-[21rem]" : "left-4")
+          )}
           onClick={() => setRankingOpen(true)}
-        >
-          <ChevronUp className="size-4 mr-1" />
-          Show Rankings
-        </Button>
+        />
       )}
 
-      {/* Permanent legend */}
-      <MapLegend
+      <MapCollapsibleLegend
         title={
           activeLayer === "population"
             ? "Population Density"
@@ -919,7 +916,6 @@ export default function GisMappingPage() {
               ? FACILITY_DENSITY_LEGEND
               : diseaseBurdenLegendItems(burdenMaxCases)
         }
-        className="absolute bottom-4 right-4 z-[1000]"
       />
     </div>
   );

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Database, Loader2, RotateCcw, Search, X } from "lucide-react";
+import { Database, Loader2, RotateCcw, Search } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,10 +27,16 @@ import {
 } from "@/lib/api/gis";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import {
-  MapLegend,
   DATASET_COVERAGE_LEGEND,
   DATASET_MARKER_LEGEND,
 } from "@/components/map/map-legend";
+import { MapCollapsibleLegend } from "@/components/map/map-collapsible-legend";
+import { MapFilterSheet } from "@/components/map/map-filter-sheet";
+import {
+  MAP_VIEWPORT_CLASS,
+  useMapOverlayOpen,
+  useMapZoomPosition,
+} from "@/components/map/map-mobile-defaults";
 import { MapErrorBanner } from "@/components/map/map-error-banner";
 import { MapTooltip } from "@/components/map/map-tooltip";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
@@ -222,7 +228,8 @@ function hashOffset(id: string): [number, number] {
 
 export default function MapExplorePage() {
   const [mapReady, setMapReady] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
+  const [filterOpen, setFilterOpen] = useMapOverlayOpen(true);
+  const zoomPosition = useMapZoomPosition();
   const [query, setQuery] = useState("");
   const [lga, setLga] = useState("all");
   const [topic, setTopic] = useState("all");
@@ -402,14 +409,14 @@ export default function MapExplorePage() {
 
   if (!mapReady) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+      <div className="flex h-[calc(100dvh-4rem)] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-primary" />
-        </div>
+      </div>
     );
   }
 
   return (
-    <div className="relative h-[calc(100vh-4rem)] w-full overflow-hidden">
+    <div className={MAP_VIEWPORT_CLASS}>
       <MapContainer
         center={NIGER_STATE_CENTER}
         zoom={8}
@@ -420,7 +427,7 @@ export default function MapExplorePage() {
         zoomControl={false}
         className="absolute inset-0 z-0 h-full w-full"
       >
-        <ZoomControl position="topleft" />
+        <ZoomControl key={zoomPosition} position={zoomPosition} />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -522,36 +529,17 @@ export default function MapExplorePage() {
         )}
       </MapContainer>
 
-      {!filterOpen && (
-        <Button
-          size="sm"
-          className="absolute left-4 top-4 z-[1000] shadow-lg"
-          onClick={() => setFilterOpen(true)}
-        >
-          Show Filters
-        </Button>
-      )}
-
-      <div
-        className={cn(
-          "absolute left-0 top-0 z-[1000] flex h-full w-96 max-w-[90vw] transform flex-col border-r bg-background shadow-2xl transition-transform duration-300",
-          filterOpen ? "translate-x-0" : "-translate-x-full"
-        )}
+      <MapFilterSheet
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        title="Dataset Coverage Map"
+        subtitle={
+          isLoading || isLoadingTopic
+            ? "Loading…"
+            : `${filteredDatasets.length.toLocaleString()} datasets`
+        }
+        widthClassName="md:w-96"
       >
-        <div className="flex items-center justify-between border-b p-4">
-          <div>
-            <h2 className="font-semibold">Dataset Coverage Map</h2>
-            <p className="text-xs text-muted-foreground">
-              {isLoading || isLoadingTopic
-                ? "Loading…"
-                : `${filteredDatasets.length.toLocaleString()} datasets`}
-            </p>
-          </div>
-          <Button size="icon" variant="ghost" onClick={() => setFilterOpen(false)}>
-            <X className="size-4" />
-          </Button>
-      </div>
-
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="space-y-4 overflow-y-auto p-4 thin-scrollbar">
             {error && <MapErrorBanner message={error} onRetry={loadData} />}
@@ -586,7 +574,9 @@ export default function MapExplorePage() {
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All LGAs ({scopedDatasets.length.toLocaleString()})</SelectItem>
+                      <SelectItem value="all">
+                        All LGAs ({scopedDatasets.length.toLocaleString()})
+                      </SelectItem>
                       {NIGER_STATE_LGAS.map((name) => (
                         <SelectItem key={name} value={name}>
                           {name} ({(lgaCounts.get(name) ?? 0).toLocaleString()})
@@ -647,9 +637,7 @@ export default function MapExplorePage() {
           <div className="flex min-h-0 flex-1 flex-col border-t">
             <div className="flex items-center gap-2 border-b px-4 py-2">
               <Database className="size-4 text-muted-foreground" />
-              <p className="text-xs font-medium">
-                  Datasets ({filteredDatasets.length})
-              </p>
+              <p className="text-xs font-medium">Datasets ({filteredDatasets.length})</p>
             </div>
             <div className="flex-1 overflow-y-auto p-2 thin-scrollbar">
               {isLoading ? (
@@ -657,15 +645,15 @@ export default function MapExplorePage() {
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
-                    </div>
-                  ) : filteredDatasets.length === 0 ? (
+                </div>
+              ) : filteredDatasets.length === 0 ? (
                 <p className="px-3 py-8 text-center text-sm text-muted-foreground">
                   No datasets match these filters.
                 </p>
-                  ) : (
-                    filteredDatasets.map((dataset) => (
-                      <button
-                        key={dataset.id}
+              ) : (
+                filteredDatasets.map((dataset) => (
+                  <button
+                    key={dataset.id}
                     type="button"
                     onClick={() => setSelectedId(dataset.id)}
                     className={cn(
@@ -678,14 +666,14 @@ export default function MapExplorePage() {
                       {dataset.organisationName ?? "Unknown development partner"} ·{" "}
                       {coverageLabel(dataset.geographicCoverage)}
                     </p>
-                      </button>
-                    ))
-                  )}
-                </div>
+                  </button>
+                ))
+              )}
+            </div>
             {selectedDataset && (
               <div className="border-t p-4">
-                <p className="text-sm font-medium line-clamp-2">{selectedDataset.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground line-clamp-3">
+                <p className="line-clamp-2 text-sm font-medium">{selectedDataset.title}</p>
+                <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">
                   {selectedDataset.description || "No description available."}
                 </p>
                 <div className="mt-3 flex gap-2">
@@ -696,19 +684,21 @@ export default function MapExplorePage() {
                     View details
                   </Link>
                   <Button size="sm" variant="outline" onClick={() => setSelectedId(null)}>
-                      Clear
-                    </Button>
-                    </div>
-                  </div>
+                    Clear
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         </div>
-      </div>
+      </MapFilterSheet>
 
-      <div className="absolute bottom-4 right-4 z-[1000] hidden space-y-2 sm:block">
-        <MapLegend title="Datasets per LGA" items={DATASET_COVERAGE_LEGEND} type="gradient" />
-        <MapLegend title="Dataset markers" items={DATASET_MARKER_LEGEND} />
-      </div>
+      <MapCollapsibleLegend
+        title="Datasets per LGA"
+        items={DATASET_COVERAGE_LEGEND}
+        type="gradient"
+        extra={[{ title: "Dataset markers", items: DATASET_MARKER_LEGEND }]}
+      />
     </div>
   );
 }

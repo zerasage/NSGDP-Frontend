@@ -397,8 +397,8 @@ export default function PartnerDataPage() {
           <h2 className="text-2xl font-bold">Already approved to contribute?</h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
             {canUpload
-              ? "Your organisation account can submit datasets from the dashboard."
-              : "If NSPHCDA has already invited your organisation, sign in with that account to open the upload wizard."}
+              ? "Your development partner account can submit datasets from the dashboard."
+              : "If NSPHCDA has already invited your development partner, sign in with that account to open the upload wizard."}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {canUpload ? (

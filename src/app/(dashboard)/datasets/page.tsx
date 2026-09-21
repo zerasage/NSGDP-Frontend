@@ -66,6 +66,7 @@ import { cn } from "@/lib/utils";
 const statusFilters: { value: DatasetStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
   { value: "approved", label: "Approved" },
+  { value: "validated", label: "Validated" },
   { value: "pending", label: "Pending" },
   { value: "under_review", label: "In review" },
   { value: "draft", label: "Drafts" },
@@ -129,6 +130,7 @@ export default function MyDatasetsPage() {
   const statusCounts: Record<DatasetStatus | "all", number> = {
     all: allDatasetsForCounts.length,
     approved: allDatasetsForCounts.filter((d) => d.status === "approved").length,
+    validated: allDatasetsForCounts.filter((d) => d.status === "validated").length,
     pending: allDatasetsForCounts.filter((d) => d.status === "pending").length,
     under_review: allDatasetsForCounts.filter((d) => d.status === "under_review").length,
     draft: allDatasetsForCounts.filter((d) => d.status === "draft").length,

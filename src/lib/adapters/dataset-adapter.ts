@@ -135,7 +135,8 @@ export function transformDataset(
 
 /**
  * Map backend status to lifecycle stage
- * Backend statuses: draft, pending, under_review, approved, rejected, archived
+ * Backend: draft, pending, under_review, validated, approved, rejected, archived
+ * Catalogue “published” is approved + published_at (handled by callers with publishedAt).
  */
 function mapStatusToLifecycleStage(
   backendStatus: string
@@ -144,8 +145,9 @@ function mapStatusToLifecycleStage(
     draft: 'draft',
     pending: 'submitted',
     under_review: 'under_review',
+    validated: 'validated',
     approved: 'approved',
-    rejected: 'archived', // Map rejected to archived since there's no rejected lifecycle stage
+    rejected: 'archived',
     archived: 'archived',
   };
   

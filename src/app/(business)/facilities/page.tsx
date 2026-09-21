@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import { Loader2, RotateCcw, Search, X } from "lucide-react";
+import { Loader2, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,12 +16,18 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getGisFacilities, type GisFacility } from "@/lib/api/gis";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
-import { MapLegend, FACILITY_LEGEND } from "@/components/map/map-legend";
+import { FACILITY_LEGEND } from "@/components/map/map-legend";
+import { MapCollapsibleLegend } from "@/components/map/map-collapsible-legend";
+import { MapFilterSheet } from "@/components/map/map-filter-sheet";
+import {
+  MAP_VIEWPORT_CLASS,
+  useMapOverlayOpen,
+  useMapZoomPosition,
+} from "@/components/map/map-mobile-defaults";
 import { MapErrorBanner } from "@/components/map/map-error-banner";
 import { MapTooltip } from "@/components/map/map-tooltip";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
 import { useStateBoundary } from "@/lib/hooks/useStateBoundary";
-import { cn } from "@/lib/utils";
 import type L from "leaflet";
 
 function configureLeafletIcons() {
@@ -116,7 +122,8 @@ function FacilitiesContent() {
   const searchParams = useSearchParams();
   const lgaFromUrl = searchParams.get("lga");
   const [mapReady, setMapReady] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
+  const [filterOpen, setFilterOpen] = useMapOverlayOpen(true);
+  const zoomPosition = useMapZoomPosition();
   const [query, setQuery] = useState("");
   const [lga, setLga] = useState("all");
   const [ward, setWard] = useState("all");
@@ -203,14 +210,14 @@ function FacilitiesContent() {
 
   if (!mapReady) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+      <div className="flex h-[calc(100dvh-4rem)] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="relative h-[calc(100vh-4rem)] w-full overflow-hidden">
+    <div className={MAP_VIEWPORT_CLASS}>
       <MapContainer
         center={NIGER_STATE_CENTER}
         zoom={8}
@@ -221,7 +228,7 @@ function FacilitiesContent() {
         zoomControl={false}
         className="absolute inset-0 z-0 h-full w-full"
       >
-        <ZoomControl position="topleft" />
+        <ZoomControl key={zoomPosition} position={zoomPosition} />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -271,34 +278,15 @@ function FacilitiesContent() {
         )}
       </MapContainer>
 
-      {!filterOpen && (
-        <Button
-          size="sm"
-          className="absolute left-4 top-4 z-[1000] shadow-lg"
-          onClick={() => setFilterOpen(true)}
-        >
-          Show Filters
-        </Button>
-      )}
-
-      <div
-        className={cn(
-          "absolute left-0 top-0 z-[1000] flex h-full w-80 transform flex-col border-r bg-background shadow-2xl transition-transform duration-300",
-          filterOpen ? "translate-x-0" : "-translate-x-full"
-        )}
+      <MapFilterSheet
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        title="Health Facility Finder"
+        subtitle={
+          isLoading ? "Loading…" : `${filteredFacilities.length.toLocaleString()} facilities`
+        }
+        widthClassName="md:w-80"
       >
-        <div className="flex items-center justify-between border-b p-4">
-          <div>
-            <h2 className="font-semibold">Health Facility Finder</h2>
-            <p className="text-xs text-muted-foreground">
-              {isLoading ? "Loading…" : `${filteredFacilities.length.toLocaleString()} facilities`}
-            </p>
-          </div>
-          <Button size="icon" variant="ghost" onClick={() => setFilterOpen(false)}>
-            <X className="size-4" />
-          </Button>
-        </div>
-
         <div className="flex-1 space-y-4 overflow-y-auto p-4 thin-scrollbar">
           {error && <MapErrorBanner message={error} onRetry={loadFacilities} />}
 
@@ -323,10 +311,7 @@ function FacilitiesContent() {
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">LGA</label>
-                <Select
-                  value={lga}
-                  onValueChange={(v) => v && setLga(v)}
-                >
+                <Select value={lga} onValueChange={(v) => v && setLga(v)}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="All LGAs">
                       {lga === "all"
@@ -335,7 +320,9 @@ function FacilitiesContent() {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All LGAs ({allFacilities.length.toLocaleString()})</SelectItem>
+                    <SelectItem value="all">
+                      All LGAs ({allFacilities.length.toLocaleString()})
+                    </SelectItem>
                     {NIGER_STATE_LGAS.map((name) => (
                       <SelectItem key={name} value={name}>
                         {name} ({(lgaCounts.get(name) ?? 0).toLocaleString()})
@@ -369,7 +356,9 @@ function FacilitiesContent() {
                   </SelectContent>
                 </Select>
                 {lga === "all" && (
-                  <p className="mt-1.5 text-xs text-muted-foreground">Select an LGA to filter by ward</p>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Select an LGA to filter by ward
+                  </p>
                 )}
               </div>
 
@@ -404,13 +393,9 @@ function FacilitiesContent() {
             </>
           )}
         </div>
-      </div>
+      </MapFilterSheet>
 
-      <MapLegend
-        title="Facility Levels"
-        items={FACILITY_LEGEND}
-        className="absolute bottom-4 right-4 z-[1000]"
-      />
+      <MapCollapsibleLegend title="Facility Levels" items={FACILITY_LEGEND} />
     </div>
   );
 }

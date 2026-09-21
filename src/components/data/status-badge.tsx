@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { DatasetStatus } from "@/types";
 
-// Backend status values: draft, pending, under_review, approved, rejected, archived
+// Backend status values: draft, pending, under_review, validated, approved, rejected, archived
 const CONFIG: Record<string, { label: string; className: string }> = {
   draft: { 
     label: "Draft", 
@@ -14,6 +14,10 @@ const CONFIG: Record<string, { label: string; className: string }> = {
   under_review: {
     label: "Under Review",
     className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  },
+  validated: {
+    label: "Validated",
+    className: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400",
   },
   // Approval and publishing are separate — an approved dataset isn't
   // necessarily visible to the public yet. See `publishedAt` below.
@@ -34,7 +38,6 @@ const CONFIG: Record<string, { label: string; className: string }> = {
     className: "bg-muted text-muted-foreground line-through",
   },
 };
-
 export function StatusBadge({
   status,
   publishedAt,

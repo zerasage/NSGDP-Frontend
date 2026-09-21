@@ -823,7 +823,7 @@ export default function EditDatasetPage({
                           <p className="text-sm text-muted-foreground">
                             {vis === "public" && "Anyone can view and download"}
                             {vis === "restricted" && "Users must request access"}
-                            {vis === "private" && "Only you and your organization"}
+                            {vis === "private" && "Only you and your development partner"}
                           </p>
                         </div>
                       </div>

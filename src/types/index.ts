@@ -4,7 +4,7 @@ export type UserRole =
   | "public"        // Unauthenticated/guest user
   | "registered"    // Authenticated user (can browse/download)
   | "contributor"   // Can upload/submit datasets
-  | "admin"         // Organization/Repository administrator
+  | "admin"         // Development Partner Admin
   | "staff"         // Agency staff — admin-portal only, never authenticates here
   | "super_admin";  // Platform owner — admin-portal only, never authenticates here
 
@@ -15,15 +15,20 @@ export type DatasetStatus =
   | "draft"
   | "pending"
   | "under_review"
+  | "validated"
   | "approved"
   | "rejected"
   | "archived";
 
-/** 5-step governance lifecycle — checklist-driven review replaces micro-gates */
+/**
+ * Governance lifecycle shown in portal UI.
+ * Catalogue “Published” is derived: status=approved AND published_at set.
+ */
 export type LifecycleStage =
   | "draft"
   | "submitted"
   | "under_review"
+  | "validated"
   | "approved"
   | "published"
   | "archived";
@@ -32,6 +37,7 @@ export const LIFECYCLE_LABELS: Record<LifecycleStage, string> = {
   draft: "Draft",
   submitted: "Submitted",
   under_review: "Under Review",
+  validated: "Validated",
   approved: "Approved",
   published: "Published",
   archived: "Archived",
