@@ -330,15 +330,6 @@ const dataAssets = [
   },
 ];
 
-const deferred = [
-  "Learning & Tools nav (page retained at /learning — deferred)",
-  "Automated DHIS2 API sync (manual upload is the pilot path)",
-  "MFA beyond placeholder / ICT Phase 1A",
-  "Async export job queue (sync CSV export today)",
-  "Per-LGA / facility scoped staff RBAC (platform-wide grants only)",
-  "Bulk dataset approve / publish (single-dataset review only; bulk archive exists)",
-];
-
 const sideWorkflows = [
   {
     title: "Restricted access requests",
@@ -739,19 +730,6 @@ export default function PortalArchitectureView() {
       </div>
 
       <SectionDivider />
-
-      <h2 className="text-lg font-bold">Intentionally deferred</h2>
-      <p className="mt-1 mb-3 text-sm text-muted-foreground">
-        From <code className="text-[11px]">KNOWN_GAPS.md</code> — not missing by accident.
-      </p>
-      <ul className="space-y-1.5 text-xs text-muted-foreground">
-        {deferred.map((item) => (
-          <li key={item} className="flex gap-2">
-            <span className="text-muted-foreground/50">·</span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
 
       <p className="mt-8 text-[11px] text-muted-foreground/70">
         Source of truth: live routes in nsgdp-frontend / nsgdp-admin · NestJS modules ·{" "}
