@@ -60,7 +60,7 @@ const NAV_LINKS: NavLink[] = [
   },
   {
     href: "/development-partner",
-    label: "Development Partner",
+    label: "Dev Partner",
     icon: Building2,
     roles: ["contributor", "admin"],
     section: "workspace",

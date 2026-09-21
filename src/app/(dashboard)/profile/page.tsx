@@ -227,7 +227,7 @@ function ProfileForm({
             Development Partner
           </label>
           <Input id="organization" className="h-11" {...register("organization")} disabled />
-          <p className="mt-1 text-xs text-muted-foreground">Contact your development partner admin to change</p>
+          <p className="mt-1 text-xs text-muted-foreground">Contact your Dev Partner Admin to change</p>
         </div>
       </div>
 

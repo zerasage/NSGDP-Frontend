@@ -548,7 +548,7 @@ export default function DevelopmentPartnerManagementPage() {
                               })
                             }
                           >
-                            {member.role === "admin" ? "Demote to contributor" : "Promote to Development Partner Admin"}
+                            {member.role === "admin" ? "Demote to contributor" : "Promote to Dev Partner Admin"}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             variant="destructive"
@@ -778,7 +778,7 @@ export default function DevelopmentPartnerManagementPage() {
         title="Change member role"
         description={
           roleChangeTarget
-            ? `${roleChangeTarget.currentRole === "admin" ? "Demote" : "Promote"} ${roleChangeTarget.userName} to ${roleChangeTarget.currentRole === "admin" ? "contributor" : "Development Partner Admin"}?`
+            ? `${roleChangeTarget.currentRole === "admin" ? "Demote" : "Promote"} ${roleChangeTarget.userName} to ${roleChangeTarget.currentRole === "admin" ? "contributor" : "Dev Partner Admin"}?`
             : ""
         }
         confirmLabel="Confirm"

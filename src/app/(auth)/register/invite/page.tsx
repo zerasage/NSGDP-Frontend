@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, type ReactNode } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -23,7 +23,7 @@ import { PasswordStrengthMeter } from "@/components/forms/password-strength-mete
 import { FormError } from "@/components/forms/form-error";
 import { DataConsentAgreement } from "@/components/legal/data-consent-agreement";
 import { Checkbox } from "@/components/ui/checkbox";
-import { GeoHealthLogo } from "@/components/layout/geohealth-logo";
+import { AuthShell, AuthBrandPanel, AuthBrandMeta } from "@/components/layout/auth-shell";
 import { acceptInviteSchema, type AcceptInviteFormData } from "@/lib/schemas/invite";
 import {
   validateInvite,
@@ -34,58 +34,6 @@ import {
 import { useAuth } from "@/lib/auth";
 import { BRAND } from "@/lib/constants/brand";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-
-function InviteShell({
-  children,
-  panel,
-  className,
-}: {
-  children: ReactNode;
-  panel?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "relative flex min-h-[100dvh] flex-col overflow-hidden",
-        "bg-[radial-gradient(120%_80%_at_0%_0%,color-mix(in_oklch,var(--brand)_18%,transparent),transparent_55%),radial-gradient(90%_70%_at_100%_100%,color-mix(in_oklch,var(--teal)_16%,transparent),transparent_50%),var(--background)]",
-        className
-      )}
-    >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.035]"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
-        }}
-        aria-hidden
-      />
-
-      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-8 sm:px-6 sm:py-10 lg:py-14">
-        <div className="mb-8 flex justify-center sm:mb-10 sm:justify-start">
-          <GeoHealthLogo />
-        </div>
-
-        <div
-          className={cn(
-            "rounded-2xl border border-border/70 bg-card/90 shadow-[0_24px_80px_-40px_rgba(13,59,20,0.45)] backdrop-blur-sm",
-            panel
-              ? "grid grid-cols-1 lg:grid-cols-[minmax(240px,0.9fr)_minmax(0,1.2fr)]"
-              : "mx-auto w-full max-w-lg"
-          )}
-        >
-          {panel}
-          <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">{children}</div>
-        </div>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground sm:text-left">
-          {BRAND.portalName} · Niger State Primary Health Care Development Agency
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function InviteContextPanel({
   inviteData,
@@ -97,66 +45,36 @@ function InviteContextPanel({
   daysUntilExpiry: number;
 }) {
   return (
-    <aside className="relative flex flex-col justify-between gap-6 overflow-hidden bg-[linear-gradient(165deg,var(--brand)_0%,color-mix(in_oklch,var(--brand)_82%,black)_100%)] px-6 py-7 text-white sm:px-8 lg:gap-8 lg:px-9 lg:py-10">
-      <div
-        className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-white/10 blur-2xl"
-        aria-hidden
+    <AuthBrandPanel
+      eyebrow="You've been invited"
+      title={inviteData.developmentPartnerName}
+      description={`Join the ${BRAND.portalName} as a ${roleLabel.toLowerCase()} and start contributing health data for Niger State.`}
+    >
+      <AuthBrandMeta icon={<Shield className="size-4" />} label="Role" value={roleLabel} />
+      <AuthBrandMeta
+        icon={<Mail className="size-4" />}
+        label="Invited email"
+        value={inviteData.invitedEmail}
       />
-      <div
-        className="pointer-events-none absolute -bottom-20 -left-10 size-48 rounded-full bg-[color-mix(in_oklch,var(--teal)_45%,transparent)] blur-3xl"
-        aria-hidden
+      <AuthBrandMeta
+        icon={<User className="size-4" />}
+        label="Invited by"
+        value={inviteData.invitedByName}
       />
-
-      <div className="relative space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
-          You&apos;ve been invited
-        </p>
-        <h1 className="text-2xl font-semibold leading-tight tracking-tight sm:text-[1.75rem]">
-          {inviteData.developmentPartnerName}
-        </h1>
-        <p className="max-w-sm text-sm leading-relaxed text-white/80">
-          Join the {BRAND.portalName} as a {roleLabel.toLowerCase()} and start contributing health
-          data for Niger State.
-        </p>
-      </div>
-
-      <dl className="relative space-y-3 text-sm">
-        <div className="flex items-start gap-3 rounded-xl bg-white/10 px-3.5 py-3 backdrop-blur-sm">
-          <Shield className="mt-0.5 size-4 shrink-0 text-[color-mix(in_oklch,var(--teal)_90%,white)]" />
+      {daysUntilExpiry <= 3 ? (
+        <div className="flex items-start gap-3 rounded-xl bg-amber-500/20 px-3.5 py-3 ring-1 ring-amber-200/30">
+          <Clock className="mt-0.5 size-4 shrink-0 text-amber-100" />
           <div>
-            <dt className="text-[11px] uppercase tracking-wide text-white/60">Role</dt>
-            <dd className="font-medium text-white">{roleLabel}</dd>
+            <p className="text-[11px] uppercase tracking-wide text-amber-100/80">Expires soon</p>
+            <p className="font-medium text-amber-50">
+              {daysUntilExpiry <= 0
+                ? "Expires today"
+                : `${daysUntilExpiry} ${daysUntilExpiry === 1 ? "day" : "days"} left`}
+            </p>
           </div>
         </div>
-        <div className="flex items-start gap-3 rounded-xl bg-white/10 px-3.5 py-3 backdrop-blur-sm">
-          <Mail className="mt-0.5 size-4 shrink-0 text-[color-mix(in_oklch,var(--teal)_90%,white)]" />
-          <div className="min-w-0">
-            <dt className="text-[11px] uppercase tracking-wide text-white/60">Invited email</dt>
-            <dd className="truncate font-medium text-white">{inviteData.invitedEmail}</dd>
-          </div>
-        </div>
-        <div className="flex items-start gap-3 rounded-xl bg-white/10 px-3.5 py-3 backdrop-blur-sm">
-          <User className="mt-0.5 size-4 shrink-0 text-[color-mix(in_oklch,var(--teal)_90%,white)]" />
-          <div>
-            <dt className="text-[11px] uppercase tracking-wide text-white/60">Invited by</dt>
-            <dd className="font-medium text-white">{inviteData.invitedByName}</dd>
-          </div>
-        </div>
-        {daysUntilExpiry <= 3 && (
-          <div className="flex items-start gap-3 rounded-xl bg-amber-500/20 px-3.5 py-3 ring-1 ring-amber-200/30">
-            <Clock className="mt-0.5 size-4 shrink-0 text-amber-100" />
-            <div>
-              <dt className="text-[11px] uppercase tracking-wide text-amber-100/80">Expires soon</dt>
-              <dd className="font-medium text-amber-50">
-                {daysUntilExpiry <= 0
-                  ? "Expires today"
-                  : `${daysUntilExpiry} ${daysUntilExpiry === 1 ? "day" : "days"} left`}
-              </dd>
-            </div>
-          </div>
-        )}
-      </dl>
-    </aside>
+      ) : null}
+    </AuthBrandPanel>
   );
 }
 
@@ -317,18 +235,18 @@ function InviteRegistrationForm() {
 
   if (validating || (inviteData?.isExistingUser && authLoading)) {
     return (
-      <InviteShell>
+      <AuthShell>
         <div className="py-10 text-center">
           <Loader2 className="mx-auto mb-4 size-10 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Validating your invite...</p>
         </div>
-      </InviteShell>
+      </AuthShell>
     );
   }
 
   if (inviteError || !inviteData) {
     return (
-      <InviteShell>
+      <AuthShell>
         <div className="space-y-5">
           <div className="flex items-center gap-2 text-destructive">
             <AlertCircle className="size-5" />
@@ -352,7 +270,7 @@ function InviteRegistrationForm() {
             </Link>
           </div>
         </div>
-      </InviteShell>
+      </AuthShell>
     );
   }
 
@@ -373,7 +291,7 @@ function InviteRegistrationForm() {
     const returnTo = encodeURIComponent(`/register/invite?token=${inviteToken}`);
 
     return (
-      <InviteShell panel={panel}>
+      <AuthShell panel={panel}>
         <div className="space-y-6">
           <div className="space-y-1.5">
             <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Accept your invite</h2>
@@ -445,12 +363,12 @@ function InviteRegistrationForm() {
             </Link>
           </p>
         </div>
-      </InviteShell>
+      </AuthShell>
     );
   }
 
   return (
-    <InviteShell panel={panel}>
+    <AuthShell panel={panel}>
       <div className="space-y-6">
         <div className="space-y-1.5">
           <div className="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground lg:hidden">
@@ -591,7 +509,7 @@ function InviteRegistrationForm() {
           </p>
         </form>
       </div>
-    </InviteShell>
+    </AuthShell>
   );
 }
 
@@ -599,12 +517,12 @@ export default function InviteRegistrationPage() {
   return (
     <Suspense
       fallback={
-        <InviteShell>
+        <AuthShell>
           <div className="py-10 text-center">
             <Loader2 className="mx-auto mb-4 size-10 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Loading...</p>
           </div>
-        </InviteShell>
+        </AuthShell>
       }
     >
       <InviteRegistrationForm />

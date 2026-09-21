@@ -62,7 +62,7 @@ const roles = [
   },
   {
     id: "admin",
-    label: "Development Partner Admin",
+    label: "Dev Partner Admin",
     gate: "+ admin (partner-scoped)",
     sub: "Partner governance",
     tier: "default" as const,

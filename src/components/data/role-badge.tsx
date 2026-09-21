@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
+import { DP } from "@/lib/constants/development-partner-labels";
 
 // Map backend roles to frontend roles for display
 type BackendRole = 'viewer' | 'contributor' | 'data_manager' | 'admin';
@@ -10,7 +11,7 @@ const CONFIG: Record<UserRole | BackendRole, { label: string; className: string 
   viewer:      { label: "Viewer",           className: "bg-secondary text-secondary-foreground" },
   contributor: { label: "Contributor",      className: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300" },
   data_manager:{ label: "Data Manager",     className: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300" },
-  admin:       { label: "Development Partner Admin", className: "bg-info-100 text-info-800 dark:bg-info-950 dark:text-info-300" },
+  admin:       { label: DP.adminShort,      className: "bg-info-100 text-info-800 dark:bg-info-950 dark:text-info-300" },
   staff:       { label: "Agency Staff",     className: "bg-primary/10 text-primary" },
   super_admin: { label: "Super Admin",      className: "bg-primary/10 text-primary" },
 };

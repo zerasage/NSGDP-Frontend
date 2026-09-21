@@ -148,7 +148,7 @@ export function InviteModal({ open, onClose, developmentPartnerId }: InviteModal
                 </SelectItem>
                 <SelectItem value="admin">
                   <div>
-                    <div className="font-medium">Development Partner Admin</div>
+                    <div className="font-medium">Dev Partner Admin</div>
                     <div className="text-xs text-muted-foreground">
                       Can manage team and approve datasets
                     </div>

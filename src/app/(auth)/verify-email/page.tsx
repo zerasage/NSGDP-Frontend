@@ -4,15 +4,13 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Loader2, AlertCircle } from "lucide-react";
-import { Container } from "@/components/layout/container";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AuthShell, AuthBrandPanel } from "@/components/layout/auth-shell";
 import { verifyEmail, resendVerification } from "@/lib/api";
 import { storeTokens } from "@/lib/utils";
 import { toast } from "sonner";
 
-// Force dynamic rendering
 export const dynamic = "force-dynamic";
 
 function VerifyEmailContent() {
@@ -41,13 +39,13 @@ function VerifyEmailContent() {
         }
 
         toast.success("Email verified! Welcome to the portal.");
-
-        // Force a full reload so auth context picks up the new tokens
         window.location.href = "/dashboard";
       } catch (error) {
         const err = error as { response?: { data?: { message?: string } }; message?: string };
         const errorMessage =
-          err?.response?.data?.message || err?.message || "This verification link is invalid or has expired.";
+          err?.response?.data?.message ||
+          err?.message ||
+          "This verification link is invalid or has expired.";
         setVerifyError(errorMessage);
         setVerifying(false);
       }
@@ -81,29 +79,45 @@ function VerifyEmailContent() {
     }
   };
 
-  // Actively verifying a token from the emailed link
   if (verifying) {
     return (
-      <Card className="max-w-lg mx-auto">
-        <CardContent className="pt-12 pb-12 text-center">
-          <Loader2 className="size-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Verifying your email...</p>
-        </CardContent>
-      </Card>
+      <AuthShell
+        size="lg"
+        panel={
+          <AuthBrandPanel
+            eyebrow="Email verification"
+            title="Confirming your address"
+            description="Hang tight — we're validating the link from your email."
+          />
+        }
+      >
+        <div className="py-8 text-center">
+          <Loader2 className="mx-auto mb-4 size-10 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Verifying your email...</p>
+        </div>
+      </AuthShell>
     );
   }
 
-  // Token was present but verification failed (expired/invalid)
   if (verifyError) {
     return (
-      <Card className="max-w-lg mx-auto">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-destructive/10">
-            <AlertCircle className="size-8 text-destructive" />
+      <AuthShell
+        size="lg"
+        panel={
+          <AuthBrandPanel
+            eyebrow="Email verification"
+            title="We couldn't verify that link"
+            description="It may have expired. Request a fresh verification email and try again."
+          />
+        }
+      >
+        <div className="space-y-5">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-destructive/10 sm:mx-0">
+            <AlertCircle className="size-7 text-destructive" />
           </div>
-          <CardTitle className="text-2xl">Verification Failed</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Verification failed</h2>
+          </div>
           <Alert variant="destructive">
             <AlertDescription>{verifyError}</AlertDescription>
           </Alert>
@@ -119,83 +133,85 @@ function VerifyEmailContent() {
               Go to Login
             </Button>
           </Link>
-        </CardContent>
-      </Card>
+        </div>
+      </AuthShell>
     );
   }
 
-  // Default: waiting for the user to check their inbox
   return (
-    <Card className="max-w-lg mx-auto">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
-          <Mail className="size-8 text-blue-600 dark:text-blue-400" />
+    <AuthShell
+      size="lg"
+      panel={
+        <AuthBrandPanel
+          eyebrow="Email verification"
+          title="Almost there"
+          description="Open the message we sent and tap the verification link to activate your account."
+        />
+      }
+    >
+      <div className="space-y-5">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-info/15 sm:mx-0">
+          <Mail className="size-7 text-info" />
         </div>
-        <CardTitle className="text-2xl">Check Your Email</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="text-center space-y-4">
-          <p className="text-muted-foreground">
+        <div className="space-y-1.5 text-center sm:text-left">
+          <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Check your email</h2>
+          <p className="text-sm text-muted-foreground">
             We&apos;ve sent a verification link to{" "}
-            {email ? <strong>{email}</strong> : "your email address"}. Click the link to
-            verify your account and log in.
+            {email ? <strong>{email}</strong> : "your email address"}. Click the link to verify
+            your account and log in.
           </p>
+        </div>
 
-          <div className="rounded-lg bg-muted p-4 text-sm">
-            <p className="font-medium mb-2">Didn&apos;t receive the email?</p>
-            <ul className="text-muted-foreground space-y-1 text-left">
-              <li>• Check your spam or junk folder</li>
-              <li>• Make sure you entered the correct email address</li>
-              <li>• Wait a few minutes for the email to arrive</li>
-            </ul>
-          </div>
+        <div className="rounded-xl bg-muted/40 px-4 py-3 text-sm">
+          <p className="mb-2 font-medium">Didn&apos;t receive the email?</p>
+          <ul className="space-y-1 text-left text-muted-foreground">
+            <li>• Check your spam or junk folder</li>
+            <li>• Make sure you entered the correct email address</li>
+            <li>• Wait a few minutes for the email to arrive</li>
+          </ul>
+        </div>
 
-          <Button
-            onClick={handleResend}
-            variant="outline"
-            disabled={!email || resending || resendCooldown > 0}
-            className="w-full"
-          >
-            {resendCooldown > 0
-              ? `Resend in ${resendCooldown}s`
-              : resending
+        <Button
+          onClick={handleResend}
+          variant="outline"
+          disabled={!email || resending || resendCooldown > 0}
+          className="w-full"
+        >
+          {resendCooldown > 0
+            ? `Resend in ${resendCooldown}s`
+            : resending
               ? "Sending..."
               : "Resend Verification Email"}
-          </Button>
+        </Button>
 
-          <div className="pt-4 border-t">
-            <p className="text-sm text-muted-foreground mb-2">
-              After verifying your email, you&apos;ll be logged in automatically
-            </p>
-            <Link href="/login">
-              <Button variant="secondary" className="w-full">
-                Go to Login
-              </Button>
-            </Link>
-          </div>
+        <div className="space-y-2 border-t pt-4">
+          <p className="text-center text-sm text-muted-foreground sm:text-left">
+            After verifying your email, you&apos;ll be logged in automatically.
+          </p>
+          <Link href="/login">
+            <Button variant="secondary" className="w-full">
+              Go to Login
+            </Button>
+          </Link>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </AuthShell>
   );
 }
 
 export default function VerifyEmailPage() {
   return (
-    <main className="flex-1 bg-muted/40">
-      <Container className="py-12">
-        <Suspense
-          fallback={
-            <Card className="max-w-lg mx-auto">
-              <CardContent className="pt-12 pb-12 text-center">
-                <Loader2 className="size-12 animate-spin text-primary mx-auto mb-4" />
-                <p className="text-muted-foreground">Loading...</p>
-              </CardContent>
-            </Card>
-          }
-        >
-          <VerifyEmailContent />
-        </Suspense>
-      </Container>
-    </main>
+    <Suspense
+      fallback={
+        <AuthShell size="sm">
+          <div className="py-10 text-center">
+            <Loader2 className="mx-auto mb-4 size-10 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          </div>
+        </AuthShell>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

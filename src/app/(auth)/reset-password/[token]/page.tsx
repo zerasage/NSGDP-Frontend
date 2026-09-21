@@ -4,13 +4,12 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, XCircle } from "lucide-react";
-import { Container } from "@/components/layout/container";
+import { Eye, EyeOff, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PasswordStrengthMeter } from "@/components/forms/password-strength-meter";
 import { FormError } from "@/components/forms/form-error";
+import { AuthShell, AuthBrandPanel } from "@/components/layout/auth-shell";
 import { resetPasswordSchema } from "@/lib/schemas/auth";
 import { resetPassword } from "@/lib/api";
 import { toast } from "sonner";
@@ -48,7 +47,7 @@ function ResetPasswordContent() {
     }
 
     setLoading(true);
-    
+
     try {
       await resetPassword({
         token,
@@ -58,7 +57,8 @@ function ResetPasswordContent() {
       toast.success("Password reset successful! You can now log in with your new password.");
       router.push("/login");
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to reset password. Please try again.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to reset password. Please try again.";
       if (errorMessage.includes("expired") || errorMessage.includes("invalid")) {
         toast.error("Reset link has expired or is invalid. Please request a new one.");
         router.push("/forgot-password");
@@ -72,103 +72,125 @@ function ResetPasswordContent() {
 
   if (tokenExpired) {
     return (
-      <main className="flex-1 bg-muted/40">
-        <Container className="py-12">
-          <Card className="max-w-md mx-auto">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-destructive/10">
-                <XCircle className="size-8 text-destructive" />
-              </div>
-              <CardTitle className="text-2xl">Link Expired</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-center">
-              <p className="text-muted-foreground">
-                This password reset link has expired or is no longer valid. Please request a
-                new one.
-              </p>
-              <Button onClick={() => router.push("/forgot-password")} className="w-full">
-                Request New Link
-              </Button>
-            </CardContent>
-          </Card>
-        </Container>
-      </main>
+      <AuthShell
+        size="lg"
+        panel={
+          <AuthBrandPanel
+            eyebrow="Password reset"
+            title="This link has expired"
+            description="Request a fresh reset email and choose a new password from there."
+          />
+        }
+      >
+        <div className="space-y-5 text-center sm:text-left">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-destructive/10 sm:mx-0">
+            <XCircle className="size-7 text-destructive" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Link expired</h2>
+            <p className="text-sm text-muted-foreground">
+              This password reset link has expired or is no longer valid. Please request a new
+              one.
+            </p>
+          </div>
+          <Button onClick={() => router.push("/forgot-password")} className="w-full">
+            Request New Link
+          </Button>
+        </div>
+      </AuthShell>
     );
   }
 
   return (
-    <main className="flex-1 bg-muted/40">
-      <Container className="py-12">
-        <Card className="max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle className="text-2xl">Reset Your Password</CardTitle>
-            <CardDescription>
-              Enter your new password below. Make sure it&apos;s strong and secure.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-1.5">
-                  New Password
-                </label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a strong password"
-                    {...register("password")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-                <PasswordStrengthMeter password={password} />
-                <FormError message={errors.password?.message} />
-              </div>
+    <AuthShell
+      size="lg"
+      panel={
+        <AuthBrandPanel
+          eyebrow="Password reset"
+          title="Choose a new password"
+          description="Pick something strong and unique. You'll use it the next time you sign in."
+        />
+      }
+    >
+      <div className="space-y-5">
+        <div className="space-y-1.5">
+          <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Reset your password</h2>
+          <p className="text-sm text-muted-foreground">
+            Enter your new password below. Make sure it&apos;s strong and secure.
+          </p>
+        </div>
 
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1.5">
-                  Confirm New Password
-                </label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Re-enter your new password"
-                    {...register("confirmPassword")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                  >
-                    {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-                <FormError message={errors.confirmPassword?.message} />
-              </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <div>
+            <label htmlFor="password" className="mb-1.5 block text-sm font-medium">
+              New Password
+            </label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Create a strong password"
+                autoComplete="new-password"
+                {...register("password")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            <PasswordStrengthMeter password={password} />
+            <FormError message={errors.password?.message} />
+          </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Resetting Password..." : "Reset Password"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </Container>
-    </main>
+          <div>
+            <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium">
+              Confirm New Password
+            </label>
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Re-enter your new password"
+                autoComplete="new-password"
+                {...register("confirmPassword")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            <FormError message={errors.confirmPassword?.message} />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Resetting Password..." : "Reset Password"}
+          </Button>
+        </form>
+      </div>
+    </AuthShell>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense>
+    <Suspense
+      fallback={
+        <AuthShell size="sm">
+          <div className="py-10 text-center">
+            <Loader2 className="mx-auto mb-4 size-10 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          </div>
+        </AuthShell>
+      }
+    >
       <ResetPasswordContent />
     </Suspense>
   );

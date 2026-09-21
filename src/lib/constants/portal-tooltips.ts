@@ -8,7 +8,7 @@ export const PORTAL_DASHBOARD_PENDING_TIP =
   "Datasets submitted for review. Admins approve catalogue quality before they appear on the public data portal.";
 
 export const PORTAL_DASHBOARD_TEAM_TIP =
-  "Development Partner members with portal access. Development Partner Admins can invite colleagues and review access requests here.";
+  "Development Partner members with portal access. Dev Partner Admins can invite colleagues and review access requests here.";
 
 export const PORTAL_DASHBOARD_NOTIFICATIONS_TIP =
   "Updates about dataset reviews, team invites, and account activity.";
@@ -32,10 +32,10 @@ export const PORTAL_DATASETS_PENDING_METRIC_TIP =
   "Counts datasets awaiting admin review (pending or under review). Click to filter the list.";
 
 export const PORTAL_DATASET_DETAIL_PAGE_TIP =
-  "Full metadata and files for one development partner dataset. Actions depend on your role and the dataset status — contributors can only edit their own drafts unless you are a Development Partner Admin.";
+  "Full metadata and files for one development partner dataset. Actions depend on your role and the dataset status — contributors can only edit their own drafts unless you are a Dev Partner Admin.";
 
 export const PORTAL_DATASET_SUBMIT_TIP =
-  "Send a draft or rejected dataset to NSGDP admins for review. You cannot edit an approved dataset as a contributor; Development Partner Admins can edit and trigger re-review.";
+  "Send a draft or rejected dataset to NSGDP admins for review. You cannot edit an approved dataset as a contributor; Dev Partner Admins can edit and trigger re-review.";
 
 export const PORTAL_DATASET_PREVIEW_TIP =
   "Sample rows or spatial summary from the uploaded file. Large files may show a partial preview only.";
@@ -71,7 +71,7 @@ export const PORTAL_DOCUMENT_INFO_TIP =
   "Workflow timestamps and publication status. Published documents appear in the public document library.";
 
 export const PORTAL_PROGRAMS_PAGE_TIP =
-  "Programmes your development partner owns or contributes to. Development Partner Admins create programmes; contributors with upload access can attach reports and update progress.";
+  "Programmes your development partner owns or contributes to. Dev Partner Admins create programmes; contributors with upload access can attach reports and update progress.";
 
 export const PORTAL_PROGRAMS_STATUS_TIP =
   "Active — currently running. Completed — finished. Suspended — paused by admins. Archived — removed from active lists but retained for records.";
@@ -83,7 +83,7 @@ export const PORTAL_PROGRAM_CREATE_TIP =
   "Register a new health programme for your development partner. Set target LGAs and a progress tracking mode — you can update rollout and upload reports after creation.";
 
 export const PORTAL_PROGRAM_DETAIL_PAGE_TIP =
-  "Progress, target LGAs, objectives, and uploaded reports for one programme. Development Partner Admins manage settings; contributors can update progress and upload reports when granted access.";
+  "Progress, target LGAs, objectives, and uploaded reports for one programme. Dev Partner Admins manage settings; contributors can update progress and upload reports when granted access.";
 
 export const PORTAL_PROGRAM_PROGRESS_TIP =
   "Progress is calculated from LGA coverage, outcome counts, or both — depending on the programme tracking mode set at creation.";
@@ -98,7 +98,7 @@ export const PORTAL_PROGRAM_LGA_TIP =
   "Target local government areas for this programme. Highlighted badges show LGAs already marked as covered.";
 
 export const PORTAL_ORG_PAGE_TIP =
-  "Your development partner profile, team roster, and admin workflows. Development Partner Admins can edit the profile, invite members, and approve access to restricted datasets.";
+  "Your development partner profile, team roster, and admin workflows. Dev Partner Admins can edit the profile, invite members, and approve access to restricted datasets.";
 
 export const PORTAL_ORG_TEAM_TIP =
   "Everyone with portal access under this development partner. Admins can promote contributors or remove members — contributors can view the roster only.";

@@ -174,7 +174,7 @@ export default function DashboardPage() {
             <>
               <HeroMetricCard
                 className="sm:col-span-2 xl:row-span-2"
-                label="Development Partner datasets"
+                label="Dev Partner datasets"
                 description="All datasets owned by your development partner"
                 value={summary?.myDatasetsCount ?? 0}
                 icon={Database}

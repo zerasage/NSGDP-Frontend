@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2, MapPin, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,16 +17,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PasswordStrengthMeter } from "@/components/forms/password-strength-meter";
 import { FormError } from "@/components/forms/form-error";
-import { GeoHealthLogo } from "@/components/layout/geohealth-logo";
+import { AuthShell, AuthBrandPanel, AuthBrandMeta } from "@/components/layout/auth-shell";
 import { registerSchema, type RegisterFormData } from "@/lib/schemas/auth";
 import { register as registerUser } from "@/lib/api";
 import { storeTokens } from "@/lib/utils";
 import { NIGER_STATE_LGAS } from "@/lib/constants";
 import { getWardGisSummary } from "@/lib/api/gis";
 import { useQuery } from "@tanstack/react-query";
+import { BRAND } from "@/lib/constants/brand";
 import { toast } from "sonner";
 
 function RegisterForm() {
@@ -34,7 +34,6 @@ function RegisterForm() {
   const searchParams = useSearchParams();
   const inviteToken = searchParams.get("invite");
 
-  // All hooks must be at the top, before any conditional returns
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -63,23 +62,20 @@ function RegisterForm() {
     new Set((wardSummary?.features ?? []).map((f) => f.properties.ward))
   ).sort();
 
-  // Redirect to invite page if token is present
   useEffect(() => {
     if (inviteToken) {
       router.replace(`/register/invite?token=${inviteToken}`);
     }
   }, [inviteToken, router]);
 
-  // Don't render form if redirecting
   if (inviteToken) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-12 pb-12 text-center">
-            <p className="text-muted-foreground">Redirecting to invite page...</p>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthShell size="sm">
+        <div className="py-10 text-center">
+          <Loader2 className="mx-auto mb-4 size-10 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Redirecting to invite page...</p>
+        </div>
+      </AuthShell>
     );
   }
 
@@ -87,8 +83,6 @@ function RegisterForm() {
     setLoading(true);
 
     try {
-      // Self-registration always gets the Registered User role — Data
-      // Contributors and Org Admins can only be added via org invite.
       const response = await registerUser({
         fullName: data.fullName,
         email: data.email,
@@ -100,14 +94,12 @@ function RegisterForm() {
         reason: data.reason,
       });
 
-      // Tokens are null until the user verifies their email
       if (!response.tokens) {
         toast.success("Registration successful! Check your email to verify your account.");
         router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
         return;
       }
 
-      // Auto-login for public users
       storeTokens(
         response.tokens.accessToken,
         response.tokens.refreshToken,
@@ -117,7 +109,8 @@ function RegisterForm() {
       toast.success("Registration successful! Welcome to the portal.");
       router.push("/dashboard");
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Registration failed. Please try again.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Registration failed. Please try again.";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -125,228 +118,248 @@ function RegisterForm() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-lg space-y-6">
-        <div className="flex justify-center">
-          <GeoHealthLogo />
+    <AuthShell
+      size="lg"
+      panel={
+        <AuthBrandPanel
+          eyebrow="Create account"
+          title="Join the Niger State health data community"
+          description={`Register for ${BRAND.portalName} to browse, download, and request access to published datasets.`}
+        >
+          <AuthBrandMeta
+            icon={<UserPlus className="size-4" />}
+            label="Public registration"
+            value="Browse & download open datasets"
+          />
+          <AuthBrandMeta
+            icon={<MapPin className="size-4" />}
+            label="Local context"
+            value="Optional LGA and ward for better relevance"
+          />
+        </AuthBrandPanel>
+      }
+    >
+      <div className="space-y-5">
+        <div className="space-y-1.5">
+          <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Create an account</h2>
+          <p className="text-sm text-muted-foreground">
+            Register to access and download datasets from the portal.
+          </p>
         </div>
 
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Create an Account</CardTitle>
-            <CardDescription>
-              Register to access and download datasets from the Niger State Open Data Portal
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium mb-1.5">
-                  Full Name <span className="text-destructive">*</span>
-                </label>
-                <Input id="fullName" placeholder="Enter your full name" {...register("fullName")} />
-                <FormError message={errors.fullName?.message} />
-              </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <div>
+            <label htmlFor="fullName" className="mb-1.5 block text-sm font-medium">
+              Full Name <span className="text-destructive">*</span>
+            </label>
+            <Input id="fullName" placeholder="Enter your full name" {...register("fullName")} />
+            <FormError message={errors.fullName?.message} />
+          </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium mb-1.5">
-                    Email Address <span className="text-destructive">*</span>
-                  </label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your.email@example.com"
-                    {...register("email")}
-                  />
-                  <FormError message={errors.email?.message} />
-                </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
+                Email Address <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="your.email@example.com"
+                autoComplete="email"
+                {...register("email")}
+              />
+              <FormError message={errors.email?.message} />
+            </div>
 
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium mb-1.5">
-                    Phone Number (Optional)
-                  </label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+234 XXX XXX XXXX"
-                    {...register("phone")}
-                  />
-                  <FormError message={errors.phone?.message} />
-                </div>
-              </div>
+            <div>
+              <label htmlFor="phone" className="mb-1.5 block text-sm font-medium">
+                Phone Number (Optional)
+              </label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+234 XXX XXX XXXX"
+                {...register("phone")}
+              />
+              <FormError message={errors.phone?.message} />
+            </div>
+          </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="lga" className="block text-sm font-medium mb-1.5">
-                    LGA (Optional)
-                  </label>
-                  <Controller
-                    name="lga"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value ?? ""}
-                        onValueChange={(v) => field.onChange(v ?? "")}
-                      >
-                        <SelectTrigger id="lga">
-                          <SelectValue placeholder="Select your LGA" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {NIGER_STATE_LGAS.map((lga) => (
-                            <SelectItem key={lga} value={lga}>
-                              {lga}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="lga" className="mb-1.5 block text-sm font-medium">
+                LGA (Optional)
+              </label>
+              <Controller
+                name="lga"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={(v) => field.onChange(v ?? "")}
+                  >
+                    <SelectTrigger id="lga">
+                      <SelectValue placeholder="Select your LGA" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NIGER_STATE_LGAS.map((lga) => (
+                        <SelectItem key={lga} value={lga}>
+                          {lga}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
 
-                <div>
-                  <label htmlFor="ward" className="block text-sm font-medium mb-1.5">
-                    Ward (Optional)
-                  </label>
-                  <Controller
-                    name="ward"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value ?? ""}
-                        onValueChange={(v) => field.onChange(v ?? "")}
-                        disabled={!selectedLga || wardOptions.length === 0}
-                      >
-                        <SelectTrigger id="ward">
-                          <SelectValue
-                            placeholder={selectedLga ? "Select your ward" : "Select an LGA first"}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {wardOptions.map((ward) => (
-                            <SelectItem key={ward} value={ward}>
-                              {ward}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
-              </div>
+            <div>
+              <label htmlFor="ward" className="mb-1.5 block text-sm font-medium">
+                Ward (Optional)
+              </label>
+              <Controller
+                name="ward"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={(v) => field.onChange(v ?? "")}
+                    disabled={!selectedLga || wardOptions.length === 0}
+                  >
+                    <SelectTrigger id="ward">
+                      <SelectValue
+                        placeholder={selectedLga ? "Select your ward" : "Select an LGA first"}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {wardOptions.map((ward) => (
+                        <SelectItem key={ward} value={ward}>
+                          {ward}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium mb-1.5">
-                    Password <span className="text-destructive">*</span>
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Create a strong password"
-                      {...register("password")}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
-                  </div>
-                  <FormError message={errors.password?.message} />
-                </div>
-
-                <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1.5">
-                    Confirm Password <span className="text-destructive">*</span>
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      placeholder="Re-enter your password"
-                      {...register("confirmPassword")}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                    >
-                      {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
-                  </div>
-                  <FormError message={errors.confirmPassword?.message} />
-                </div>
-              </div>
-              <PasswordStrengthMeter password={password} />
-
-              <div>
-                <label htmlFor="reason" className="block text-sm font-medium mb-1.5">
-                  Reason for Registering (Optional)
-                </label>
-                <Textarea
-                  id="reason"
-                  rows={2}
-                  maxLength={500}
-                  placeholder="Tell us how you plan to use the portal..."
-                  {...register("reason")}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium">
+                Password <span className="text-destructive">*</span>
+              </label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Create a strong password"
+                  autoComplete="new-password"
+                  {...register("password")}
                 />
-                <FormError message={errors.reason?.message} />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
               </div>
+              <FormError message={errors.password?.message} />
+            </div>
 
-              <div className="flex items-start gap-2">
-                <Controller
-                  name="terms"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      id="terms"
-                      checked={field.value === true}
-                      onCheckedChange={(checked) => field.onChange(checked === true)}
-                    />
-                  )}
+            <div>
+              <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium">
+                Confirm Password <span className="text-destructive">*</span>
+              </label>
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Re-enter your password"
+                  autoComplete="new-password"
+                  {...register("confirmPassword")}
                 />
-                <label htmlFor="terms" className="text-sm leading-relaxed">
-                  I agree to the{" "}
-                  <Link href="/terms" className="text-primary hover:underline">
-                    Terms of Use
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="/privacy" className="text-primary hover:underline">
-                    Privacy Policy
-                  </Link>
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
               </div>
-              <FormError message={errors.terms?.message} />
+              <FormError message={errors.confirmPassword?.message} />
+            </div>
+          </div>
+          <PasswordStrengthMeter password={password} />
 
-              <Button type="submit" className="w-full" disabled={loading || !isValid}>
-                {loading ? "Creating Account..." : "Create Account"}
-              </Button>
+          <div>
+            <label htmlFor="reason" className="mb-1.5 block text-sm font-medium">
+              Reason for Registering (Optional)
+            </label>
+            <Textarea
+              id="reason"
+              rows={2}
+              maxLength={500}
+              placeholder="Tell us how you plan to use the portal..."
+              className="resize-none"
+              {...register("reason")}
+            />
+            <FormError message={errors.reason?.message} />
+          </div>
 
-              <p className="text-center text-sm text-muted-foreground">
-                Already have an account?{" "}
-                <Link href="/login" className="text-primary hover:underline font-medium">
-                  Log In
-                </Link>
-              </p>
+          <div className="flex items-start gap-2">
+            <Controller
+              name="terms"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="terms"
+                  checked={field.value === true}
+                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                />
+              )}
+            />
+            <label htmlFor="terms" className="text-sm leading-relaxed">
+              I agree to the{" "}
+              <Link href="/terms" className="text-primary hover:underline">
+                Terms of Use
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-primary hover:underline">
+                Privacy Policy
+              </Link>
+            </label>
+          </div>
+          <FormError message={errors.terms?.message} />
 
-              <p className="text-center text-xs text-muted-foreground">
-                Need to contribute data on behalf of a development partner? Contributor and admin
-                accounts are set up by invitation — contact{" "}
-                <a href="mailto:admin@nigerstate-geohealth.ng" className="text-primary hover:underline">
-                  admin@nigerstate-geohealth.ng
-                </a>
-                .
-              </p>
-            </form>
-          </CardContent>
-        </Card>
+          <Button type="submit" className="w-full" disabled={loading || !isValid}>
+            {loading ? "Creating Account..." : "Create Account"}
+          </Button>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/login" className="font-medium text-primary hover:underline">
+              Log In
+            </Link>
+          </p>
+
+          <p className="text-center text-xs text-muted-foreground">
+            Need to contribute data on behalf of a development partner? Contributor and admin
+            accounts are set up by invitation — contact{" "}
+            <a
+              href="mailto:admin@nigerstate-geohealth.ng"
+              className="text-primary hover:underline"
+            >
+              admin@nigerstate-geohealth.ng
+            </a>
+            .
+          </p>
+        </form>
       </div>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -354,7 +367,16 @@ export const dynamic = "force-dynamic";
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense
+      fallback={
+        <AuthShell size="sm">
+          <div className="py-10 text-center">
+            <Loader2 className="mx-auto mb-4 size-10 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          </div>
+        </AuthShell>
+      }
+    >
       <RegisterForm />
     </Suspense>
   );
