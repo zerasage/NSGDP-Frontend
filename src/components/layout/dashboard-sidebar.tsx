@@ -14,6 +14,7 @@ import {
   Upload,
   ClipboardList,
   FileText,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ interface NavLink {
 
 const NAV_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, section: "main" },
+  { href: "/dashboard/learning", label: "Learning hub", icon: GraduationCap, section: "main" },
   {
     href: "/datasets",
     label: "Datasets",

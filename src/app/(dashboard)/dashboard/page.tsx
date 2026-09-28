@@ -16,7 +16,9 @@ import {
   Building2,
   ClipboardList,
   FileText,
+  GraduationCap,
 } from "lucide-react";
+import { GettingStartedCard } from "@/components/learning/getting-started-card";
 import { StatusBadge } from "@/components/data/status-badge";
 import { DatasetActivityPanel } from "@/components/data/dataset-activity-panel";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -124,6 +126,7 @@ export default function DashboardPage() {
                 ) : null}
                 <QuickActionChip href="/dashboard/documents" icon={FileText} label="Documents" />
                 <QuickActionChip href="/development-partner" icon={Users} label="Team" />
+                <QuickActionChip href="/dashboard/learning" icon={GraduationCap} label="Learn" />
               </>
             ) : (
               <QuickActionChip href="/dataportal" icon={Search} label="Explore datasets" primary />
@@ -395,6 +398,14 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-4 lg:space-y-6">
+            {isMember && !summaryLoading ? (
+              <GettingStartedCard
+                hasUploaded={(summary?.myContributedDatasetsCount ?? 0) > 0}
+                teamSize={summary?.teamMembersCount ?? 0}
+                isAdmin={isAdmin}
+              />
+            ) : null}
+
             <DashboardPanel
               title="Notifications"
               titleTip={PORTAL_DASHBOARD_NOTIFICATIONS_TIP}

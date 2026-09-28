@@ -36,8 +36,7 @@ const NAV_LINKS = [
   { href: "/about", label: "About" },
   { href: "/analytics", label: "Analytics Dashboard" },
   { href: "/programs", label: "Programs" },
-  // Deferred to a later version — page kept at /learning
-  // { href: "/learning", label: "Tools & Learning" },
+  { href: "/learning", label: "Learning" },
 ];
 
 const DATA_PORTAL_LINKS = [

@@ -45,9 +45,7 @@ export function Footer() {
               <li><Link href="/facilities" className="hover:text-white">Facility Finder</Link></li>
               <li><Link href="/settlements" className="hover:text-white">Settlement Access Map</Link></li>
               <li><Link href="/programs" className="hover:text-white">Programs</Link></li>
-              {/* Deferred to a later version — page kept at /learning
-              <li><Link href="/learning" className="hover:text-white">Tools & Learning</Link></li>
-              */}
+              <li><Link href="/learning" className="hover:text-white">Learning Hub</Link></li>
               <li><Link href="/documents" className="hover:text-white">Document Library</Link></li>
               <li><Link href="/partner-data" className="hover:text-white">Contribute Data</Link></li>
             </ul>

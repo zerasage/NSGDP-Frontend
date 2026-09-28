@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Upload, FileText, MapPin, Scale, Settings, X, Search, Loader2, ArrowLeft } from "lucide-react";
+import { Upload, FileText, MapPin, Scale, Settings, X, Search, Loader2, ArrowLeft, GraduationCap } from "lucide-react";
 import { useAuth, isOrgMember } from "@/lib/auth";
 import { Stepper } from "@/components/forms/stepper";
 import { FileUploadArea, type UploadedFile } from "@/components/forms/file-upload-area";
@@ -365,6 +365,18 @@ export default function UploadDatasetPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Share data with the Niger State community
                 {user?.organisationName ? ` · ${user.organisationName}` : ""}.
+              </p>
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+                <GraduationCap className="size-3.5 text-muted-foreground" aria-hidden />
+                <Link href="/dashboard/learning/upload-your-first-dataset" className="text-primary hover:underline">
+                  Upload guide
+                </Link>
+                <Link href="/dashboard/learning/metadata-field-guide" className="text-primary hover:underline">
+                  Field-by-field help
+                </Link>
+                <Link href="/dashboard/learning?tab=self-check" className="text-primary hover:underline">
+                  Pre-submission checklist
+                </Link>
               </p>
             </div>
             <label className="flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-3 text-xs text-muted-foreground sm:h-10">
