@@ -18,11 +18,9 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/dashboard/portal-dashboard-ui";
-import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { GUIDES } from "@/lib/learning/guides";
 import {
-  defaultAudienceForRole,
   formatMinutes,
   guideMatchesAudience,
   learningHref,
@@ -176,13 +174,12 @@ function LearningHubInner({ variant }: { variant: LearningVariant }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
   const progress = useLearningProgress();
 
   const [audienceOverride, setAudienceOverride] = useState<AudienceFilter | null>(null);
   const [query, setQuery] = useState("");
 
-  const audience = audienceOverride ?? defaultAudienceForRole(user?.role);
+  const audience = audienceOverride ?? "viewer";
   const tabParam = searchParams.get("tab");
   const tab: TabId = isTabId(tabParam) ? tabParam : "guides";
 
