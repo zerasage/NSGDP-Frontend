@@ -16,6 +16,7 @@ import {
   DashboardPageContent,
 } from "@/components/layout/dashboard-page-header";
 import { DashboardPanel, FilterChip } from "@/components/dashboard/portal-dashboard-ui";
+import { MfaSettingsPanel } from "@/components/profile/mfa-settings-panel";
 import { useAuth } from "@/lib/auth";
 import { updateProfile, changePassword } from "@/lib/api/users";
 import { profileSchema, changePasswordSchema } from "@/lib/schemas/auth";
@@ -96,26 +97,15 @@ export default function ProfilePage() {
 
             <DashboardPanel
               title="Two-factor authentication"
-              description="Extra sign-in protection for your account."
+              description="Off by default — turn it on whenever you want the extra protection."
               icon={Lock}
               tone="muted"
-              className="hidden"
             >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-medium">2FA status</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {user.role === "admin"
-                      ? "Enabled (required for your role)"
-                      : "Not enabled"}
-                  </p>
-                </div>
-                {user.role !== "admin" ? (
-                  <Button variant="outline" className="h-11 shrink-0 sm:h-10" disabled>
-                    Enable 2FA
-                  </Button>
-                ) : null}
-              </div>
+              <MfaSettingsPanel
+                initialEnabled={user.mfaEnabled}
+                initialMethod={user.mfaMethod ?? null}
+                hasPhoneNumber={!!user.phoneNumber}
+              />
             </DashboardPanel>
           </div>
         ) : null}

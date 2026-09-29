@@ -25,6 +25,7 @@ export interface UserProfile {
   avatarUrl?: string;
   emailVerified: boolean;
   mfaEnabled: boolean;
+  mfaMethod?: MfaMethod | null;
   createdAt: string;
   /** Delegated user permission-group actions (staff). */
   permissions?: string[];
@@ -32,9 +33,13 @@ export interface UserProfile {
   organisationCapabilities?: string[];
 }
 
+export type MfaMethod = 'totp' | 'sms' | 'email';
+
 export interface AuthResponse {
-  tokens: AuthTokens | null; // null for pending users
+  tokens: AuthTokens | null; // null for pending users, or when requiresMfa is true
   user: UserProfile;
+  requiresMfa?: boolean;
+  mfaMethod?: MfaMethod | null;
 }
 
 export interface RegisterPayload {
@@ -51,6 +56,7 @@ export interface RegisterPayload {
 export interface LoginPayload {
   email: string;
   password: string;
+  mfaCode?: string;
 }
 
 export interface ForgotPasswordPayload {

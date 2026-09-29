@@ -4,15 +4,20 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useRouter } from "next/navigation";
 import * as authApi from "@/lib/api/auth";
 import * as tokenStorage from "@/lib/utils/token-storage";
-import type { UserProfile } from "@/lib/types/auth";
+import type { UserProfile, MfaMethod } from "@/lib/types/auth";
 import type { LoginFormData, RegisterFormData } from "@/lib/schemas/auth";
 import { toast } from "sonner";
+
+export interface LoginResult {
+  requiresMfa: boolean;
+  mfaMethod?: MfaMethod | null;
+}
 
 interface AuthContextType {
   user: UserProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (data: LoginFormData) => Promise<void>;
+  login: (data: LoginFormData & { mfaCode?: string }) => Promise<LoginResult>;
   register: (data: RegisterFormData) => Promise<{ isPending: boolean }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -94,12 +99,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadUser();
   }, []);
 
-  const login = useCallback(async (data: LoginFormData) => {
+  const login = useCallback(async (data: LoginFormData & { mfaCode?: string }): Promise<LoginResult> => {
     try {
       const response = await authApi.login({
         email: data.email,
         password: data.password,
+        mfaCode: data.mfaCode,
       });
+
+      if (response.requiresMfa) {
+        // Password was correct but a second factor is still needed — no
+        // tokens yet, no user set. The caller (login page) holds the
+        // email/password and re-calls login() with mfaCode once the user
+        // has entered their code.
+        return { requiresMfa: true, mfaMethod: response.mfaMethod };
+      }
 
       if (!response.tokens) {
         throw new Error("Login failed: No tokens received");
@@ -115,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(response.user);
       toast.success("Logged in successfully");
       // Callers own the post-login redirect (login page uses ?returnTo=).
+      return { requiresMfa: false };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Login failed";
       toast.error(errorMessage);

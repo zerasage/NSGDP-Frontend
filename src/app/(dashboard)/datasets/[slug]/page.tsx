@@ -22,6 +22,7 @@ import {
   Loader2,
   Clock3,
   RotateCcw,
+  AlertCircle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { VisibilityBadge } from "@/components/data/visibility-badge";
@@ -378,6 +379,23 @@ export default function MyDatasetDetailPage({ params }: DatasetPageProps) {
                   {group.name}
                 </Badge>
               ))}
+            </div>
+          ) : null}
+
+          {dataset.status === "rejected" && backendDataset?.review_comment ? (
+            <div className="flex items-start gap-3 rounded-xl border border-destructive/25 bg-destructive/[0.06] px-4 py-3">
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+              <div className="min-w-0 text-sm">
+                <p className="font-medium text-destructive">Rejected by a reviewer</p>
+                <p className="mt-0.5 text-muted-foreground">{backendDataset.review_comment}</p>
+                {backendDataset.reviewed_at ? (
+                  <p className="mt-1 text-xs text-muted-foreground/80">
+                    {formatDistanceToNow(new Date(backendDataset.reviewed_at), { addSuffix: true })}
+                    {" · "}
+                    Fix the issue above, then edit and resubmit.
+                  </p>
+                ) : null}
+              </div>
             </div>
           ) : null}
 

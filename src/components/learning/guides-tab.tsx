@@ -1,14 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { FilterChip } from "@/components/dashboard/portal-dashboard-ui";
 import { GUIDE_CATEGORIES, GUIDES } from "@/lib/learning/guides";
 import { guideMatchesAudience } from "@/lib/learning/helpers";
-import type { AudienceFilter, GuideCategory } from "@/lib/learning/types";
+import type { AudienceFilter } from "@/lib/learning/types";
+import type { CategoryFilter } from "./learning-hub-types";
 import { GuideCard } from "./guide-card";
 import { EmptyNote } from "./learning-primitives";
-
-type CategoryFilter = GuideCategory | "all" | "saved";
 
 export function GuidesTab({
   audience,
@@ -16,15 +15,17 @@ export function GuidesTab({
   completed,
   bookmarks,
   onToggleBookmark,
+  category,
+  onCategoryChange,
 }: {
   audience: AudienceFilter;
   basePath: string;
   completed: string[];
   bookmarks: string[];
   onToggleBookmark: (slug: string) => void;
+  category: CategoryFilter;
+  onCategoryChange: (category: CategoryFilter) => void;
 }) {
-  const [category, setCategory] = useState<CategoryFilter>("all");
-
   const audienceGuides = useMemo(
     () => GUIDES.filter((g) => guideMatchesAudience(g, audience)),
     [audience],
@@ -42,12 +43,13 @@ export function GuidesTab({
 
   return (
     <div className="space-y-6">
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* lg+ uses the side panel's nested category nav instead — see LearningSidebar. */}
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
         <FilterChip
           active={category === "all"}
           label="All guides"
           count={audienceGuides.length}
-          onClick={() => setCategory("all")}
+          onClick={() => onCategoryChange("all")}
         />
         {GUIDE_CATEGORIES.map((c) => (
           <FilterChip
@@ -55,14 +57,14 @@ export function GuidesTab({
             active={category === c.id}
             label={c.label}
             count={audienceGuides.filter((g) => g.category === c.id).length}
-            onClick={() => setCategory(c.id)}
+            onClick={() => onCategoryChange(c.id)}
           />
         ))}
         <FilterChip
           active={category === "saved"}
           label="Saved"
           count={savedCount}
-          onClick={() => setCategory("saved")}
+          onClick={() => onCategoryChange("saved")}
         />
       </div>
 
@@ -83,7 +85,7 @@ export function GuidesTab({
           {featured.length > 0 ? (
             <section aria-label="Featured guides" className="space-y-3">
               <h2 className="text-[13px] font-medium text-foreground">Start here</h2>
-              <div className="grid gap-3 lg:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                 {featured.map((g) => (
                   <GuideCard
                     key={g.slug}
@@ -103,7 +105,7 @@ export function GuidesTab({
               {featured.length > 0 ? (
                 <h2 className="text-[13px] font-medium text-foreground">All guides</h2>
               ) : null}
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                 {rest.map((g) => (
                   <GuideCard
                     key={g.slug}
