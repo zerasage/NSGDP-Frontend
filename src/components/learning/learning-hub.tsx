@@ -14,7 +14,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { GUIDES } from "@/lib/learning/guides";
+import { GUIDE_CATEGORIES, GUIDES } from "@/lib/learning/guides";
 import {
   guideMatchesAudience,
   learningHref,
@@ -25,10 +25,12 @@ import {
 } from "@/lib/learning/helpers";
 import { useLearningProgress } from "@/lib/learning/progress";
 import type { AudienceFilter } from "@/lib/learning/types";
+import type { CategoryFilter } from "./learning-hub-types";
 import { GuideCard } from "./guide-card";
 import { GuidesTab } from "./guides-tab";
 import { HelpTab } from "./help-tab";
 import { EmptyNote, SegmentedTabs } from "./learning-primitives";
+import { LearningSidebar } from "./learning-sidebar";
 import { LEARNING_BASE_PATH, LearningShell, type LearningVariant } from "./learning-shell";
 import { PathsTab } from "./paths-tab";
 import { ReferenceTab } from "./reference-tab";
@@ -171,6 +173,7 @@ function LearningHubInner({ variant }: { variant: LearningVariant }) {
 
   const [audienceOverride, setAudienceOverride] = useState<AudienceFilter | null>(null);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<CategoryFilter>("all");
 
   const audience = audienceOverride ?? "viewer";
   const tabParam = searchParams.get("tab");
@@ -199,6 +202,20 @@ function LearningHubInner({ variant }: { variant: LearningVariant }) {
     t.id === "guides" ? { ...t, count: audienceGuides.length } : t,
   );
 
+  const savedCount = audienceGuides.filter((g) => progress.bookmarks.includes(g.slug)).length;
+  const sidebarCategories =
+    tab === "guides"
+      ? [
+          { id: "all", label: "All guides", count: audienceGuides.length },
+          ...GUIDE_CATEGORIES.map((c) => ({
+            id: c.id,
+            label: c.label,
+            count: audienceGuides.filter((g) => g.category === c.id).length,
+          })),
+          { id: "saved", label: "Saved", count: savedCount },
+        ]
+      : undefined;
+
   return (
     <LearningShell
       variant={variant}
@@ -207,90 +224,112 @@ function LearningHubInner({ variant }: { variant: LearningVariant }) {
       title="Learn to use the portal"
       description="Step-by-step guides for sharing data, managing your team, and exploring Niger State health data."
     >
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="relative flex-1">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search guides, videos, FAQs and terms"
-            aria-label="Search the learning hub"
-            className="h-11 pl-10"
-          />
-        </div>
-        <div className="max-w-full lg:shrink-0">
-          <SegmentedTabs
-            tabs={AUDIENCES}
-            value={audience}
-            onChange={setAudienceOverride}
-            label="Show content for"
-          />
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <LearningSidebar
+          audiences={AUDIENCES}
+          audience={audience}
+          onAudienceChange={setAudienceOverride}
+          sections={tabs}
+          activeSection={tab}
+          onSectionChange={(id) => setTab(id as TabId)}
+          categories={sidebarCategories}
+          activeCategory={category}
+          onCategoryChange={(id) => setCategory(id as CategoryFilter)}
+        />
+
+        <div className="min-w-0 flex-1 space-y-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search guides, videos, FAQs and terms"
+                aria-label="Search the learning hub"
+                className="h-11 pl-10"
+              />
+            </div>
+            {/* lg+ uses the side panel's "Viewing as" list instead. */}
+            <div className="max-w-full lg:hidden">
+              <SegmentedTabs
+                tabs={AUDIENCES}
+                value={audience}
+                onChange={setAudienceOverride}
+                label="Show content for"
+              />
+            </div>
+          </div>
+
+          {!searching && nextGuide ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-muted/20 px-4 py-2.5">
+              <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                {pathStats.percent}%
+              </span>
+              <p className="min-w-0 flex-1 truncate text-sm">
+                <span className="text-muted-foreground">
+                  {pathStats.done === 0 ? "Start with" : "Continue with"}
+                </span>{" "}
+                <span className="font-medium">{nextGuide.title}</span>
+              </p>
+              <Link
+                href={learningHref(basePath, nextGuide.slug)}
+                className={cn(buttonVariants({ size: "sm", variant: "outline" }), "h-8 shrink-0 gap-1.5")}
+              >
+                {pathStats.done === 0 ? "Start" : "Continue"}
+                <ArrowRight className="size-3.5" aria-hidden />
+              </Link>
+            </div>
+          ) : null}
+
+          {searching ? (
+            <SearchResults
+              query={query}
+              audience={audience}
+              basePath={basePath}
+              progress={progress}
+              onClear={() => setQuery("")}
+            />
+          ) : (
+            <>
+              {/* lg+ uses the side panel's "Browse" nav instead. */}
+              <div className="lg:hidden">
+                <SegmentedTabs tabs={tabs} value={tab} onChange={setTab} label="Learning hub sections" />
+              </div>
+
+              <div role="tabpanel" className="space-y-6">
+                {tab === "guides" ? (
+                  <GuidesTab
+                    audience={audience}
+                    basePath={basePath}
+                    completed={progress.completed}
+                    bookmarks={progress.bookmarks}
+                    onToggleBookmark={progress.toggleBookmark}
+                    category={category}
+                    onCategoryChange={setCategory}
+                  />
+                ) : null}
+                {tab === "paths" ? (
+                  <PathsTab audience={audience} basePath={basePath} completed={progress.completed} />
+                ) : null}
+                {tab === "videos" ? <VideosTab basePath={basePath} /> : null}
+                {tab === "templates" ? <TemplatesTab audience={audience} /> : null}
+                {tab === "self-check" ? (
+                  <SelfCheckTab
+                    checklist={progress.checklist}
+                    onToggle={progress.setChecked}
+                    onReset={progress.resetChecklist}
+                  />
+                ) : null}
+                {tab === "reference" ? <ReferenceTab /> : null}
+                {tab === "help" ? <HelpTab audience={audience} basePath={basePath} /> : null}
+              </div>
+            </>
+          )}
         </div>
       </div>
-
-      {!searching && nextGuide ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-muted/20 px-4 py-2.5">
-          <span className="text-xs font-medium tabular-nums text-muted-foreground">
-            {pathStats.percent}%
-          </span>
-          <p className="min-w-0 flex-1 truncate text-sm">
-            <span className="text-muted-foreground">
-              {pathStats.done === 0 ? "Start with" : "Continue with"}
-            </span>{" "}
-            <span className="font-medium">{nextGuide.title}</span>
-          </p>
-          <Link
-            href={learningHref(basePath, nextGuide.slug)}
-            className={cn(buttonVariants({ size: "sm", variant: "outline" }), "h-8 shrink-0 gap-1.5")}
-          >
-            {pathStats.done === 0 ? "Start" : "Continue"}
-            <ArrowRight className="size-3.5" aria-hidden />
-          </Link>
-        </div>
-      ) : null}
-
-      {searching ? (
-        <SearchResults
-          query={query}
-          audience={audience}
-          basePath={basePath}
-          progress={progress}
-          onClear={() => setQuery("")}
-        />
-      ) : (
-        <>
-          <SegmentedTabs tabs={tabs} value={tab} onChange={setTab} label="Learning hub sections" />
-
-          <div role="tabpanel" className="space-y-6">
-            {tab === "guides" ? (
-              <GuidesTab
-                audience={audience}
-                basePath={basePath}
-                completed={progress.completed}
-                bookmarks={progress.bookmarks}
-                onToggleBookmark={progress.toggleBookmark}
-              />
-            ) : null}
-            {tab === "paths" ? (
-              <PathsTab audience={audience} basePath={basePath} completed={progress.completed} />
-            ) : null}
-            {tab === "videos" ? <VideosTab basePath={basePath} /> : null}
-            {tab === "templates" ? <TemplatesTab audience={audience} /> : null}
-            {tab === "self-check" ? (
-              <SelfCheckTab
-                checklist={progress.checklist}
-                onToggle={progress.setChecked}
-                onReset={progress.resetChecklist}
-              />
-            ) : null}
-            {tab === "reference" ? <ReferenceTab /> : null}
-            {tab === "help" ? <HelpTab audience={audience} basePath={basePath} /> : null}
-          </div>
-        </>
-      )}
     </LearningShell>
   );
 }
