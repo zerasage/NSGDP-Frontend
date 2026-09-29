@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { TILE_LAYER_URL, TILE_LAYER_ATTRIBUTION } from "@/lib/constants/map-tiles";
+import { TILE_LAYER_URL, TILE_LAYER_ATTRIBUTION, TILE_LAYER_OPTIONS } from "@/lib/constants/map-tiles";
 import { Database, Loader2, RotateCcw, Search } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -432,6 +432,7 @@ export default function MapExplorePage() {
         <TileLayer
           url={TILE_LAYER_URL}
           attribution={TILE_LAYER_ATTRIBUTION}
+          {...TILE_LAYER_OPTIONS}
         />
 
         <FlyToBounds

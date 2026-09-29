@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import { TILE_LAYER_URL, TILE_LAYER_ATTRIBUTION } from "@/lib/constants/map-tiles";
+import { TILE_LAYER_URL, TILE_LAYER_ATTRIBUTION, TILE_LAYER_OPTIONS } from "@/lib/constants/map-tiles";
 import { Loader2, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -233,6 +233,7 @@ function FacilitiesContent() {
         <TileLayer
           url={TILE_LAYER_URL}
           attribution={TILE_LAYER_ATTRIBUTION}
+          {...TILE_LAYER_OPTIONS}
         />
 
         <FlyToBounds

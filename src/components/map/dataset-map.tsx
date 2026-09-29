@@ -7,7 +7,7 @@ import { Loader2, Maximize2, Minimize2, Layers, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MapTooltip } from "@/components/map/map-tooltip";
-import { TILE_LAYER_URL, TILE_LAYER_ATTRIBUTION } from "@/lib/constants/map-tiles";
+import { TILE_LAYER_URL, TILE_LAYER_ATTRIBUTION, TILE_LAYER_OPTIONS } from "@/lib/constants/map-tiles";
 
 function configureLeafletIcons() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -230,6 +230,7 @@ export function DatasetMap({
           <TileLayer
             url={baseLayers[baseLayer].url}
             attribution={baseLayers[baseLayer].attribution}
+            {...TILE_LAYER_OPTIONS}
           />
 
           {/* GeoJSON Layer - with prominent state boundary */}
