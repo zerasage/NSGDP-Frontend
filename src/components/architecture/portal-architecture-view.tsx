@@ -131,7 +131,6 @@ const permissionGroups = [
       "create:development-partners",
       "edit:development-partners",
       "manage:development-partner-agreements",
-      "manage:partner-api-keys",
     ],
   },
   {
