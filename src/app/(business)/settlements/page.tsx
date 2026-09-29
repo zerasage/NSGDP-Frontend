@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, RotateCcw, Search } from "lucide-react";
+import { TILE_LAYER_URL, TILE_LAYER_ATTRIBUTION } from "@/lib/constants/map-tiles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -282,8 +283,8 @@ export default function SettlementsPage() {
       >
         <ZoomControl key={zoomPosition} position={zoomPosition} />
         <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url={TILE_LAYER_URL}
+          attribution={TILE_LAYER_ATTRIBUTION}
         />
 
         {lga && (
