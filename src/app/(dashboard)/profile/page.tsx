@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Loader2, Lock, Settings, SlidersHorizontal, User } from "lucide-react";
+import { Bell, Eye, EyeOff, Loader2, Lock, Settings, SlidersHorizontal, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,7 @@ import {
 } from "@/components/layout/dashboard-page-header";
 import { DashboardPanel, FilterChip } from "@/components/dashboard/portal-dashboard-ui";
 import { MfaSettingsPanel } from "@/components/profile/mfa-settings-panel";
+import { NotificationSoundToggle } from "@/components/profile/notification-sound-toggle";
 import { useAuth } from "@/lib/auth";
 import { updateProfile, changePassword } from "@/lib/api/users";
 import { profileSchema, changePasswordSchema } from "@/lib/schemas/auth";
@@ -106,6 +107,10 @@ export default function ProfilePage() {
                 initialMethod={user.mfaMethod ?? null}
                 hasPhoneNumber={!!user.phoneNumber}
               />
+            </DashboardPanel>
+
+            <DashboardPanel title="Notifications" icon={Bell} tone="muted">
+              <NotificationSoundToggle />
             </DashboardPanel>
           </div>
         ) : null}
