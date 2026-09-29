@@ -150,3 +150,81 @@ export async function getCurrentUser(): Promise<UserProfile> {
   );
   return response.data;
 }
+
+// ─── MFA (two-factor authentication) ───────────────────────────────────
+// Every account controls this independently, off by default. Three
+// enrollment methods; TOTP and SMS/email both end in the same
+// backupCodes response once confirmed.
+
+export interface MfaSetupResponse {
+  secret: string;
+  otpauthUrl: string;
+  qrCodeDataUrl: string;
+}
+
+export interface MfaBackupCodesResponse {
+  backupCodes: string[];
+}
+
+/** Step 1 of TOTP enrollment — generates a secret + QR code to scan. */
+export async function setupTotpMfa(): Promise<MfaSetupResponse> {
+  const response = await apiFetch<ApiResponse<MfaSetupResponse>>(
+    API_ROUTES.auth.mfaSetup,
+    { method: "POST" }
+  );
+  return response.data;
+}
+
+/** Step 2 of TOTP enrollment — confirm with the first real code. */
+export async function verifyTotpMfaSetup(code: string): Promise<MfaBackupCodesResponse> {
+  const response = await apiFetch<ApiResponse<MfaBackupCodesResponse>>(
+    API_ROUTES.auth.mfaVerifySetup,
+    { method: "POST", body: { code } }
+  );
+  return response.data;
+}
+
+/** Sends an OTP via SMS — used both for enrollment and as a login/fallback channel. */
+export async function sendMfaSms(): Promise<{ expiresIn: number }> {
+  const response = await apiFetch<ApiResponse<{ expiresIn: number }>>(
+    API_ROUTES.auth.mfaSendSms,
+    { method: "POST" }
+  );
+  return response.data;
+}
+
+/** Confirms SMS-based MFA enrollment with the code just sent. */
+export async function verifySmsMfaSetup(code: string): Promise<MfaBackupCodesResponse> {
+  const response = await apiFetch<ApiResponse<MfaBackupCodesResponse>>(
+    API_ROUTES.auth.mfaVerifySms,
+    { method: "POST", body: { code } }
+  );
+  return response.data;
+}
+
+/** Sends an OTP via email — used both for enrollment and as a login/fallback channel. */
+export async function sendMfaEmail(): Promise<{ expiresIn: number }> {
+  const response = await apiFetch<ApiResponse<{ expiresIn: number }>>(
+    API_ROUTES.auth.mfaSendEmail,
+    { method: "POST" }
+  );
+  return response.data;
+}
+
+/** Confirms email-based MFA enrollment with the code just sent. */
+export async function verifyEmailMfaSetup(code: string): Promise<MfaBackupCodesResponse> {
+  const response = await apiFetch<ApiResponse<MfaBackupCodesResponse>>(
+    API_ROUTES.auth.mfaVerifyEmail,
+    { method: "POST", body: { code } }
+  );
+  return response.data;
+}
+
+/** Disables MFA entirely — requires the current password as confirmation. */
+export async function disableMfa(password: string): Promise<{ message: string }> {
+  const response = await apiFetch<ApiResponse<{ message: string }>>(
+    API_ROUTES.auth.mfaDisable,
+    { method: "POST", body: { password } }
+  );
+  return response.data;
+}
