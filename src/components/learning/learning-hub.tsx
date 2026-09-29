@@ -5,29 +5,22 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
-  Bookmark,
-  CheckCircle2,
-  Clock,
   GraduationCap,
   PlayCircle,
-  Route,
   Search,
   X,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MetricCard } from "@/components/dashboard/portal-dashboard-ui";
 import { cn } from "@/lib/utils";
 import { GUIDES } from "@/lib/learning/guides";
 import {
-  formatMinutes,
   guideMatchesAudience,
   learningHref,
   nextGuideInPath,
   pathForAudience,
   pathProgress,
-  remainingMinutes,
   searchLearning,
 } from "@/lib/learning/helpers";
 import { useLearningProgress } from "@/lib/learning/progress";
@@ -35,7 +28,7 @@ import type { AudienceFilter } from "@/lib/learning/types";
 import { GuideCard } from "./guide-card";
 import { GuidesTab } from "./guides-tab";
 import { HelpTab } from "./help-tab";
-import { EmptyNote, ProgressBar, SegmentedTabs } from "./learning-primitives";
+import { EmptyNote, SegmentedTabs } from "./learning-primitives";
 import { LEARNING_BASE_PATH, LearningShell, type LearningVariant } from "./learning-shell";
 import { PathsTab } from "./paths-tab";
 import { ReferenceTab } from "./reference-tab";
@@ -103,7 +96,7 @@ function SearchResults({
       {results.guides.length > 0 ? (
         <section className="space-y-3">
           <h2 className="text-[13px] font-medium">Guides ({results.guides.length})</h2>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {results.guides.map((g) => (
               <GuideCard
                 key={g.slug}
@@ -195,13 +188,10 @@ function LearningHubInner({ variant }: { variant: LearningVariant }) {
     () => GUIDES.filter((g) => guideMatchesAudience(g, audience)),
     [audience],
   );
-  const completedInView = audienceGuides.filter((g) => progress.completed.includes(g.slug)).length;
-  const savedInView = audienceGuides.filter((g) => progress.bookmarks.includes(g.slug)).length;
 
   const path = pathForAudience(audience);
   const pathStats = pathProgress(path, progress.completed);
   const nextGuide = nextGuideInPath(path, progress.completed);
-  const minutesLeft = remainingMinutes(path, progress.completed);
 
   const searching = query.trim().length > 0;
 
@@ -241,86 +231,25 @@ function LearningHubInner({ variant }: { variant: LearningVariant }) {
         </div>
       </div>
 
-      {!searching ? (
-        <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricCard
-              label="Guides completed"
-              value={`${completedInView}/${audienceGuides.length}`}
-              hint="For this audience"
-              icon={CheckCircle2}
-              tone="success"
-            />
-            <MetricCard
-              label="Path progress"
-              value={`${pathStats.percent}%`}
-              hint={path.title}
-              icon={Route}
-              tone="primary"
-              onClick={() => setTab("paths")}
-            />
-            <MetricCard
-              label="Time to finish"
-              value={minutesLeft === 0 ? "Done" : formatMinutes(minutesLeft)}
-              hint="Left in your path"
-              icon={Clock}
-              tone="info"
-            />
-            <MetricCard
-              label="Saved"
-              value={savedInView}
-              hint="Guides to revisit"
-              icon={Bookmark}
-              tone="warning"
-              onClick={() => setTab("guides")}
-            />
-          </div>
-
-          <section className="rounded-2xl border bg-card p-4 sm:p-5" aria-label="Continue learning">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {pathStats.done === 0 ? "Start here" : nextGuide ? "Continue where you left off" : "Path complete"}
-                </p>
-                {nextGuide ? (
-                  <>
-                    <h2 className="mt-1 text-base font-semibold">{nextGuide.title}</h2>
-                    <p className="mt-0.5 text-[13px] text-muted-foreground">{nextGuide.summary}</p>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="mt-1 text-base font-semibold">You&apos;ve finished the {path.title}</h2>
-                    <p className="mt-0.5 text-[13px] text-muted-foreground">
-                      Revisit any guide, or try the pre-submission self-check before your next upload.
-                    </p>
-                  </>
-                )}
-                <div className="mt-3 max-w-md space-y-1">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      {pathStats.done} of {pathStats.total} in {path.title}
-                    </span>
-                    <span className="tabular-nums">{pathStats.percent}%</span>
-                  </div>
-                  <ProgressBar percent={pathStats.percent} label={`${path.title} progress`} />
-                </div>
-              </div>
-              {nextGuide ? (
-                <Link
-                  href={learningHref(basePath, nextGuide.slug)}
-                  className={cn(buttonVariants(), "h-10 shrink-0 gap-2")}
-                >
-                  {pathStats.done === 0 ? "Start learning" : "Continue"}
-                  <ArrowRight className="size-4" aria-hidden />
-                </Link>
-              ) : (
-                <Button type="button" variant="outline" className="h-10 shrink-0" onClick={() => setTab("self-check")}>
-                  Open self-check
-                </Button>
-              )}
-            </div>
-          </section>
-        </>
+      {!searching && nextGuide ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-muted/20 px-4 py-2.5">
+          <span className="text-xs font-medium tabular-nums text-muted-foreground">
+            {pathStats.percent}%
+          </span>
+          <p className="min-w-0 flex-1 truncate text-sm">
+            <span className="text-muted-foreground">
+              {pathStats.done === 0 ? "Start with" : "Continue with"}
+            </span>{" "}
+            <span className="font-medium">{nextGuide.title}</span>
+          </p>
+          <Link
+            href={learningHref(basePath, nextGuide.slug)}
+            className={cn(buttonVariants({ size: "sm", variant: "outline" }), "h-8 shrink-0 gap-1.5")}
+          >
+            {pathStats.done === 0 ? "Start" : "Continue"}
+            <ArrowRight className="size-3.5" aria-hidden />
+          </Link>
+        </div>
       ) : null}
 
       {searching ? (
@@ -371,12 +300,12 @@ function HubSkeleton() {
     <div className="space-y-4 p-4 sm:p-6">
       <Skeleton className="h-8 w-64" />
       <Skeleton className="h-11 w-full" />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-28 rounded-2xl" />
+      <Skeleton className="h-10 w-72" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <Skeleton key={i} className="aspect-[4/5] rounded-2xl" />
         ))}
       </div>
-      <Skeleton className="h-64 rounded-2xl" />
     </div>
   );
 }
