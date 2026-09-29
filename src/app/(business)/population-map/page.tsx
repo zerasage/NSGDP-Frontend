@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { ChevronDown, ChevronUp, Loader2, RotateCcw, Users, Activity } from "lucide-react";
+import { TILE_LAYER_URL, TILE_LAYER_ATTRIBUTION, TILE_LAYER_OPTIONS } from "@/lib/constants/map-tiles";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -421,8 +422,9 @@ export default function GisMappingPage() {
       >
         <ZoomControl key={zoomPosition} position={zoomPosition} />
         <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url={TILE_LAYER_URL}
+          attribution={TILE_LAYER_ATTRIBUTION}
+          {...TILE_LAYER_OPTIONS}
         />
 
         <FlyToBounds

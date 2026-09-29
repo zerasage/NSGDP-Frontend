@@ -7,6 +7,7 @@ import { Loader2, Maximize2, Minimize2, Layers, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MapTooltip } from "@/components/map/map-tooltip";
+import { TILE_LAYER_URL, TILE_LAYER_ATTRIBUTION, TILE_LAYER_OPTIONS } from "@/lib/constants/map-tiles";
 
 function configureLeafletIcons() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -132,9 +133,8 @@ export function DatasetMap({
 
   const baseLayers = {
     osm: {
-      url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      url: TILE_LAYER_URL,
+      attribution: TILE_LAYER_ATTRIBUTION,
     },
     satellite: {
       url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -230,6 +230,7 @@ export function DatasetMap({
           <TileLayer
             url={baseLayers[baseLayer].url}
             attribution={baseLayers[baseLayer].attribution}
+            {...TILE_LAYER_OPTIONS}
           />
 
           {/* GeoJSON Layer - with prominent state boundary */}
