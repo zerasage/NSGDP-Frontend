@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -27,10 +28,20 @@ import {
 } from "@/components/ui/select";
 import { FormError } from "@/components/forms/form-error";
 import { LgaMultiSelect } from "@/components/programs/lga-multi-select";
-import { RichTextEditor } from "@/components/programs/rich-text-editor";
 import type { Program } from "@/types";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+
+// TipTap (@tiptap/react + starter-kit) is the heaviest dependency this form
+// pulls in — deferred to a client-only chunk so it's fetched when the form
+// actually renders instead of bundled into this page's initial JS.
+const RichTextEditor = dynamic(
+  () => import("@/components/programs/rich-text-editor").then((m) => m.RichTextEditor),
+  {
+    ssr: false,
+    loading: () => <div className="h-32 animate-pulse rounded-lg border bg-muted/30" />,
+  },
+);
 
 const TYPE_OPTIONS = [
   "campaign",
