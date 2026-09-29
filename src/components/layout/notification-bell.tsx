@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck } from "lucide-react";
 import { useNotifications, useUnreadNotificationCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/hooks/useNotifications";
 import { getDisplayType } from "@/lib/api/notifications";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { playNotificationSound } from "@/lib/utils/notification-sound";
 
 const TYPE_COLORS: Record<string, string> = {
   info: "bg-blue-500",
@@ -28,6 +29,16 @@ export function NotificationBell() {
   const markAllAsReadMutation = useMarkAllNotificationsAsRead();
 
   const notifications = data?.data || [];
+
+  // Chime when unread count rises — never on the first render, so opening
+  // the app with existing unread notifications stays silent.
+  const previousUnread = useRef<number | null>(null);
+  useEffect(() => {
+    if (previousUnread.current !== null && unreadCount > previousUnread.current) {
+      playNotificationSound();
+    }
+    previousUnread.current = unreadCount;
+  }, [unreadCount]);
 
   const handleMarkAllRead = () => {
     markAllAsReadMutation.mutate();
