@@ -21,8 +21,12 @@ export function canEditDataset(
   dataset: DatasetPermissionFields | null | undefined,
 ): boolean {
   if (!user || !dataset) return false;
-  // Draft and pending only — under review / approved / published need a retract request.
-  if (dataset.status !== "draft" && dataset.status !== "pending") return false;
+  // Draft, pending, and rejected — the last so a rejected dataset can be
+  // fixed before it's resubmitted (see canSubmitDataset). Under review /
+  // approved / published need a retract request instead.
+  if (dataset.status !== "draft" && dataset.status !== "pending" && dataset.status !== "rejected") {
+    return false;
+  }
   if (isOrgAdmin(user.role)) return true;
   if (user.role === "contributor" && dataset.owner_id === user.id) return true;
   return false;
