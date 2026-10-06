@@ -1,0 +1,113 @@
+---
+title: Background jobs and the worker
+description: The worker process, the Redis queues, retries, dead-letter handling, and the scheduled jobs.
+---
+
+**Slow work runs in the worker, on named BullMQ queues stored in Redis.** The API adds a job and returns. A worker takes the job, runs it, and writes the result to PostgreSQL. If a job fails every retry, it moves to the dead-letter queue, where an operator can inspect and replay it.
+
+## Topology
+
+<Mermaid
+  caption="Each queue has one purpose. Producers are the API and the scheduler. Consumers are the worker's processors."
+  chart={`flowchart LR
+    subgraph API process
+      P1["Uploads"]
+      P2["Notifications"]
+      P3["SMS"]
+      P4["AI assistant"]
+      P5["GIS reference"]
+      P6["Analytics"]
+    end
+    subgraph Redis
+      Q1[["validation"]]
+      Q2[["upload-processing"]]
+      Q3[["notification"]]
+      Q4[["sms"]]
+      Q5[["geo-extraction"]]
+      Q6[["analytics"]]
+      Q7[["ai-inference"]]
+      Q8[["resolution"]]
+      Q9[["dataset-publish"]]
+      DL[["dead-letter"]]
+    end
+    subgraph Worker process
+      W1["Validation processor"]
+      W2["Ingestion processor"]
+      W3["Notification processor"]
+      W4["SMS processor"]
+      W5["Geo processor"]
+      W6["Analytics processor"]
+      W7["AI processor"]
+      W8["Resolution processor"]
+      W9["Publish processor"]
+    end
+    P1 --> Q1
+    Q1 --> W1
+    W1 -- "after scan, if eligible" --> Q2
+    SCH["Schedulers (worker)"] --> Q8
+    SCH --> Q9
+    P2 --> Q3
+    P3 --> Q4
+    P4 --> Q7
+    P5 --> Q5
+    P6 --> Q6
+    Q2 --> W2
+    Q3 --> W3
+    Q4 --> W4
+    Q5 --> W5
+    Q6 --> W6
+    Q7 --> W7
+    Q8 --> W8
+    Q9 --> W9
+    W1 & W2 & W3 & W4 & W5 & W6 & W7 & W8 & W9 -. "terminal failure" .-> DL`}
+/>
+
+Queue names, concurrency, priority, and retry settings are generated in [Queues](/reference/queues). That table is the source of truth. This page explains the behaviour behind it.
+
+## Retries and failure
+
+- Each job gets **3 attempts** (`MAX_JOB_ATTEMPTS`) before it is terminal.
+- Each processor wraps its handler. A terminal failure is written to the dead-letter queue with the original queue name, job name, and full payload.
+- The payload is kept in the dead-letter entry because the original job is removed by the retention policy.
+- Operators replay a dead-lettered job from the admin **Queues** page. Replay re-adds the same payload to the original queue.
+
+## Priority and concurrency
+
+- Lower priority number runs first. Three levels: high (1), medium (5), low (10).
+- Ingestion runs with concurrency **1**. A workbook uses a lot of memory, so the host runs one at a time.
+- Validation runs with concurrency **5**. Scanning waits on ClamAV over a socket, so parallel scans are cheap.
+
+## The worker process
+
+- Same Docker image as the API, started with `ROLE=worker` and `node dist/worker.js`.
+- No HTTP listener and no published port.
+- Restarts on failure (`restart: always` in the production compose file).
+- Has its own health check.
+
+## Protection against stuck jobs
+
+- **Stalled-job reclaimer.** A background service finds ingestion jobs whose worker stopped heartbeating. It marks the ingestion row failed or cancelled, so the dataset does not stay "processing" forever.
+- **Heartbeat check.** A redelivered download job checks the heartbeat before it runs. A live job is not started twice.
+
+## Scheduled jobs
+
+| Schedule | Job | Queue | Purpose |
+| --- | --- | --- | --- |
+| Nightly | Succession | `resolution` | Find indicator succession candidates |
+| Weekly | Change-point | `resolution` | Detect trend breaks |
+| Quarterly | Embedding calibration | `resolution` | Recalibrate match bands |
+| Daily | Ledger prune | `dataset-publish` | Remove retracted publications older than 90 days |
+
+Schedules are registered at start-up with `upsertJobScheduler`. Restarting the worker does not create duplicate schedules.
+
+## Queues declared but not running
+
+The queue list includes one name with no worker: `export`. It is declared for a planned feature (async exports) that the project marked as not building for the pilot. See [Known gaps](/known-gaps).
+
+## Source files
+
+- `nsgdp-backend/src/config/bull.config.ts`: queue names, topology, retry rules
+- `nsgdp-backend/src/worker.ts` and `nsgdp-backend/src/workers/`: processors
+- `nsgdp-backend/src/workers/dead-letter.ts`: dead-letter payload
+- `nsgdp-backend/src/workers/stalled-job-reclaimer.service.ts`: stuck-job recovery
+- `nsgdp-backend/src/modules/ingestion/services/ingestion-scheduler.service.ts`: schedules

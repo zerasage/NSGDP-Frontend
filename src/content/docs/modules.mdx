@@ -1,0 +1,64 @@
+---
+title: Analytics, GIS, AI, and content modules
+description: What each supporting module does, its main tables and routes, and any background work it sends to the queues.
+---
+
+**Supporting modules add dashboards, maps, the AI assistant, and content pages.** Each one reads from the same datasets, and each one sends its slow work to a queue. Use this page as a map. Follow the source file links for detail.
+
+## Analytics and statistics
+
+- **Purpose.** Dashboards and summary numbers for the public portal and the admin console.
+- **Routes.** `/analytics`, `/stats`.
+- **Data.** Reads published datasets. Results are cached in `analytics_cache`, with a TTL set by `ANALYTICS_CACHE_TTL_MS`.
+- **Queue.** `analytics`. The analytics service enqueues recompute jobs. The analytics processor writes the cache.
+
+## GIS and map layers
+
+- **Purpose.** Boundary data (LGAs and wards) and reference map layers used by the maps and the org unit matcher.
+- **Routes.** `/gis`. Admin upload at `/admin/gis-reference-layers`.
+- **Data.** PostGIS geometry columns. Spatial queries use the GiST indexes.
+- **Queue.** `geo-extraction`. Large file uploads are read in the worker.
+- **Limits.** The nginx layer allows 2 upload requests per second for layer uploads, and 10 requests per second for the rest of the API.
+
+## AI Health Data Assistant
+
+- **Purpose.** A question-and-answer assistant over published health data.
+- **Routes.** `/ai`. Admin controls at `/admin/ai`.
+- **External service.** Anthropic API. Key set by `ANTHROPIC_API_KEY`. Model set by `ANTHROPIC_MODEL`.
+- **Cost controls.**
+  - Daily token ceiling: `AI_DAILY_TOKEN_CEILING`.
+  - Daily cost ceiling in USD: `AI_DAILY_COST_CEILING_USD`.
+  - Circuit breaker: opens after `AI_CIRCUIT_FAILURE_THRESHOLD` failures and stays open for `AI_CIRCUIT_OPEN_MS`.
+- **Queue.** `ai-inference`.
+- **Embeddings.** `EMBEDDING_BACKEND` and `EMBEDDING_MODEL` control the local embedding model used for indicator matching. See [Matching and review](/ingestion-resolution).
+
+## Programmes
+
+- **Purpose.** Health programmes with their objectives, targets, and progress fields.
+- **Routes.** `/programs`, and the `my-programs` page in the contributor dashboard.
+- **Note.** Progress is entered by hand. The join to disease burden data is not built. See [Known gaps](/known-gaps).
+
+## Documents
+
+- **Purpose.** A repository of reports and files, with an optional preview image.
+- **Routes.** `/documents`.
+- **Storage.** Files in Backblaze B2. Uploads go through the same validation as datasets.
+- **Note.** Document previews use a plain image tag. This is a deliberate decision recorded in the fix documents for the penetration test.
+
+## Partner data
+
+- **Purpose.** Data submitted by development partners outside the dataset workflow.
+- **Routes.** `/partner-data`, `/partner-interest` (interest form).
+
+## Search
+
+- **Purpose.** One search box across datasets and content.
+- **Routes.** `/search`.
+
+## Source files
+
+- `nsgdp-backend/src/modules/analytics/`, `stats/`, `search/`
+- `nsgdp-backend/src/modules/gis/`
+- `nsgdp-backend/src/modules/ai/`
+- `nsgdp-backend/src/modules/programmes/`, `documents/`, `partner-data/`
+- `nsgdp-backend/src/workers/analytics.processor.ts`, `geo.processor.ts`, `ai-inference.processor.ts`

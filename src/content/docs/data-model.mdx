@@ -1,0 +1,87 @@
+---
+title: Data model
+description: How the PostgreSQL schema is grouped, the core relationships, and how schema changes are made.
+---
+
+**The database holds about 68 tables in PostgreSQL with PostGIS.** The core of the model is a dataset, the submission ticket that tracks its review, and the workflow actions that record each decision. Ingestion adds staging tables for the raw and resolved rows. The exact list is generated in [Database tables](/reference/tables).
+
+## Core relationships
+
+<Mermaid
+  caption="Simplified. Only the keys and columns needed to follow the review and ingestion flow are shown. The full schema is in the generated table list."
+  chart={`erDiagram
+    DEVELOPMENT_PARTNERS ||--o{ USERS : "employs"
+    DEVELOPMENT_PARTNERS ||--o{ DATASETS : "owns"
+    USERS ||--o{ DATASETS : "submits"
+    DATASETS ||--o{ SUBMISSION_TICKETS : "reviewed through"
+    SUBMISSION_TICKETS ||--o{ WORKFLOW_ACTIONS : "logs each step"
+    USERS ||--o{ WORKFLOW_ACTIONS : "acts as actor"
+    DATASETS ||--o{ INGESTION_JOBS : "ingested by"
+    DATASETS ||--o{ STAGING_OBSERVATIONS : "holds rows"
+    STAGING_OBSERVATIONS }o--o{ OBSERVATION_CONFLICTS : "may clash"
+    DATASETS ||--o{ DATASET_PUBLICATIONS : "published as"
+    USERS ||--o{ NOTIFICATIONS : "receives"
+    USERS ||--o{ AUDIT_LOGS : "triggers"
+    DATASETS {
+      uuid id
+      string slug
+      string status
+      uuid validated_by
+      timestamp validated_at
+      uuid approved_by
+      timestamp approved_at
+      timestamp published_at
+    }
+    SUBMISSION_TICKETS {
+      uuid id
+      string status
+      text reviewer_notes
+    }
+    WORKFLOW_ACTIONS {
+      uuid ticket_id
+      uuid actor_id
+      string action_type
+      text comment
+      timestamp created_at
+    }`}
+/>
+
+## Table groups
+
+| Group | Example tables | Module |
+| --- | --- | --- |
+| Accounts and access | `users`, `groups`, `permissions`, `permission_groups` | `users`, `groups`, `admin` |
+| Organisations | `development_partners`, `departments` | `development-partners`, `departments` |
+| Datasets and review | `datasets`, `submission_tickets`, `workflow_actions` | `datasets`, `admin` |
+| Ingestion | `ingestion_jobs`, `staging_observations`, `observation_conflicts`, `indicator_aliases` | `ingestion` |
+| Publication and analytics | `dataset_publications`, `analytics_cache` | `ingestion`, `analytics` |
+| Spatial reference | Boundary and layer tables with PostGIS geometry | `gis` |
+| Content | `programs`, `documents` | `programs`, `documents` |
+| Audit and alerts | `audit_logs`, `admin_audit_logs`, `notifications` | `admin`, `admin-auth`, `notifications` |
+
+## Conventions
+
+- Primary keys are UUIDs.
+- Status columns hold text values from an enum in the entity file (for example `DatasetStatus`).
+- Every review transition writes one row to `workflow_actions`. This is the audit thread.
+- Soft delete is used where history matters. Hard delete exists only for datasets, behind a gate (see [Operations](/operations)).
+
+## Schema changes
+
+1. Change the entity class in the module's `entities/` folder.
+2. Generate or write a migration in `src/database`.
+3. Run the migration against the development database and check the result.
+4. Commit the migration with the code change. Never edit a migration that has already run in production.
+
+**Exception: enum changes need care.** PostgreSQL cannot use a new enum value inside the same transaction that added it. Keep enum additions in their own migration.
+
+## Known schema issue
+
+**Two entity classes map to the same table `notifications`.** One is in `src/modules/notifications/entities/`, the other in `src/modules/users/entities/`. The users module imports the notifications one. Confirm the users-folder file is unused before deleting it. See [Known gaps](/known-gaps).
+
+## Source files
+
+- `nsgdp-backend/src/modules/*/entities/`: one entity per table
+- `nsgdp-backend/src/database/`: migrations and data source setup
+- `nsgdp-backend/src/modules/admin/entities/workflow-action.entity.ts`
+- `nsgdp-backend/src/modules/datasets/entities/dataset.entity.ts`

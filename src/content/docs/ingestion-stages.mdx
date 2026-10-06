@@ -1,0 +1,60 @@
+---
+title: Pipeline stages
+description: The eight pipeline stages, what each one reads and writes, its share of progress, and what can go wrong.
+---
+
+**The pipeline has eight stages, run in order inside one job.** Each stage has a fixed weight in the progress bar. The weights total 100. Unpivoting carries the largest share because it writes the most rows.
+
+## Stages at a glance
+
+<Mermaid
+  caption="Each box shows the stage's share of the overall progress bar. The shares total 100%."
+  chart={`flowchart LR
+    A["1 Download<br/>5%"] --> B["2 Triage<br/>5%"]
+    B --> C["3 Structure<br/>10%"]
+    C --> D["4 Unpivot<br/>25%"]
+    D --> E["5 Period<br/>10%"]
+    E --> F["6 Org unit<br/>15%"]
+    F --> G["7 Indicator<br/>20%"]
+    G --> H["8 Validate<br/>10%"]`}
+/>
+
+## Stage detail
+
+| # | Stage | Weight | What it does | Main output | Typical failure |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Download | 5 | Reads the file from Backblaze B2 into a local temp cache, then opens the workbook | Workbook in memory | Storage read failure, corrupt or unsupported file |
+| 2 | Triage | 5 | Labels each sheet by type: data, survey, registry, checklist, or lookup | Sheet types with reasons | Unrecognised sheet type |
+| 3 | Structure | 10 | Finds header rows, label columns, and the data block on each sheet. Flags columns that look like personal data. | Layout per sheet | Header not found, merged cells misread |
+| 4 | Unpivot | 25 | Turns the wide grid into one row per value | Candidate observations | Memory pressure on very large sheets |
+| 5 | Period | 10 | Parses month, quarter, and year labels into dates | Period on each row | Ambiguous period text |
+| 6 | Org unit | 15 | Matches facility and LGA names to the gazetteer | Organisation unit on each row | Unknown name, spelling variants |
+| 7 | Indicator | 20 | Matches indicator names to the dictionary and aliases | Indicator on each row | Unknown indicator, low confidence |
+| 8 | Validate | 10 | Runs validation flags and computes the fitness verdict | Report, flags, verdict | Flags raised on value ranges |
+
+## What the stages write
+
+- **Staging rows.** One row per observation in `staging_observations`. Each row has a value status and a resolution state.
+- **Survey rows and coverage.** Survey responses and a format coverage register, used in the report.
+- **Aliases.** New alias suggestions are written for later review.
+- **Report.** The final report includes the fitness verdict. It is stored on the job and sent to reviewers when the verdict needs attention.
+
+## Stage 8 is different
+
+**The name "Stage 8" also appears in the design documents for a separate scheduled job.** That job looks for succession between indicators and for changes in trend. It runs on the `resolution` queue, not in the pipeline. Pipeline stage 8 is the validate step above.
+
+After a successful run, the pipeline also calls the staging relation matcher. Failures there are logged and do not fail the job.
+
+## Progress and retry behaviour
+
+- Progress updates happen at each stage boundary and during long loops (the `tick` calls).
+- If the worker crashes mid-run, the stalled-job reclaimer marks the ingestion row. Staff can then re-run ingestion.
+- A redelivered DOWNLOAD job exits early if its ingestion row is already complete, failed, or cancelled, or if a live worker still heartbeats it.
+
+## Source files
+
+- `nsgdp-backend/src/modules/ingestion/types/ingestion-stage.ts`: stage keys, labels, and weights
+- `nsgdp-backend/src/modules/ingestion/services/ingestion-pipeline.service.ts`: the step order
+- `nsgdp-backend/src/modules/ingestion/reader/`: triage, structure, unpivot, and period logic
+- `nsgdp-backend/src/modules/ingestion/services/staging-validation.service.ts`: validation flags
+- `nsgdp-backend/src/modules/ingestion/services/ingestion-fitness.ts`: fitness verdict

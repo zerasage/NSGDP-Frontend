@@ -5,6 +5,10 @@
 @import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
 @import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 
+/* Docs (/docs): Fumadocs layout styles mapped onto the portal tokens below. */
+@import "fumadocs-ui/css/preset.css";
+@import "fumadocs-ui/css/shadcn.css";
+
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -372,3 +376,42 @@
   }
 }
 
+
+/* Docs sidebar, light theme: the shared --sidebar token is the dark admin shell,
+   so the docs sidebar uses the page background and portal text colours instead. */
+:root:not(.dark) #nd-sidebar {
+  background-color: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-accent: var(--secondary);
+  --color-fd-accent-foreground: var(--secondary-foreground);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+}
+
+/* Docs sidebar collapsed: Fumadocs keeps a gap (inline padding on #nd-docs-layout)
+   where the sidebar was. Remove it so the content uses the full width. */
+#nd-docs-layout:has(> #nd-sidebar[data-collapsed='true']) {
+  padding-inline-start: 0 !important;
+}
+
+/* Docs top spacing: the portal navbar already sits above the docs in normal flow.
+   Fumadocs adds its own top padding (main, #nd-page, article). Remove the extra
+   gap, and move the collapsed-sidebar button below the navbar. */
+#nd-docs-layout,
+#nd-docs-layout #nd-page {
+  padding-top: 0 !important;
+}
+#nd-docs-layout div.fixed.rounded-xl {
+  top: 5rem !important;
+}
+
+/* Docs "On this page" panel: pin it near the viewport's right edge instead of the
+   centred 1200px page edge (Fumadocs default). Hidden below xl, so only wide screens change. */
+#nd-toc {
+  inset-inline-end: 1.5rem !important;
+}

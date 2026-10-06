@@ -1,0 +1,57 @@
+---
+title: Known gaps and handover items
+description: What is not built, what is deferred, and what the ICT team must decide or check before go-live.
+---
+
+**The system is complete for the pilot scope, with a short list of open decisions and checks.** Gaps fall into three groups: features the project chose not to build, production checks, and code items found during this documentation work.
+
+## 1. Decisions and checks before go-live
+
+| # | Item | Owner | Where to read more |
+| --- | --- | --- | --- |
+| 1 | Remove or firewall the published PostgreSQL, Redis, and ClamAV ports | Infrastructure | [Security](/security) |
+| 2 | Confirm the production value of `ENABLE_DATASET_HARD_DELETE` (default off) | Super admin | [Operations](/operations) |
+| 3 | Confirm the production `DATABASE_PASSWORD` is not the code default | Infrastructure | [Security](/security) |
+| 4 | Document and confirm hosting for the frontend and admin apps | Infrastructure | [Deployment](/deployment) |
+| 5 | Confirm `/api-test` and `/architecture-old` should ship in the frontend | Product | [Frontend](/frontend) |
+| 6 | Confirm the users-folder `notifications` entity is unused, then remove it | Backend | [Data model](/data-model) |
+| 7 | Set up backups and test a restore | Infrastructure | Section 2 below |
+| 8 | Add central logging and alerting | Infrastructure | Section 2 below |
+
+## 2. Not built (platform or pilot decision)
+
+| Item | Status | Note |
+| --- | --- | --- |
+| Automated backups and tested restore | Not built | Required before statewide production |
+| Central logging, metrics, and alerting | Not built | Monitoring uses the System health page and the health endpoint |
+| Independent penetration test | Not scheduled for the pilot | The internal test is recorded in the Final Reports folder |
+| Scoped staff RBAC per LGA or facility | Won't build (pilot) | Staff access is by capability and permission group |
+| Organisation workspace module | Won't build | |
+| Async export job queue | Won't build (pilot) | The `export` queue name is declared but has no worker |
+| DHIS2 automated sync | Deferred | Manual upload is in place |
+| Programme progress joined to disease burden | Deferred | Progress is entered by hand |
+| Persistent AI chat history | Deferred | |
+| Offline capture and sync | Deferred | |
+
+## 3. Code items found during documentation
+
+| Item | Impact | Suggested action |
+| --- | --- | --- |
+| Two entity classes map the same `notifications` table | Confusing. Risk of drift between the two definitions. | Confirm and remove the unused one |
+| BullMQ job `failedReason` shows stale text in some job status responses | Cosmetic only | Fix when the queue views are next changed |
+| Document preview uses a plain image tag | Accepted decision | Revisit if a document-preview policy is set |
+| Frontend notification bell opens a dropdown. The admin bell is a plain link. | Inconsistent behaviour | Decide the standard, then align the other app |
+| Old specs in `nsgdp-backend/docs/` describe the design, not the build | Misleading for new readers | See [Old documents](/old-docs) |
+
+## 4. Stale in KNOWN_GAPS.md
+
+The root `KNOWN_GAPS.md` file was last verified in September 2026. Some entries are out of date:
+
+- **MFA** is marked "Open, critical" in the ICT compliance table. MFA is now built: TOTP, SMS, and email codes, plus backup codes and lockout.
+
+Treat this site as the current view. Use `KNOWN_GAPS.md` for the history of the decisions.
+
+## Source files
+
+- `KNOWN_GAPS.md` (project root): the full gap register
+- `TECHNICAL_ARCHITECTURE_DOCUMENTATION.md` (project root): the handover document this site extends

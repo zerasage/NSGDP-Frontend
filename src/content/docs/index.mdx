@@ -1,0 +1,52 @@
+---
+title: Start here
+description: What the NSGDP Data Portal is, what runs where, and which page to read next.
+---
+
+**The NSGDP Data Portal is a public catalogue of health datasets, plus a contributor upload path and a staff review pipeline.** Datasets arrive as spreadsheets, go through an automated ingestion engine, get reviewed by two tiers of staff, and then get published.
+
+## The system in one picture
+
+<Mermaid
+  caption="Three apps, one API, one worker, shared data stores. Read top to bottom."
+  chart={`flowchart TB
+    Public["Public visitors"] --> FE["Public portal and contributor dashboard<br/>nsgdp-frontend"]
+    Contrib["Contributors (development partners)"] --> FE
+    Staff["NSPHCDA staff and super admins"] --> AD["Admin console<br/>nsgdp-admin"]
+    FE --> API["API (NestJS)<br/>ROLE=api"]
+    AD --> API
+    API --> PG[("PostgreSQL + PostGIS")]
+    API --> RD[("Redis")]
+    W["Worker (NestJS)<br/>ROLE=worker, no HTTP"] --> PG
+    W --> RD
+    RD -. "queued jobs" .-> W
+    API --> B2[("Backblaze B2<br/>file storage")]
+    W --> B2
+    API --> CAV["ClamAV<br/>virus scan"]`}
+/>
+
+## Who uses the portal
+
+| Role | Who they are | What they do |
+| --- | --- | --- |
+| Public | Anyone, no login | Browse and download published datasets, maps, and analytics |
+| Registered | Signed-in user | Same as public, plus saved items and notifications |
+| Contributor | Staff at a development partner | Upload datasets and submit them for review |
+| Dev Partner Admin | Lead at a development partner | Manage their own organisation's users and datasets |
+| Staff | NSPHCDA staff with permission groups | Validate, approve, publish, and manage content, each limited to their granted capabilities |
+| Super Admin | Platform owner | Everything, including granting permissions and dataset hard delete |
+
+## Where to go next
+
+- **Need the big picture?** Read [Architecture](/architecture).
+- **Changing server code?** Read [Backend](/backend), then [Data model](/data-model).
+- **Working on the ingestion pipeline?** Start at [Ingestion overview](/ingestion-overview).
+- **Running or handing over the system?** Read [Deployment](/deployment) and [Operations](/operations).
+- **Unknown term?** See the [Glossary](/glossary).
+- **Old documents disagree with this site?** See [Old documents](/old-docs). This site follows the code.
+
+## How this site stays accurate
+
+- Diagrams and prose describe the code as it is on the `main` branch.
+- The [Reference](/reference) pages are generated from source files. Re-run `node scripts/generate-docs-reference.mjs` in `nsgdp-frontend` after code changes.
+- Each page ends with a **Source files** list. Check the code there when a detail matters.

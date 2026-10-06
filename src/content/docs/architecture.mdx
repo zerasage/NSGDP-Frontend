@@ -1,0 +1,73 @@
+---
+title: Architecture
+description: The three applications, the API and worker split, the data stores, and the external services.
+---
+
+**The system runs as three applications on one backend image, backed by PostgreSQL, Redis, ClamAV, and Backblaze B2.** The API answers HTTP requests. The worker runs slow background jobs and has no HTTP port. Both processes come from the same Docker image and differ only by the `ROLE` environment variable.
+
+## Container view
+
+<Mermaid
+  caption="The worker has no inbound port. All communication with it goes through Redis queues and PostgreSQL."
+  chart={`flowchart LR
+    subgraph Apps
+      FE["nsgdp-frontend<br/>Next.js 15<br/>(separate host)"]
+      AD["nsgdp-admin<br/>Next.js 16"]
+    end
+    subgraph Backend image nsgdp-backend
+      API["API process<br/>ROLE=api<br/>HTTP on 3001"]
+      WK["Worker process<br/>ROLE=worker<br/>no HTTP"]
+    end
+    NG["nginx<br/>TLS, rate limits, headers"]
+    FE -->|"API calls over HTTPS"| NG
+    AD --> NG
+    NG --> API
+    API --> PG[("PostgreSQL 15<br/>+ PostGIS")]
+    API --> RD[("Redis 7<br/>queues and cache")]
+    API --> CAV["ClamAV"]
+    API --> B2[("Backblaze B2")]
+    WK --> PG
+    WK --> RD
+    WK --> B2
+    WK --> EXT["Email and SMS providers<br/>Sentry"]`}
+/>
+
+## Why the worker is a separate process
+
+- **Ingestion is CPU-heavy.** Parsing a workbook and resolving indicators blocks the Node event loop for long stretches.
+- **Blocking the API would freeze requests.** Running that work inside the API process would delay every HTTP response.
+- **Same image, different role.** `src/main.ts` refuses to start with `ROLE=worker`. `src/worker.ts` refuses to start with `ROLE=api`. A wrong setting fails at boot.
+
+## Data stores
+
+| Store | Used for | Durable? |
+| --- | --- | --- |
+| PostgreSQL 15 + PostGIS | All business data, audit logs, ingestion state, spatial data | Yes. This is the system of record. |
+| Redis 7 | BullMQ job queues and short-lived cache | No. Lost jobs are recovered from PostgreSQL state. |
+| Backblaze B2 (S3 API) | Uploaded dataset files, avatars, exports | Yes |
+| ClamAV | Virus scan of every upload before it is kept | Stateless service |
+
+## External services
+
+| Service | Purpose | Called from |
+| --- | --- | --- |
+| Termii | SMS one-time codes and SMS notifications | Worker (SMS queue) |
+| Resend, Brevo, or SMTP | Transactional email | Worker (notification queue) |
+| Anthropic API | AI Health Data Assistant | API |
+| Sentry | Error monitoring, when enabled | API and worker |
+
+## Request path, in order
+
+1. The browser calls `https://<host>/api/v1/...`.
+2. nginx applies TLS, security headers, and rate limits.
+3. The API runs its global guards, validates input, and calls a service.
+4. The service reads or writes PostgreSQL, and may enqueue a job in Redis.
+5. The worker picks up the job later and writes its result to PostgreSQL.
+
+**Key point: a request never waits for slow work.** It enqueues the job and returns. Progress is read back from PostgreSQL.
+
+## Source files
+
+- `nsgdp-backend/src/main.ts` and `nsgdp-backend/src/worker.ts`: the two entry points
+- `nsgdp-backend/docker-compose.prod.yml`: the production service layout
+- `nsgdp-backend/nginx.conf`: the edge proxy

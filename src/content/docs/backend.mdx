@@ -1,0 +1,128 @@
+---
+title: Backend (NestJS)
+description: How the NestJS API is organised, how a request is checked, and how the two authentication stacks work.
+---
+
+**Every API request passes four global guards before it reaches a controller.** The guards run in registration order: JWT authentication, role check, capability check, then rate limiting. Each module owns one business area and its own database tables.
+
+## Boot and entry points
+
+| File | Role |
+| --- | --- |
+| `src/main.ts` | API entry. Requires `ROLE=api`. Sets the global prefix `api/v1`, CORS, the validation pipe, and Swagger (off in production unless `SWAGGER_ENABLED=true`). |
+| `src/worker.ts` | Worker entry. Requires `ROLE=worker`. Starts queue processors and schedulers. No HTTP listener. |
+| `src/app.module.ts` | Wires the API modules and registers the global guards. |
+| `src/worker.module.ts` | Wires only the modules the worker needs. |
+
+## Request lifecycle
+
+<Mermaid
+  caption="A request is rejected at the first guard that fails. Only passing requests reach the service and the database."
+  chart={`sequenceDiagram
+    participant C as Client
+    participant N as nginx
+    participant G as Global guards
+    participant V as Validation pipe
+    participant S as Service
+    participant D as PostgreSQL
+    C->>N: HTTPS request
+    N->>G: forwarded
+    G->>G: 1. JwtAuthGuard (who are you?)
+    G->>G: 2. RolesGuard (role allowed?)
+    G->>G: 3. AccessGuard (capability held?)
+    G->>G: 4. ThrottlerGuard (rate limit)
+    G->>V: passes
+    V->>S: validated DTO
+    S->>D: query or write
+    D-->>S: rows
+    S-->>C: JSON response`}
+/>
+
+**Key point: guard order comes from registration order in `app.module.ts`.** Changing that order changes which check rejects a request first.
+
+## Access control in code
+
+- `@RequireAccess(roles, capability)` sits on each endpoint. It names the roles and the capability key allowed to call it.
+- All capability keys are listed in [Capabilities](/reference/capabilities).
+- A super admin passes every capability check. Other staff need a permission group that grants the key.
+
+## Two authentication stacks
+
+| Stack | Login route | Token secret | Used by |
+| --- | --- | --- | --- |
+| Public | `/api/v1/auth/*` | `JWT_ACCESS_SECRET` | Public portal and contributors |
+| Admin portal | `/api/v1/admin/auth/*` | `JWT_ADMIN_SECRET` | Admin console and staff |
+
+- Each stack signs its own tokens.
+- **Exception:** public routes also accept admin-signed tokens, so a staff member can use the public portal with the admin login.
+
+## Login protection
+
+- **Lockout.** After `LOGIN_LOCKOUT_THRESHOLD` failed attempts, the account stays locked for `LOGIN_LOCKOUT_MINUTES`. Password failures and MFA code failures both count.
+- **MFA methods.** TOTP (authenticator app), SMS (Termii), and email one-time codes. Backup codes use the `XXXX-XXXX` format.
+- **Partial login.** When MFA is required, the login response sets `requiresMfa` and `mfaMethod`. The client then sends the code to finish login.
+
+## Modules
+
+<Mermaid
+  caption="Grouped by business area. Arrows show the main dependency direction, not every import."
+  chart={`flowchart LR
+    subgraph Identity
+      AUTH[auth] --- USERS[users]
+      ADMAUTH[admin-auth] --- ADMIN[admin]
+      GROUPS[groups]
+    end
+    subgraph Data
+      DS[datasets] --> UP[uploads]
+      DS --> ING[ingestion]
+      DS --> ADMIN
+      ING --> GIS[gis]
+      DS --> DP[development-partners]
+    end
+    subgraph Services
+      NOTIF[notifications]
+      SMS[sms]
+      AN[analytics]
+      AI[ai]
+      SEARCH[search]
+    end
+    subgraph Content
+      PROG[programs]
+      DOC[documents]
+      CAT[categories]
+      PD[partner-data]
+    end
+    ADMIN --> NOTIF
+    DS --> NOTIF
+    AUTH --> SMS
+    ING --> AN
+    AI --> DS`}
+/>
+
+| Module | Purpose | Main route prefix |
+| --- | --- | --- |
+| `auth`, `admin-auth` | Login, MFA, tokens | `/auth`, `/admin/auth` |
+| `users`, `groups`, `invites` | Accounts, user groups, invitations | `/users`, `/groups`, `/invites` |
+| `admin` | Staff, permission groups, review workflow, audit | `/admin` |
+| `datasets` | Dataset records and review actions | `/datasets` |
+| `uploads` | File intake, validation, storage | `/uploads` |
+| `ingestion` | Spreadsheet to staging to published data | `/datasets/:id/ingestion`, `/admin/governance/ingestion` |
+| `analytics`, `stats`, `search` | Dashboards and search | `/analytics`, `/stats`, `/search` |
+| `gis` | Map layers and boundaries | `/gis`, `/admin/gis-reference-layers` |
+| `notifications`, `sms` | In-app alerts and SMS | `/notifications`, `/sms` |
+| `ai` | AI Health Data Assistant | `/ai`, `/admin/ai` |
+| `programs`, `documents`, `partner-data`, `categories`, `departments` | Content and reference lists | As named |
+| `queues`, `admin/system-health` | Queue and health views for operators | `/admin/queues`, `/admin/system-health` |
+
+## Database access
+
+- TypeORM entities sit in each module's `entities/` folder.
+- Schema changes go through migrations in `src/database`. Do not change tables by hand.
+- The full table list is in [Database tables](/reference/tables).
+
+## Source files
+
+- `nsgdp-backend/src/main.ts`, `src/app.module.ts`, `src/worker.module.ts`
+- `nsgdp-backend/src/common/decorators/require-access.decorator.ts`
+- `nsgdp-backend/src/modules/auth/` and `nsgdp-backend/src/modules/admin-auth/`
+- `nsgdp-backend/src/modules/auth/login-lockout.service.ts`

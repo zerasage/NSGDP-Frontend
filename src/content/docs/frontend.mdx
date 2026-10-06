@@ -1,0 +1,63 @@
+---
+title: Public portal and contributor dashboard
+description: How the public Next.js app is organised, how it fetches data, and how it shows permission-based controls.
+---
+
+**The public portal is a Next.js 15 app.** Visitors browse published datasets and maps there. Contributors sign in to the same app to upload and submit datasets. The app calls the backend API with the user's token and never talks to the database.
+
+## Route groups
+
+Next.js route groups in brackets do not appear in the URL. They group pages that share a layout.
+
+| Group | Who sees it | Examples |
+| --- | --- | --- |
+| `(business)` | Public visitors | Catalogue, maps, analytics, about, contact |
+| `(auth)` | Signed-out users | Login, register, MFA, password reset |
+| `(dashboard)` | Signed-in users and contributors | Dashboard, my datasets, upload, notifications, profile |
+
+The full route list is generated in [Routes](/reference/routes).
+
+## Data flow
+
+<Mermaid
+  caption="Pages never call the API directly from render code. Each data call goes through a hook, which uses TanStack Query for caching and refetching."
+  chart={`flowchart LR
+    Page["Page component"] --> Hook["Hook in src/lib/hooks"]
+    Hook --> Query["TanStack Query<br/>cache and refetch"]
+    Query --> Client["API client<br/>src/lib/api"]
+    Client -->|"HTTPS + public JWT"| API["Backend API"]
+    Form["Form"] --> RHF["React Hook Form"]
+    RHF --> Zod["Zod schema<br/>src/lib/schemas"]
+    Zod --> Client`}
+/>
+
+| Concern | Where it lives |
+| --- | --- |
+| Server data and caching | TanStack Query 5 hooks in `src/lib/hooks` |
+| HTTP calls | `src/lib/api` |
+| Forms and validation | React Hook Form plus Zod schemas in `src/lib/schemas` |
+| Response shaping | `src/lib/adapters` |
+| Types shared by pages | `src/types` |
+
+## Notifications
+
+- The bell reads the unread count and polls every **30 seconds**.
+- A chime plays when the unread count goes up. The browser allows audio only after the first user click or key press.
+- Each user can switch the chime off in **Profile, Security, Notification sound**. The setting lives in the browser (`localStorage`), not on the server.
+
+## Permission-based display
+
+- The UI hides buttons the user cannot use. The backend still enforces the same rule. **The UI check is a convenience, not the security boundary.**
+- Contributors see upload and submit actions. Public visitors see only browse and download.
+
+## Known items to review
+
+- `src/app/(dashboard)/api-test` and `src/app/architecture-old` look like development pages. Confirm they should ship. See [Known gaps](/known-gaps).
+- `src/lib/mock` holds sample data. Confirm no page reads it in production.
+
+## Source files
+
+- `nsgdp-frontend/src/app/`: route groups and pages
+- `nsgdp-frontend/src/lib/hooks/useNotifications.ts`: polling interval
+- `nsgdp-frontend/src/lib/utils/notification-sound.ts`: chime and first-gesture unlock
+- `nsgdp-frontend/src/components/profile/notification-sound-toggle.tsx`: the user setting

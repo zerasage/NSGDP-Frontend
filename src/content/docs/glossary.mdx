@@ -1,0 +1,47 @@
+---
+title: Glossary
+description: Plain definitions of the terms used across this site and the codebase.
+---
+
+Terms are listed alphabetically. Code names appear in backticks.
+
+| Term | Meaning |
+| --- | --- |
+| **Alias** | A stored alternative spelling of an indicator or org unit name. Confirmed aliases are used for future matches. |
+| **Approver** | Staff member with `approve:datasets`. Gives final approval or sends a dataset back. |
+| **Backup code** | A one-time MFA recovery code in `XXXX-XXXX` format. |
+| **BullMQ** | The job queue library used with Redis. |
+| **Capability** | A named permission such as `validate:datasets`. Granted to staff through permission groups. |
+| **Change-point** | A point where a trend in a time series changes. Found by the weekly resolution job. |
+| **Concurrency** | How many jobs one worker runs at the same time for a queue. |
+| **Conflict** | Two rows that give different values for the same indicator, place, and period. |
+| **Contributor** | A user at a development partner who uploads and submits datasets. |
+| **Dead-letter queue** | Where a job goes after its last failed attempt. Operators inspect and replay from here. |
+| **Development partner** | An organisation that contributes data. Its users are contributors or partner admins. |
+| **Embedding** | A numeric vector for a piece of text. Used to find similar indicator names. |
+| **Fitness verdict** | The result of the final pipeline check. It says whether a dataset is fit to review. |
+| **Flow** | A BullMQ parent job with child jobs that must finish in order. Used for ingestion. |
+| **Gazetteer** | The reference list of LGAs, wards, and facilities used for org unit matching. |
+| **Hard delete** | Permanent removal of a record. Gated by `ENABLE_DATASET_HARD_DELETE`. |
+| **Heartbeat** | A timestamp a worker writes while it runs a job. Its absence means the job may have stalled. |
+| **Indicator** | A measure in the health data, such as a count of vaccinations. |
+| **Ingestion** | Turning an uploaded spreadsheet into staged, matched rows. |
+| **Lockout** | A temporary block on an account after repeated failed sign-in attempts. |
+| **Migration** | A versioned script that changes the database schema. |
+| **MFA** | Multi-factor authentication. Methods here are TOTP, SMS, and email codes. |
+| **Observation** | One value for one indicator, place, and period. |
+| **Org unit** | A place in the health system: state, LGA, ward, or facility. |
+| **PostGIS** | The PostgreSQL extension that stores and queries geometry. |
+| **Priority** | The order in which a queue takes waiting jobs. Lower number runs first. |
+| **Publication** | A release of approved rows to the public catalogue. Can be retracted. |
+| **Queue** | A named list of jobs in Redis, processed by the worker. |
+| **Retraction** | Removing a published dataset from the public catalogue. |
+| **ROLE** | The environment variable that tells a process to run as `api` or `worker`. |
+| **Shift** | A change in how a source reports data over time. Detected by the system-shift check. |
+| **Staging** | The table where matched rows wait before publication. |
+| **Stalled job** | A job whose worker stopped sending heartbeats. The reclaimer recovers it. |
+| **Submission ticket** | The record that tracks one dataset's review. Each step is logged in workflow actions. |
+| **Succession** | Finding that one indicator has replaced another. Suggested by the nightly job. |
+| **Validator** | Staff member with `validate:datasets`. Runs the QA checklist and marks a dataset validated. |
+| **Workflow action** | One row in the audit thread for a dataset review step: who, what, comment, and when. |
+| **Worker** | The backend process that runs background jobs. No HTTP port. |

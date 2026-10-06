@@ -1,0 +1,69 @@
+---
+title: Notifications, email, and SMS
+description: How an event becomes an in-app alert, an email, or an SMS, and which provider sends each one.
+---
+
+**An event writes a notification row, then a worker sends the email or SMS.** The in-app bell reads the same rows. Email and SMS run on their own queues, so a slow provider never delays the request that caused the event.
+
+## Flow
+
+<Mermaid
+  caption="The request saves the notification row and returns. The worker handles the outbound message."
+  chart={`sequenceDiagram
+    participant S as Service (e.g. approval)
+    participant DB as PostgreSQL
+    participant NQ as notification queue
+    participant W as Notification processor
+    participant P as Email provider
+    participant UI as Apps (bell)
+    participant API as API
+    S->>DB: Insert notification row
+    S->>NQ: Enqueue email job
+    UI->>API: Poll unread count every 30 seconds
+    API->>DB: Count unread rows
+    NQ->>W: Deliver job
+    W->>P: Send email
+    P-->>W: Accepted or failed`}
+/>
+
+## Channels
+
+| Channel | Trigger examples | Sent by | Provider setting |
+| --- | --- | --- | --- |
+| In-app | Any event with a notification type | Stored row, read by the apps | None |
+| Email | Approval, rejection, revision request, staff alerts | Notification processor | `EMAIL_PROVIDER` picks Resend, Brevo, or SMTP |
+| SMS | One-time codes and SMS notifications | SMS processor (`sms` queue) | Termii (`TERMII_API_KEY`, `TERMII_SENDER_ID`) |
+
+## Notification types
+
+The system defines 21 notification types. Examples:
+
+- `dataset_approved`, `dataset_rejected`, `dataset_revision_requested`
+- `dataset_published`
+- `dataset_ready_for_approval` (staff alert when a dataset is validated)
+- `dataset_sent_back` (staff alert when an approver returns a dataset)
+
+The full list is in `nsgdp-backend/src/modules/notifications/entities/notification.entity.ts`.
+
+## Who receives what
+
+- **Submitting organisation.** Gets outcome emails: approved, rejected, revision requested, published.
+- **Staff.** Get alerts for work waiting on their capability. See [Dataset lifecycle](/dataset-review).
+
+## SMS controls
+
+- `SMS_ENABLED` switches the Termii service on or off. The service reads this flag at start-up (`termii.service.ts`).
+- `SMS_OTP_LENGTH` sets the number of digits.
+- `SMS_OTP_EXPIRY` sets how long a code stays valid.
+
+## Email branding
+
+The logo in email comes from a file in the backend `public` folder, served at `/public/assets/`. Setup steps are in `EMAIL_LOGO_SETUP.md` in the project root. The logo URL must be reachable from the public internet, because email clients fetch it directly.
+
+## Source files
+
+- `nsgdp-backend/src/modules/notifications/notifications.service.ts`: creates rows and enqueues jobs
+- `nsgdp-backend/src/modules/notifications/providers/`: email provider selection
+- `nsgdp-backend/src/workers/notification.processor.ts`: sends email
+- `nsgdp-backend/src/modules/sms/`: SMS service and processor
+- `nsgdp-frontend/src/lib/hooks/useNotifications.ts`, `nsgdp-admin/lib/hooks/useNotifications.ts`: polling
