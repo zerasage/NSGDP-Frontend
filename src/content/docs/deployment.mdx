@@ -1,0 +1,68 @@
+---
+title: Deployment
+description: The production services, how they connect, their resource limits and health checks, and how the edge proxy routes traffic.
+---
+
+**Production runs as seven Docker services on one host, defined in `docker-compose.prod.yml`.** The backend image runs twice: once as the API and once as the worker. nginx is the only service that faces the internet. The frontend and admin apps are built separately and are not part of this compose file.
+
+## Service layout
+
+<Mermaid
+  caption="Solid arrows are network calls. nginx publishes ports 80 and 443. The data-store ports are published to the host, which the Security page flags as a check item."
+  chart={`flowchart TB
+    Internet((Internet)) --> NG["nginx<br/>80, 443<br/>64 MB"]
+    NG --> BE["backend (ROLE=api)<br/>512 MB"]
+    BE --> PG[("postgres 15 + PostGIS<br/>1 GB<br/>host 5432")]
+    BE --> RD[("redis 7<br/>384 MB<br/>host 6379")]
+    BE --> CV["clamav<br/>1.28 GB<br/>host 3310"]
+    WK["worker (ROLE=worker)<br/>512 MB<br/>no ports"] --> PG
+    WK --> RD
+    CB["certbot<br/>TLS renewal"] -. "certificates" .-> NG`}
+/>
+
+| Service | Image or build | Memory limit | Published port | Health check | Restart |
+| --- | --- | --- | --- | --- | --- |
+| `nginx` | nginx:alpine | 64 MB | 80, 443 | No | always |
+| `backend` | `nsgdp-backend:prod`, ROLE=api | 512 MB | none | Yes | always |
+| `worker` | `nsgdp-backend:prod`, ROLE=worker | 512 MB | none | Yes | always |
+| `postgres` | postgis/postgis:15-3.3 | 1 GB | **5432 (check)** | Yes | always |
+| `redis` | redis:7-alpine | 384 MB | **6379 (check)** | Yes | always |
+| `clamav` | clamav/clamav | 1.28 GB | **3310 (check)** | Yes | always |
+| `certbot` | certbot/certbot | none | none | No | Renews certificates. Restart policy not checked. |
+
+**Why ClamAV has the largest limit.** Its signature database needs about 1.2 to 1.8 GB. A smaller limit causes the process to be killed and the health check to fail.
+
+**Startup order.** The API and worker wait for a healthy ClamAV before they start.
+
+## Edge routing (nginx)
+
+| Path | Behaviour |
+| --- | --- |
+| `/api/v1/health` | Passed to the API. Used for monitoring. |
+| `/api/v1/uploads` | Passed to the API. Upload rate limit applies. |
+| `/api/v1/admin/gis-reference-layers/*/upload` | Passed to the API. Upload rate limit applies. |
+| `/api/v1/datasets/*/ingestion/stream` | Passed to the API. Streams progress. Separate rate limit. |
+| `/api` | Passed to the API. General rate limit. |
+| `/public/` | Passed to the API. Serves public assets such as the email logo. |
+| `/api/docs` | Passed to the API. Returns 404 in production unless Swagger is enabled. |
+
+## Documentation at /docs
+
+The docs are part of the frontend app (`nsgdp-frontend`). They deploy with it. No extra nginx block or static copy is needed. Once the frontend is deployed, the docs live at `https://<frontend-host>/docs`.
+
+## Frontend and admin hosting
+
+These two apps are not in the compose file. Their build and hosting method is **not documented in this repository**. Confirm with whoever runs the hosting. See [Known gaps](/known-gaps).
+
+## Environment
+
+- Variables are read from the server environment. The full list is in [Environment variables](/reference/env).
+- `ROLE` must be `api` for the backend service and `worker` for the worker service. A mismatch stops the process at start-up.
+- `ENABLE_DATASET_HARD_DELETE` must be set explicitly on the backend service if the hard-delete page is needed.
+
+## Source files
+
+- `nsgdp-backend/docker-compose.prod.yml`
+- `nsgdp-backend/nginx.conf`
+- `nsgdp-backend/Dockerfile`
+- `nsgdp-backend/src/main.ts` and `src/worker.ts`: the role check

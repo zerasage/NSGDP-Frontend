@@ -1,0 +1,61 @@
+---
+title: Admin console
+description: How the staff console is organised, how it shows capabilities, and which screens run the review and operations work.
+---
+
+**The admin console is a separate Next.js 16 app for NSPHCDA staff.** It signs in through the admin auth stack and sends the admin token on every call. Each screen shows only the actions the signed-in person holds as capabilities.
+
+## Layout
+
+- Sidebar: navigation, with badges for pending work (refreshed every 30 seconds).
+- Top bar: the notification bell (a link to the notifications page) and the theme switch.
+- Pages: one folder per area under `app/(admin)/`. The full route list is in [Routes](/reference/routes).
+
+## How the console knows what a user can do
+
+<Mermaid
+  caption="The console reads the same capability keys the backend checks. A hidden button is a convenience. The backend still rejects the call."
+  chart={`flowchart TB
+    Login["Admin login"] --> Token["Admin JWT"]
+    Token --> Me["Current user and capabilities"]
+    Me --> Hook["useAdminAccess<br/>can(key)"]
+    Hook --> Sidebar["Sidebar links"]
+    Hook --> Buttons["Action buttons"]
+    Buttons --> Call["API call"]
+    Call --> Guard["Backend guards<br/>RolesGuard, AccessGuard"]
+    Guard -->|allowed| Service["Service"]
+    Guard -->|denied| Err["403"]`}
+/>
+
+- `can(key)` checks one capability. `canAny(...)` checks a list.
+- Keys look like `validate:datasets` or `approve:datasets`. Full list: [Capabilities](/reference/capabilities).
+
+## Main areas
+
+| Area | Folder | What staff do there |
+| --- | --- | --- |
+| Datasets | `datasets/` | Browse, preview, review, validate, approve, publish, archive |
+| Review queues | `datasets/` | Work through pending, under review, validated, and approved items |
+| Ingestion ops | `ingestion-ops/` | Watch ingestion jobs, review conflicts and indicator matches |
+| Governance | `governance/` | Indicator dictionary and ingestion settings |
+| Staff and permissions | `staff/`, `permissions/`, `permission-groups/` | Invite staff, grant capabilities through groups |
+| Development partners | `development-partners/`, `development-partner-groups/` | Partner organisations and their members |
+| Access requests | `access-requests/`, `archive-requests/` | Approve or refuse access and archive requests |
+| Programmes and documents | `programs/`, `documents/` | Content management |
+| GIS reference | `gis-reference/` | Map layers and boundary files |
+| Operations | `system-health/`, `audit-logs/`, `ingestion-ops/` | Health, queues, and audit trail |
+| Profile | `profile/` | Account, password change, two-factor setup, notification sound |
+
+## Dataset cleanup (restricted)
+
+- The page `app/(admin)/dataset-cleanup` permanently deletes datasets. Only super admins can open it.
+- It is **not linked in the sidebar**.
+- The backend switches it on only when `ENABLE_DATASET_HARD_DELETE=true`. The default is off. See [Operations](/operations).
+
+## Source files
+
+- `nsgdp-admin/app/(admin)/`: all admin pages
+- `nsgdp-admin/components/layout/admin-sidebar.tsx`: navigation and badges
+- `nsgdp-admin/lib/hooks/useAdminAccess.ts`: capability checks
+- `nsgdp-admin/lib/api/client.ts`: the shared HTTP client
+- `nsgdp-admin/lib/hooks/useNotifications.ts`: 30-second polling

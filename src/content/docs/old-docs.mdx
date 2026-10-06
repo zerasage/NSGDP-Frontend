@@ -1,0 +1,43 @@
+---
+title: Old documents and what changed
+description: Which earlier specification and report files still match the code, which do not, and where to read the correct version.
+---
+
+**Several earlier documents describe the design, not the system as built.** Some were written before the build started. Where they disagree with the code, this site and the code win. The table shows each document's status.
+
+## Status of each document
+
+| Document | Location | Status | What to know |
+| --- | --- | --- | --- |
+| Technical Architecture Documentation | Project root | **Mostly current** | Sections on the data model, dataset review, and deployment match the code. Its open-items list is partly out of date. |
+| Backend Architecture v1.1 | `src/content/archive/` | **Superseded** | Names Fastify and a separate worker design that differs from the build. Read for history. |
+| Data Ingestion and Canonicalisation Engine v1.1 | `src/content/archive/` | **Superseded in parts** | Describes a Python reader container and Bull v4. The reader is TypeScript inside the worker, and the queue library is BullMQ. Section 12 records implementation findings, but §12.8 is out of date too (the worker is a separate process now). |
+| Canonicalisation Engine implementation plan and audit | `src/content/archive/` | **Historical** | Planning material. Use the ingestion pages on this site. |
+| KNOWN_GAPS.md | Project root | **Partly stale** | MFA entry is out of date. See [Known gaps](/known-gaps). |
+| API specification | `nsgdp-backend/docs/` | **Not re-checked** | Check each endpoint against the controllers, or use Swagger when enabled. |
+| Deployment guide | `nsgdp-backend/docs/` | **Not re-checked** | Compare with [Deployment](/deployment) before following it. |
+| Penetration, security, and performance reports | Project root and `Final Reports/` | **Current** | Final versions are in `Final Reports/`. Fix documents are in the project root. |
+| Email logo setup | Project root | **Current** | Steps for the email logo. See [Notifications](/notifications). |
+| DHIS2 manual upload process | `nsgdp-backend/docs/` | **Not re-checked** | Describes the manual route until DHIS2 sync is built. |
+
+## Specific corrections
+
+These points in older documents do not match the code:
+
+- **Reader language.** Older docs describe a Python reader container. The reader is TypeScript inside the worker. See [Pipeline stages](/ingestion-stages).
+- **Web framework.** Older docs name Fastify. The API is NestJS 11. See [Backend](/backend).
+- **Queue library.** Older docs name Bull v4. The queues use BullMQ with `@nestjs/bullmq`. See [Background jobs](/background-jobs).
+- **Worker process.** Older docs say the worker is not a separate process. It is: `dist/worker.js` with `ROLE=worker`, in its own container. See [Deployment](/deployment).
+- **Eight stages.** Older docs describe eight stages that include change-point and succession detection. The pipeline runs eight stages of its own. Succession and change-point are separate scheduled jobs. See [Pipeline stages](/ingestion-stages).
+- **Database.** Older docs name pgvector as unavailable in the deployed Postgres image. Check the current image before relying on either claim.
+- **Dataset review.** Older docs describe one approval capability. The current model uses two tiers: `validate:datasets` and `approve:datasets`. See [Dataset lifecycle](/dataset-review).
+
+## Recommended reading order for a new reader
+
+1. This site, starting with [Start here](/)
+2. The Technical Architecture Documentation in the project root, for sections it covers well
+3. Older design documents only when a page here points to them
+
+## Source files
+
+- Each file listed in the table above, in its location

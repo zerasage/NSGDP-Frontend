@@ -1,0 +1,93 @@
+---
+title: Developer onboarding
+description: The repository layout, how to run each app locally, how to test, and the rules to follow when changing code.
+---
+
+**There are four folders to run: the backend API, the worker, the public frontend, and the admin console.** All four need Node.js and a running PostgreSQL, Redis, and ClamAV for full behaviour. The backend has its own README with service setup details.
+
+## Repository layout
+
+| Folder | What it is | Port (local) |
+| --- | --- | --- |
+| `nsgdp-backend/` | NestJS API and worker, migrations, Docker files | API 3001 |
+| `nsgdp-frontend/` | Public portal and contributor dashboard (Next.js 15) | 3004 |
+| `nsgdp-admin/` | Staff admin console (Next.js 16) | 3003 |
+| `nsgdp-frontend/` | This documentation site | 3000 by default |
+| `Final Reports/` | Signed-off security, penetration, and performance reports | n/a |
+| Root `*.md` files | Earlier reports, fix documents, and the handover document | n/a |
+
+## Run locally
+
+**Backend API**
+
+```bash
+cd nsgdp-backend
+npm install
+npm run start:dev        # ROLE=api, HTTP on 3001
+```
+
+**Backend worker** (separate terminal, same folder)
+
+```bash
+npm run start:worker     # ROLE=worker, no HTTP
+```
+
+**Public frontend**
+
+```bash
+cd nsgdp-frontend
+npm install
+npm run dev              # port 3004
+```
+
+**Admin console**
+
+```bash
+cd nsgdp-admin
+npm install
+npm run dev              # port 3003
+```
+
+**Documentation site**
+
+```bash
+# The docs ship with the frontend. Open http://localhost:3004/docs
+```
+
+## Environment
+
+- Copy `.env.example` (or `example.env`) to `.env` in each app. Do not commit `.env`.
+- The backend validates its environment at start-up. A missing required variable stops the process with a message. See [Environment variables](/reference/env).
+
+## Tests
+
+| Command | What it runs |
+| --- | --- |
+| `npm test` | Unit tests (Jest) |
+| `npm run test:integration` | Integration tests, needs running services |
+| `npm run test:e2e` | End-to-end API tests |
+| `npm run test:cov` | Unit tests with coverage |
+
+Run the tests that cover the files you change before you commit.
+
+## Rules for changes
+
+1. **Lint single files.** Use `npx eslint <files>`. The repository-wide `npm run lint` script has `--fix` and rewrites files across the whole backend. Run it only on purpose.
+2. **Never edit a migration that has run.** Add a new migration instead.
+3. **Do not rename a queue.** Queue names are Redis keys. A rename orphans the jobs already waiting. See [Queues](/reference/queues).
+4. **Do not change a capability key without a plan.** Keys are stored in the database and granted to people. See [Capabilities](/reference/capabilities).
+5. **Keep the UI check and the backend check in step.** Hiding a button is not security. The backend guard must reject the call too.
+6. **Work on a branch.** The project uses `updates` for work in progress and `main` for released code. Merge to `main` only after review.
+
+## Where to start reading
+
+1. [Architecture](/architecture): the big picture.
+2. [Backend](/backend): the request path and guards.
+3. [Dataset lifecycle](/dataset-review): the business rules most features touch.
+4. [Ingestion overview](/ingestion-overview): the hardest part of the system.
+
+## Source files
+
+- `nsgdp-backend/package.json`: scripts
+- `nsgdp-backend/README.md`: backend setup details
+- `nsgdp-backend/.env.example` (or `example.env`): variables to copy

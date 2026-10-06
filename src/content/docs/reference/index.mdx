@@ -1,0 +1,21 @@
+---
+title: Reference
+description: Generated tables for environment variables, queues, database tables, capabilities, and routes. Rebuilt from the source code.
+---
+
+**These five pages are generated from the source code, so they match the code at the time of the last build.** Do not edit them by hand. Re-run `node scripts/generate-docs-reference.mjs` in `nsgdp-frontend` after a code change, then commit the result.
+
+| Page | What it lists | Source |
+| --- | --- | --- |
+| [Environment variables](/reference/env) | Every variable the backend reads | `env.validation.ts` and code reads |
+| [Queues](/reference/queues) | Every queue name with its concurrency, priority, and attempts | `bull.config.ts` |
+| [Database tables](/reference/tables) | Every entity table with its module and file | `@Entity` decorators |
+| [Capabilities](/reference/capabilities) | Every staff capability key | `permission-actions.ts` |
+| [Routes](/reference/routes) | Every page route in the frontend and admin apps | `app/` folders |
+
+## Keeping this current
+
+1. Change the code.
+2. Run `node scripts/generate-docs-reference.mjs` in `nsgdp-frontend`.
+3. Check the diff. Only the changed rows should appear.
+4. Update the narrative pages if the change affects a described flow.

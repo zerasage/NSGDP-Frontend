@@ -1,0 +1,61 @@
+---
+title: Security model
+description: The security controls in place, where each one lives in the code, and the items the ICT team must still check.
+---
+
+**Security depends on layered controls: the edge proxy, the guards, the token stacks, the lockout, and the upload checks.** Each control has a source location. Items marked **Check** need a decision or a production setting before go-live.
+
+## Controls
+
+| Layer | Control | Where |
+| --- | --- | --- |
+| Edge | TLS with HSTS, `nosniff`, `X-Frame-Options: DENY`, referrer policy, strict CSP on API responses | `nginx.conf` |
+| Edge | Server version hidden (`server_tokens off`) | `nginx.conf` |
+| Edge | Rate limits: 10 requests per second per client on the API, 2 per second on uploads | `nginx.conf` |
+| Edge | Maximum request body 100 MB | `nginx.conf` |
+| Request | Global authentication guard on every route | `app.module.ts` (`JwtAuthGuard`) |
+| Request | Role and capability checks on every protected endpoint | `RolesGuard`, `AccessGuard`, `@RequireAccess` |
+| Request | Global rate limiter | `ThrottlerGuard` |
+| Input | Global validation pipe on every request body | `main.ts` |
+| Login | Lockout after repeated failed passwords or MFA codes | `login-lockout.service.ts` |
+| Login | MFA: TOTP, SMS, email codes, backup codes | `auth/`, `admin-auth/` |
+| Tokens | Separate secrets for public and admin tokens. Refresh tokens revoked on logout. | `JWT_ACCESS_SECRET`, `JWT_ADMIN_SECRET` |
+| Upload | File-signature check before storage. Virus scan before the file is kept. | `file-signature.util.ts`, ClamAV |
+| Audit | Admin actions and review steps are logged | `audit_logs`, `admin_audit_logs`, `workflow_actions` |
+| Config | Boolean settings are checked at start-up, so `"false"` is not read as true | `env.validation.ts` |
+| Docs | Swagger is off in production unless enabled | `main.ts` (`SWAGGER_ENABLED`) |
+
+## Trust boundaries
+
+- **Public internet to nginx.** Only ports 80 and 443 should be reachable from outside.
+- **nginx to API.** Internal Docker network.
+- **API and worker to data stores.** Internal Docker network.
+- **Worker.** Has no inbound port.
+
+## Items to check before go-live
+
+1. **Check: published data-store ports.** The production compose file publishes PostgreSQL (5432), Redis (6379), and ClamAV (3310) on the host. Remove those port mappings, or block them at the firewall. Data stores should not be reachable from outside the host. See [Deployment](/deployment).
+2. **Check: database password default.** The configuration reads `DATABASE_PASSWORD` with the code default `postgres`. The validator requires the variable, so the default should not apply in production. Confirm the server sets a strong value.
+3. **Check: hard delete flag.** `ENABLE_DATASET_HARD_DELETE` defaults to off. Confirm its production value. See [Operations](/operations).
+4. **Check: secret handling.** All secrets come from the server environment. None belong in git or in this site. Rotate any secret that has ever been pasted into chat or a ticket.
+5. **Check: development pages.** Confirm that development-only frontend pages are not reachable in production. See [Frontend](/frontend).
+
+## Test evidence
+
+Security testing was run against the system and recorded in three documents in the project's `Final Reports` folder:
+
+- Penetration Test (final)
+- Security Sign-Off (final)
+- Performance Audit (final)
+
+Each finding has a status, a fix, and a verification note. The fix documents are in the project root.
+
+## Source files
+
+- `nsgdp-backend/nginx.conf`
+- `nsgdp-backend/src/app.module.ts`: global guards
+- `nsgdp-backend/src/common/decorators/require-access.decorator.ts`
+- `nsgdp-backend/src/modules/auth/login-lockout.service.ts`
+- `nsgdp-backend/src/modules/uploads/file-signature.util.ts`
+- `nsgdp-backend/src/config/env.validation.ts`
+- `nsgdp-backend/docker-compose.prod.yml`

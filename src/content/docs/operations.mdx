@@ -1,0 +1,94 @@
+---
+title: Operations runbooks
+description: Step-by-step procedures for routine and urgent tasks on the running system.
+---
+
+**Each runbook lists the trigger, the steps, and how to confirm success.** Run them in the order given. Stop and escalate if a step fails.
+
+## Check the system is healthy
+
+**Trigger:** routine check, or users report errors.
+
+1. Call `https://<host>/api/v1/health`. Expect a success response.
+2. In the admin console, open **System health**. Check queue depth and the dead-letter count.
+3. Check each container is running and healthy on the server.
+
+**Done when:** health returns success, dead-letter count is zero or understood, and all containers report healthy.
+
+## Replay a dead-lettered job
+
+**Trigger:** a job appears in the dead-letter queue.
+
+1. Open **Queues** in the admin console. Find the job by queue name and time.
+2. Read the payload and the error. Fix the cause first. Replaying a job that fails again only adds to the dead-letter queue.
+3. Replay the job.
+
+**Done when:** the job leaves the dead-letter queue and completes.
+
+## Recover a stuck ingestion
+
+**Trigger:** a dataset stays in processing for much longer than a normal run.
+
+1. Open **Ingestion ops** and find the job. Check its status and last heartbeat.
+2. If the heartbeat is old, the stalled-job reclaimer will mark it failed or cancelled. Wait for it, or check the worker container.
+3. If the worker container is down, restart the worker. Do not restart the API for this.
+4. Once the job shows failed or cancelled, re-run ingestion from the admin console.
+
+**Done when:** the new ingestion job shows progress and then completes.
+
+## Enable hard delete (temporary)
+
+**Trigger:** a super admin needs to permanently delete datasets, for example test records.
+
+1. Set `ENABLE_DATASET_HARD_DELETE=true` in the backend service environment on the server.
+2. Restart the backend container. The worker is not affected.
+3. Use **Dataset cleanup** in the admin console. The page is not in the sidebar. Open it by URL.
+4. Delete only the records that need deleting. Hard delete cannot be undone.
+5. **Set the value back to `false` and restart the backend.** Leaving it on keeps the permanent-delete page live.
+
+**Done when:** the records are gone and the flag reads `false` on the server.
+
+**Warning:** deleting a dataset removes its files and rows. Confirm the record with the owner first.
+
+## Rotate a secret
+
+**Trigger:** a secret was exposed, or on the planned rotation schedule.
+
+1. Generate a new value. Use a long random string.
+2. Update the value in the server environment file.
+3. Restart the affected containers.
+4. Confirm the service works.
+
+**Effect to expect:**
+- Rotating `JWT_ACCESS_SECRET` or `JWT_ADMIN_SECRET` signs out every user on that stack.
+- Rotating the database password needs the database updated first, or the API cannot connect.
+
+## Add a staff member
+
+**Trigger:** a new NSPHCDA staff member needs access.
+
+1. In the admin console, open **Staff**. Send an invitation.
+2. The invitee sets a password and enrols MFA when MFA is required.
+3. Add the person to a permission group that holds only the capabilities their job needs. See [Capabilities](/reference/capabilities).
+
+**Done when:** the person can sign in and sees only the expected screens.
+
+## Restart order after a server reboot
+
+1. Start PostgreSQL, Redis, and ClamAV. Wait for each health check to pass.
+2. Start the backend (API).
+3. Start the worker.
+4. Start nginx.
+
+Containers with `restart: always` start on their own. Check each service after a reboot.
+
+## Known gaps for operations
+
+- **Backups and restore are not automated or tested.** Set up backups and a tested restore before go-live. See [Known gaps](/known-gaps).
+- **No central logging or alerting.** Monitoring relies on the System health page and the health endpoint.
+
+## Source files
+
+- `nsgdp-backend/src/modules/queues/`: queue status and replay
+- `nsgdp-backend/src/modules/admin/` and `nsgdp-admin/app/(admin)/dataset-cleanup/`: cleanup and staff screens
+- `nsgdp-backend/docker-compose.prod.yml`: restart policy and health checks

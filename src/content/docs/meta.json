@@ -1,0 +1,32 @@
+{
+  "title": "NSGDP Architecture",
+  "pages": [
+    "index",
+    "---System---",
+    "architecture",
+    "backend",
+    "frontend",
+    "admin",
+    "---Data and workflow---",
+    "data-model",
+    "dataset-review",
+    "---Ingestion engine---",
+    "ingestion-overview",
+    "ingestion-stages",
+    "ingestion-resolution",
+    "---Services---",
+    "background-jobs",
+    "modules",
+    "notifications",
+    "---Operations---",
+    "security",
+    "deployment",
+    "operations",
+    "developer-onboarding",
+    "---Reference---",
+    "reference",
+    "glossary",
+    "known-gaps",
+    "old-docs"
+  ]
+}

@@ -1,0 +1,83 @@
+---
+title: Ingestion engine overview
+description: How an uploaded spreadsheet travels from upload to staged rows, which services handle each hop, and where to look when it fails.
+---
+
+**An uploaded spreadsheet becomes staged, resolved rows in PostgreSQL through two queued steps.** The upload passes a virus scan. An eligible dataset then gets an ingestion flow on the `upload-processing` queue. The flow runs the eight-stage pipeline. Staff review anything the engine could not match, then the dataset is published.
+
+## End-to-end flow
+
+<Mermaid
+  caption="Two queues do the work. The API handles the upload and returns quickly. The worker does the parsing and matching."
+  chart={`sequenceDiagram
+    autonumber
+    participant U as Contributor
+    participant API as API (uploads)
+    participant B2 as Backblaze B2
+    participant VQ as validation queue
+    participant VW as Validation worker
+    participant ING as Ingestion enqueue
+    participant UQ as upload-processing queue
+    participant PL as Pipeline (worker)
+    participant DB as PostgreSQL
+    participant PQ as dataset-publish queue
+    U->>API: Upload workbook
+    API->>API: File signature check
+    API->>B2: Store file
+    API->>VQ: validate-file job
+    VQ->>VW: Start
+    VW->>VW: ClamAV scan
+    VW->>ING: Dataset eligible?
+    ING->>UQ: Nested flow of 8 stage jobs
+    UQ->>PL: DOWNLOAD job runs runAll()
+    PL->>DB: Staging rows, conflicts, progress
+    PL->>DB: Validation flags and fitness verdict
+    Note over DB,PQ: Staff review, then approval
+    PQ->>DB: Publication rows`}
+/>
+
+## Step by step
+
+| Step | What happens | Where |
+| --- | --- | --- |
+| 1. Upload | Multipart file received. A magic-number check rejects executables such as MZ, ELF, Mach-O, and shell scripts. | `uploads.service.ts`, `file-signature.util.ts` |
+| 2. Store | File written to Backblaze B2 under the datasets bucket | `uploads/storage/` |
+| 3. Scan | ClamAV scans the file. A failed scan clears the stored file path and marks the upload failed. | `validation.processor.ts` (validation queue) |
+| 4. Eligibility | Dataset status must be `pending`, `under_review`, or `approved` | `ingestion-eligibility.ts` |
+| 5. Enqueue | A nested BullMQ flow of eight stage jobs is added | `ingestion-enqueue.service.ts` |
+| 6. Run | The DOWNLOAD job runs the whole pipeline. The other seven jobs no-op. | `ingestion.processor.ts` |
+| 7. Stage | Rows land in `staging_observations`. Conflicts go to `observation_conflicts`. | `ingestion-pipeline.service.ts` |
+| 8. Review | Staff confirm or reject uncertain matches. | `ingestion-review.service.ts` |
+| 9. Publish | Approved rows are written to the publication tables | `dataset-publish.service.ts` |
+
+**Key point: the flow has eight nodes, but only one node does the work.** The DOWNLOAD job calls `pipeline.runAll()`. The job nodes for triage through validate exist so the progress topology matches the design. They return immediately. Read the code before assuming a stage runs on its own worker.
+
+## Why a flow and not eight separate jobs
+
+- A nested flow keeps the stages in order. A child must finish before its parent starts.
+- A stalled job is recovered by the stalled-job reclaimer, which marks the ingestion row failed or cancelled.
+- A redelivered DOWNLOAD job checks the durable `ingestion_jobs` row first. A finished or live job is skipped, so the work is never run twice.
+
+## Progress reporting
+
+- The worker writes stage state to `ingestion_jobs`: status, progress, and a step list.
+- Each stage carries a weight. Weights total 100. See [Pipeline stages](/ingestion-stages).
+- The admin ingestion page and the upload progress stream read this row. The stream is a server-sent events route under `/datasets/:id/ingestion/stream`.
+
+## Where to look when an upload is stuck
+
+1. Admin, **Ingestion ops**: check the job status and last heartbeat.
+2. Admin, **System health**: check queue depth and dead-letter count.
+3. Logs for the worker container: look for the dataset ID.
+4. `ingestion_jobs` table: `status`, `heartbeat_at`, and `error` columns.
+
+More steps are in [Operations](/operations).
+
+## Source files
+
+- `nsgdp-backend/src/modules/uploads/uploads.service.ts`
+- `nsgdp-backend/src/workers/validation.processor.ts`
+- `nsgdp-backend/src/modules/ingestion/services/ingestion-enqueue.service.ts`: `buildIngestionFlow`
+- `nsgdp-backend/src/workers/ingestion.processor.ts`
+- `nsgdp-backend/src/modules/ingestion/services/ingestion-pipeline.service.ts`: `runAll`
+- `nsgdp-backend/src/modules/ingestion/services/ingestion-eligibility.ts`

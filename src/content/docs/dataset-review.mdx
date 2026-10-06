@@ -1,0 +1,76 @@
+---
+title: Dataset lifecycle and review
+description: The states a dataset moves through, the two review tiers, and who may move it.
+---
+
+**A dataset moves from draft to published through two staff review tiers.** The Validator checks the work and moves it to `validated`. The Approver gives final approval or sends it back. Publishing is a third, separate capability. Every step writes one row to `workflow_actions`.
+
+## State machine
+
+<Mermaid
+  caption="Labels on arrows show the capability that makes the move. The solid path is the normal route to publication."
+  chart={`stateDiagram-v2
+    [*] --> draft: Contributor creates
+    draft --> pending: Submit for review
+    pending --> under_review: Validator claims (validate)
+    under_review --> validated: QA checklist passes (validate)
+    under_review --> rejected: Reject (validate)
+    under_review --> pending: Request revision (validate)
+    validated --> approved: Final approval (approve)
+    validated --> under_review: Send back with comment (approve)
+    approved --> public_catalogue: Publish (publish) sets published_at, status stays approved
+    draft --> archived: Retract (owner)
+    pending --> archived: Retract (owner)
+    under_review --> archived: Retract request (super admin)
+    approved --> archived: Retract request (super admin)`}
+/>
+
+## Two review tiers
+
+| Tier | Capability | Can do | Cannot do |
+| --- | --- | --- | --- |
+| Validator | `validate:datasets` | Claim work, run the 8-part QA checklist, mark validated, reject, request revision | Give final approval |
+| Approver | `approve:datasets` | Approve with a comment, send back to under review with a comment | Work on pending or under-review items |
+| Publisher | `publish:datasets` | Publish an approved dataset to the public catalogue | Approve or validate |
+
+**Key point: `approved` does not mean public.** Only publication sets `published_at` and makes a dataset visible in the public catalogue.
+
+## The QA checklist
+
+The Validator must pass all eight checks before the dataset can move to `validated`:
+
+1. Completeness
+2. Accuracy
+3. Consistency
+4. Timeliness
+5. Validity
+6. Uniqueness
+7. Geo-references
+8. Documentation
+
+## Who gets notified
+
+| Event | Who is told |
+| --- | --- |
+| Dataset becomes `validated` | Staff holding `approve:datasets` |
+| Approver sends it back | Staff holding `validate:datasets` |
+| Final approval | The submitting development partner's users |
+| Rejection or revision request | The submitting development partner's users |
+
+## Ingestion gate
+
+Ingestion runs only for datasets in these statuses: `pending`, `under_review`, or `approved`. A dataset that is `validated` is not in that list, so the ingestion worker refuses to re-ingest it. See [Ingestion overview](/ingestion-overview).
+
+## The review thread
+
+- Every transition writes one `workflow_actions` row: actor, action type, optional comment, and timestamp.
+- The dataset page shows this as a timeline. Staff can read the full history of who did what and why.
+
+## Source files
+
+- `nsgdp-backend/src/modules/datasets/approval.service.ts`: transition rules
+- `nsgdp-backend/src/modules/admin/constants/permission-actions.ts`: the capability keys
+- `nsgdp-backend/src/modules/admin/entities/workflow-action.entity.ts`: the audit row
+- `nsgdp-backend/src/modules/ingestion/services/ingestion-eligibility.ts`: the ingestion gate
+- `nsgdp-admin/app/(admin)/datasets/[slug]/review/page.tsx`: the Validator screen
+- `nsgdp-admin/app/(admin)/datasets/[slug]/approve/page.tsx`: the Approver screen

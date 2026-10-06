@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "path";
 import { fileURLToPath } from "url";
+import { createMDX } from "fumadocs-mdx/next";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,4 +50,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/** Compiles the MDX pages under src/content/docs for the /docs route. */
+const withMDX = createMDX();
+
+export default withMDX(nextConfig);

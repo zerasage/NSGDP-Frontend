@@ -1,0 +1,81 @@
+---
+title: Matching, review, and publishing
+description: How indicator and org unit names are matched, when a person must decide, how conflicts are resolved, and how data reaches the public catalogue.
+---
+
+**The engine matches names from the spreadsheet to known records, and sends the uncertain ones to a person.** It tries the strongest match first. Only the rows it cannot match with enough confidence wait for review. Approved rows then move to publication.
+
+## Indicator matching ladder
+
+<Mermaid
+  caption="Each rung runs only if the rung above did not match. A row that falls off the bottom waits for a human decision."
+  chart={`flowchart TB
+    S["Spreadsheet indicator name"] --> N["Normalise text"]
+    N --> E{"Confirmed alias<br/>exact match?"}
+    E -- yes --> OK1["Resolved: exact"]
+    E -- no --> F{"Fuzzy string match<br/>above auto band?"}
+    F -- yes --> OK2["Resolved: fuzzy"]
+    F -- no --> EM{"Embedding similarity<br/>above auto band?"}
+    EM -- yes --> OK3["Resolved: embedding"]
+    EM -- no --> R{"Retired indicator<br/>name match?"}
+    R -- yes --> OK4["Resolved: dictionary"]
+    R -- no --> P["Pending human review<br/>with candidate list"]`}
+/>
+
+| Method (stored value) | Meaning |
+| --- | --- |
+| `exact` | Normalised text equals a confirmed alias |
+| `fuzzy` | String similarity above the auto band |
+| `embed` | Embedding similarity above the auto band |
+| `dict` | Name matches a retired indicator |
+| `llm`, `human` | Set when a model or a person decides |
+
+**Key point: the bands are configuration, not code.** Thresholds come from resolver bands loaded from configuration (`load-resolver-bands.ts`). Changing a band changes which rows need review, without a deploy.
+
+## Org unit matching
+
+- Matches against the gazetteer (the list of LGAs, wards, and facilities).
+- Unmatched names create an org unit alias suggestion for review.
+- Confirmed aliases are used by later uploads, so the same spelling is not reviewed twice.
+
+## Human review
+
+Staff work through the review queue in the admin console, under **Ingestion ops**.
+
+- **Confirm** an indicator alias: the spreadsheet name is stored as a confirmed alias.
+- **Reject** an alias: the suggestion is dropped.
+- **Accept auto-matched** aliases in bulk.
+- Each decision is written back to the staging rows, and the fitness verdict is refreshed.
+
+## Observation conflicts
+
+A conflict means two rows claim different values for the same indicator, place, and period.
+
+- Conflicts are listed by dataset, period, source, and location.
+- A resolver picks one value per conflicting cell. The choice is saved with the actor and a time stamp.
+- Resolved conflicts can become stale if the underlying rows change. A separate list shows stale resolutions.
+
+## Publishing
+
+1. The dataset must be approved. See [Dataset lifecycle](/dataset-review).
+2. A publication row is created with a status. The publish job writes publishable rows to the public tables.
+3. An analytics refresh runs after publishing. Its status is tracked per dataset, so a failed refresh stays visible.
+4. **Retraction.** A retract request removes a publication and marks it retracted. Retracted rows are pruned by a daily job after 90 days.
+
+## Scheduled jobs that touch this area
+
+| Schedule | Job | Queue |
+| --- | --- | --- |
+| Nightly | Indicator succession candidates | `resolution` |
+| Weekly | Change-point detection | `resolution` |
+| Quarterly | Embedding calibration | `resolution` |
+| Daily | Prune retracted publications (older than 90 days) | `dataset-publish` |
+
+## Source files
+
+- `nsgdp-backend/src/modules/ingestion/resolver/indicator-resolver.ts`: the matching ladder
+- `nsgdp-backend/src/modules/ingestion/resolver/orgunit-resolver.ts`: org unit matching
+- `nsgdp-backend/src/modules/ingestion/services/ingestion-review.service.ts`: review decisions
+- `nsgdp-backend/src/modules/ingestion/services/observation-conflict-resolution.service.ts`: conflicts
+- `nsgdp-backend/src/modules/ingestion/services/dataset-publish.service.ts`: publish and retract
+- `nsgdp-backend/src/modules/ingestion/services/ingestion-scheduler.service.ts`: scheduled jobs
