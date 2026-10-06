@@ -33,4 +33,4 @@ coverage
 .git
 .gitignore
 README.md
-docs
+/docs
