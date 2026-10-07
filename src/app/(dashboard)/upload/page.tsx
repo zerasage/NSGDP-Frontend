@@ -682,16 +682,6 @@ export default function UploadDatasetPage() {
             <div className="space-y-5">
               <div>
                 <FieldLabelTooltip
-                  label="Data License"
-                  tooltip={UPLOAD_FIELD_TOOLTIPS.dataLicense}
-                />
-                <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                  {DEFAULT_DATASET_LICENSE}
-                </p>
-              </div>
-
-              <div>
-                <FieldLabelTooltip
                   htmlFor="methodology"
                   label="Methodology"
                   tooltip={UPLOAD_FIELD_TOOLTIPS.methodology}
