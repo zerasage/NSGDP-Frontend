@@ -676,9 +676,14 @@ export default function UploadDatasetPage() {
 
           {currentStep === 3 && (
             <div className="space-y-5">
-              <p className="text-sm text-muted-foreground">{UPLOAD_FIELD_TOOLTIPS.files}</p>
-
-              <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
+              <div>
+                <FieldLabelTooltip
+                  label="Data files"
+                  required
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.files}
+                />
+                <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
+              </div>
               <FormError message={stepErrors.files} />
 
               <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
