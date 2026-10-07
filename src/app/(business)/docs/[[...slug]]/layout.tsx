@@ -21,6 +21,7 @@ export default function DocsRootLayout({ children }: { children: ReactNode }) {
           tree={source.pageTree}
           nav={{ enabled: false }}
           sidebar={{ components: { Separator: SidebarGroupHeader } }}
+          themeSwitch={{ enabled: false }}
         >
           {children}
         </DocsLayout>

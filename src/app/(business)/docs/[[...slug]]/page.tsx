@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle, type DocsPageProps } from 'fumadocs-ui/page';
 import { source } from '@/lib/docs/source';
 import { getMDXComponents } from '@/components/docs/mdx-components';
+import { CompactFooter } from '@/components/layout/compact-footer';
 
 type Props = { params: Promise<{ slug?: string[] }> };
 
@@ -33,6 +34,7 @@ export default async function Page(props: Props) {
       <DocsBody>
         <MDX components={getMDXComponents()} />
       </DocsBody>
+      <CompactFooter />
     </DocsPage>
   );
 }
