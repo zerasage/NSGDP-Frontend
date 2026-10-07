@@ -415,3 +415,44 @@
 #nd-toc {
   inset-inline-end: 1.5rem !important;
 }
+
+/* Docs sidebar scrollbar: always-visible thin scrollbar, matching the
+   learning hub's .thin-scrollbar, instead of Fumadocs' Radix scrollbar that
+   only fades in while actively scrolling. Fumadocs hides the viewport's
+   native scrollbar via an inline <style> tag with no !important — this
+   overrides it. The Radix-rendered animated thumb (data-orientation on its
+   own scrollbar element) is hidden so it doesn't double up with this one. */
+#nd-sidebar [data-radix-scroll-area-viewport] {
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--border) transparent;
+}
+#nd-sidebar [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  display: block !important;
+  width: 6px;
+}
+#nd-sidebar [data-radix-scroll-area-viewport]::-webkit-scrollbar-track {
+  background: transparent;
+}
+#nd-sidebar [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 9999px;
+}
+#nd-sidebar [data-orientation='vertical'] {
+  display: none;
+}
+
+/* Docs sidebar header: put the collapse-sidebar icon inline with the search
+   bar instead of on its own row above it (Fumadocs' default stacks them).
+   Selectors key off the collapse button's aria-label and the search button's
+   data-search-full attribute — both stable, not generated Tailwind classes. */
+#nd-sidebar > div:has([aria-label='Collapse Sidebar']) {
+  flex-direction: row;
+  align-items: center;
+}
+#nd-sidebar > div:has([aria-label='Collapse Sidebar']) > div:has([aria-label='Collapse Sidebar']) {
+  flex-shrink: 0;
+}
+#nd-sidebar [data-search-full] {
+  flex: 1;
+  min-width: 0;
+}
