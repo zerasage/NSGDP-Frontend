@@ -34,11 +34,11 @@ description: The security controls in place, where each one lives in the code, a
 
 ## Items to check before go-live
 
-1. **Check: published data-store ports.** The production compose file publishes PostgreSQL (5432), Redis (6379), and ClamAV (3310) on the host. Remove those port mappings, or block them at the firewall. Data stores should not be reachable from outside the host. See [Deployment](/deployment).
+1. **Check: published data-store ports.** The production compose file publishes PostgreSQL (5432), Redis (6379), and ClamAV (3310) on the host. Remove those port mappings, or block them at the firewall. Data stores should not be reachable from outside the host. See [Deployment](/docs/deployment).
 2. **Check: database password default.** The configuration reads `DATABASE_PASSWORD` with the code default `postgres`. The validator requires the variable, so the default should not apply in production. Confirm the server sets a strong value.
-3. **Check: hard delete flag.** `ENABLE_DATASET_HARD_DELETE` defaults to off. Confirm its production value. See [Operations](/operations).
+3. **Check: hard delete flag.** `ENABLE_DATASET_HARD_DELETE` defaults to off. Confirm its production value. See [Operations](/docs/operations).
 4. **Check: secret handling.** All secrets come from the server environment. None belong in git or in this site. Rotate any secret that has ever been pasted into chat or a ticket.
-5. **Check: development pages.** Confirm that development-only frontend pages are not reachable in production. See [Frontend](/frontend).
+5. **Check: development pages.** Confirm that development-only frontend pages are not reachable in production. See [Frontend](/docs/frontend).
 
 ## Test evidence
 

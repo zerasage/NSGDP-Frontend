@@ -57,7 +57,7 @@ npm run dev              # port 3003
 ## Environment
 
 - Copy `.env.example` (or `example.env`) to `.env` in each app. Do not commit `.env`.
-- The backend validates its environment at start-up. A missing required variable stops the process with a message. See [Environment variables](/reference/env).
+- The backend validates its environment at start-up. A missing required variable stops the process with a message. See [Environment variables](/docs/reference/env).
 
 ## Tests
 
@@ -74,17 +74,17 @@ Run the tests that cover the files you change before you commit.
 
 1. **Lint single files.** Use `npx eslint <files>`. The repository-wide `npm run lint` script has `--fix` and rewrites files across the whole backend. Run it only on purpose.
 2. **Never edit a migration that has run.** Add a new migration instead.
-3. **Do not rename a queue.** Queue names are Redis keys. A rename orphans the jobs already waiting. See [Queues](/reference/queues).
-4. **Do not change a capability key without a plan.** Keys are stored in the database and granted to people. See [Capabilities](/reference/capabilities).
+3. **Do not rename a queue.** Queue names are Redis keys. A rename orphans the jobs already waiting. See [Queues](/docs/reference/queues).
+4. **Do not change a capability key without a plan.** Keys are stored in the database and granted to people. See [Capabilities](/docs/reference/capabilities).
 5. **Keep the UI check and the backend check in step.** Hiding a button is not security. The backend guard must reject the call too.
 6. **Work on a branch.** The project uses `updates` for work in progress and `main` for released code. Merge to `main` only after review.
 
 ## Where to start reading
 
-1. [Architecture](/architecture): the big picture.
-2. [Backend](/backend): the request path and guards.
-3. [Dataset lifecycle](/dataset-review): the business rules most features touch.
-4. [Ingestion overview](/ingestion-overview): the hardest part of the system.
+1. [Architecture](/docs/architecture): the big picture.
+2. [Backend](/docs/backend): the request path and guards.
+3. [Dataset lifecycle](/docs/dataset-review): the business rules most features touch.
+4. [Ingestion overview](/docs/ingestion-overview): the hardest part of the system.
 
 ## Source files
 

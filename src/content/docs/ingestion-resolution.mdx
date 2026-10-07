@@ -57,7 +57,7 @@ A conflict means two rows claim different values for the same indicator, place, 
 
 ## Publishing
 
-1. The dataset must be approved. See [Dataset lifecycle](/dataset-review).
+1. The dataset must be approved. See [Dataset lifecycle](/docs/dataset-review).
 2. A publication row is created with a status. The publish job writes publishable rows to the public tables.
 3. An analytics refresh runs after publishing. Its status is tracked per dataset, so a failed refresh stays visible.
 4. **Retraction.** A retract request removes a publication and marks it retracted. Retracted rows are pruned by a daily job after 90 days.

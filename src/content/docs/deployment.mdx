@@ -52,11 +52,11 @@ The docs are part of the frontend app (`nsgdp-frontend`). They deploy with it. N
 
 ## Frontend and admin hosting
 
-These two apps are not in the compose file. Their build and hosting method is **not documented in this repository**. Confirm with whoever runs the hosting. See [Known gaps](/known-gaps).
+These two apps are not in the compose file. Their build and hosting method is **not documented in this repository**. Confirm with whoever runs the hosting.
 
 ## Environment
 
-- Variables are read from the server environment. The full list is in [Environment variables](/reference/env).
+- Variables are read from the server environment. The full list is in [Environment variables](/docs/reference/env).
 - `ROLE` must be `api` for the backend service and `worker` for the worker service. A mismatch stops the process at start-up.
 - `ENABLE_DATASET_HARD_DELETE` must be set explicitly on the backend service if the hard-delete page is needed.
 

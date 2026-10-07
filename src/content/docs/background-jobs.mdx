@@ -62,7 +62,7 @@ description: The worker process, the Redis queues, retries, dead-letter handling
     W1 & W2 & W3 & W4 & W5 & W6 & W7 & W8 & W9 -. "terminal failure" .-> DL`}
 />
 
-Queue names, concurrency, priority, and retry settings are generated in [Queues](/reference/queues). That table is the source of truth. This page explains the behaviour behind it.
+Queue names, concurrency, priority, and retry settings are generated in [Queues](/docs/reference/queues). That table is the source of truth. This page explains the behaviour behind it.
 
 ## Retries and failure
 
@@ -102,7 +102,7 @@ Schedules are registered at start-up with `upsertJobScheduler`. Restarting the w
 
 ## Queues declared but not running
 
-The queue list includes one name with no worker: `export`. It is declared for a planned feature (async exports) that the project marked as not building for the pilot. See [Known gaps](/known-gaps).
+The queue list includes one name with no worker: `export`. It is declared for a planned feature (async exports) that the project marked as not building for the pilot.
 
 ## Source files
 

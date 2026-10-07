@@ -9,7 +9,7 @@ description: How the staff console is organised, how it shows capabilities, and 
 
 - Sidebar: navigation, with badges for pending work (refreshed every 30 seconds).
 - Top bar: the notification bell (a link to the notifications page) and the theme switch.
-- Pages: one folder per area under `app/(admin)/`. The full route list is in [Routes](/reference/routes).
+- Pages: one folder per area under `app/(admin)/`. The full route list is in [Routes](/docs/reference/routes).
 
 ## How the console knows what a user can do
 
@@ -28,7 +28,7 @@ description: How the staff console is organised, how it shows capabilities, and 
 />
 
 - `can(key)` checks one capability. `canAny(...)` checks a list.
-- Keys look like `validate:datasets` or `approve:datasets`. Full list: [Capabilities](/reference/capabilities).
+- Keys look like `validate:datasets` or `approve:datasets`. Full list: [Capabilities](/docs/reference/capabilities).
 
 ## Main areas
 
@@ -50,7 +50,7 @@ description: How the staff console is organised, how it shows capabilities, and 
 
 - The page `app/(admin)/dataset-cleanup` permanently deletes datasets. Only super admins can open it.
 - It is **not linked in the sidebar**.
-- The backend switches it on only when `ENABLE_DATASET_HARD_DELETE=true`. The default is off. See [Operations](/operations).
+- The backend switches it on only when `ENABLE_DATASET_HARD_DELETE=true`. The default is off. See [Operations](/docs/operations).
 
 ## Source files
 

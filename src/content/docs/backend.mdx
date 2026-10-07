@@ -43,7 +43,7 @@ description: How the NestJS API is organised, how a request is checked, and how 
 ## Access control in code
 
 - `@RequireAccess(roles, capability)` sits on each endpoint. It names the roles and the capability key allowed to call it.
-- All capability keys are listed in [Capabilities](/reference/capabilities).
+- All capability keys are listed in [Capabilities](/docs/reference/capabilities).
 - A super admin passes every capability check. Other staff need a permission group that grants the key.
 
 ## Two authentication stacks
@@ -118,7 +118,7 @@ description: How the NestJS API is organised, how a request is checked, and how 
 
 - TypeORM entities sit in each module's `entities/` folder.
 - Schema changes go through migrations in `src/database`. Do not change tables by hand.
-- The full table list is in [Database tables](/reference/tables).
+- The full table list is in [Database tables](/docs/reference/tables).
 
 ## Source files
 

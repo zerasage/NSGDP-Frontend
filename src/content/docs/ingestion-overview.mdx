@@ -61,7 +61,7 @@ description: How an uploaded spreadsheet travels from upload to staged rows, whi
 ## Progress reporting
 
 - The worker writes stage state to `ingestion_jobs`: status, progress, and a step list.
-- Each stage carries a weight. Weights total 100. See [Pipeline stages](/ingestion-stages).
+- Each stage carries a weight. Weights total 100. See [Pipeline stages](/docs/ingestion-stages).
 - The admin ingestion page and the upload progress stream read this row. The stream is a server-sent events route under `/datasets/:id/ingestion/stream`.
 
 ## Where to look when an upload is stuck
@@ -71,7 +71,7 @@ description: How an uploaded spreadsheet travels from upload to staged rows, whi
 3. Logs for the worker container: look for the dataset ID.
 4. `ingestion_jobs` table: `status`, `heartbeat_at`, and `error` columns.
 
-More steps are in [Operations](/operations).
+More steps are in [Operations](/docs/operations).
 
 ## Source files
 

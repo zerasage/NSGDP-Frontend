@@ -15,7 +15,7 @@ Next.js route groups in brackets do not appear in the URL. They group pages that
 | `(auth)` | Signed-out users | Login, register, MFA, password reset |
 | `(dashboard)` | Signed-in users and contributors | Dashboard, my datasets, upload, notifications, profile |
 
-The full route list is generated in [Routes](/reference/routes).
+The full route list is generated in [Routes](/docs/reference/routes).
 
 ## Data flow
 
@@ -52,7 +52,6 @@ The full route list is generated in [Routes](/reference/routes).
 
 ## Known items to review
 
-- `src/app/(dashboard)/api-test` and `src/app/architecture-old` look like development pages. Confirm they should ship. See [Known gaps](/known-gaps).
 - `src/lib/mock` holds sample data. Confirm no page reads it in production.
 
 ## Source files

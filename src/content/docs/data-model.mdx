@@ -3,7 +3,7 @@ title: Data model
 description: How the PostgreSQL schema is grouped, the core relationships, and how schema changes are made.
 ---
 
-**The database holds about 68 tables in PostgreSQL with PostGIS.** The core of the model is a dataset, the submission ticket that tracks its review, and the workflow actions that record each decision. Ingestion adds staging tables for the raw and resolved rows. The exact list is generated in [Database tables](/reference/tables).
+**The database holds about 68 tables in PostgreSQL with PostGIS.** The core of the model is a dataset, the submission ticket that tracks its review, and the workflow actions that record each decision. Ingestion adds staging tables for the raw and resolved rows. The exact list is generated in [Database tables](/docs/reference/tables).
 
 ## Core relationships
 
@@ -64,7 +64,7 @@ description: How the PostgreSQL schema is grouped, the core relationships, and h
 - Primary keys are UUIDs.
 - Status columns hold text values from an enum in the entity file (for example `DatasetStatus`).
 - Every review transition writes one row to `workflow_actions`. This is the audit thread.
-- Soft delete is used where history matters. Hard delete exists only for datasets, behind a gate (see [Operations](/operations)).
+- Soft delete is used where history matters. Hard delete exists only for datasets, behind a gate (see [Operations](/docs/operations)).
 
 ## Schema changes
 
@@ -74,10 +74,6 @@ description: How the PostgreSQL schema is grouped, the core relationships, and h
 4. Commit the migration with the code change. Never edit a migration that has already run in production.
 
 **Exception: enum changes need care.** PostgreSQL cannot use a new enum value inside the same transaction that added it. Keep enum additions in their own migration.
-
-## Known schema issue
-
-**Two entity classes map to the same table `notifications`.** One is in `src/modules/notifications/entities/`, the other in `src/modules/users/entities/`. The users module imports the notifications one. Confirm the users-folder file is unused before deleting it. See [Known gaps](/known-gaps).
 
 ## Source files
 
