@@ -128,10 +128,6 @@ export const uploadStep2Schema = z
     { message: "Start date must be before end date", path: ["temporalCoverageEnd"] }
   );
 
-export const uploadStep4Schema = z.object({
-  license: z.string().min(1, "License is required"),
-});
-
 export const uploadStep5Schema = z.object({
   visibility: z.enum(["public", "restricted", "private"]),
 });

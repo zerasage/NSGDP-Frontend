@@ -272,7 +272,7 @@ export const GUIDES: Guide[] = [
       },
       {
         title: "Step 4 — Governance",
-        body: "Choose a data licence (suggestions are provided, or type your own). Describe the methodology and any known limitations — reviewers read these closely.",
+        body: "All datasets use the standard CC-BY-4.0 licence. Describe the methodology and any known limitations — reviewers read these closely.",
       },
       {
         title: "Step 5 — Contact & visibility",
@@ -331,8 +331,8 @@ export const GUIDES: Guide[] = [
         body: "Name the measures precisely, for example Confirmed cases or ANC 4th visit attendance. Use the same wording as the column headers where you can.",
       },
       {
-        title: "Licence, methodology, limitations",
-        body: "Say how the data was collected (for example Facility-based routine reporting via DHIS2). Be honest about gaps — reporting delays or excluded private facilities help users use the data correctly.",
+        title: "Standard licence, methodology, limitations",
+        body: "All datasets use the standard CC-BY-4.0 licence. Say how the data was collected (for example Facility-based routine reporting via DHIS2). Be honest about gaps — reporting delays or excluded private facilities help users use the data correctly.",
         screenshot: "Governance step with methodology and limitations filled in",
       },
       {
@@ -352,7 +352,7 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "choose-visibility",
-    title: "Choose the right visibility and licence",
+    title: "Choose the right visibility",
     summary:
       "Public, Restricted, or Private — what each means for who can see, preview, and download your dataset.",
     category: "contribute",
@@ -364,7 +364,6 @@ export const GUIDES: Guide[] = [
     outcomes: [
       "Match a dataset's sensitivity to a visibility setting",
       "Explain what happens when someone requests access",
-      "Pick a licence that fits how you want data reused",
     ],
     steps: [
       {
@@ -385,8 +384,8 @@ export const GUIDES: Guide[] = [
         body: "Visibility can be adjusted after approval without reverting the review. NSPHCDA may also reclassify a dataset if there is a data-protection concern and will try to notify you.",
       },
       {
-        title: "Pick a licence",
-        body: "CC-BY-4.0 allows open reuse with attribution. Restricted use or All Rights Reserved limits reuse. The field accepts custom text if none of the suggestions fit.",
+        title: "Standard data licence",
+        body: "All datasets use CC-BY-4.0, which allows reuse with attribution. Visibility settings separately control who can access the dataset.",
       },
     ],
     cta: { label: "Open your datasets", href: "/datasets" },

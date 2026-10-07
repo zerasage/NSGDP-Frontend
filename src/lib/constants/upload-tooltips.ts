@@ -28,7 +28,7 @@ export const UPLOAD_FIELD_TOOLTIPS = {
 
   // Governance
   dataLicense:
-    "The license under which this data can be used. 'CC BY 4.0' allows open reuse with attribution. 'Restricted Use' means internal/partner access only.",
+    "All datasets use CC-BY-4.0, which allows reuse with attribution.",
   methodology:
     "How the data was collected or produced. E.g. 'Facility-based routine reporting via DHIS2' or 'Household survey, random sampling'.",
   limitations:

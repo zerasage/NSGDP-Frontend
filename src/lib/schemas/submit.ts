@@ -29,9 +29,6 @@ export const submitDatasetSchema = z.object({
     { message: "Select update frequency" }
   ),
 
-  // ── Governance ───────────────────────────────────────────────────────
-  dataLicense: z.string().min(1, "Enter or select a license"),
-
   // ── Description & keywords ───────────────────────────────────────────
   description: z.string().min(20, "Description must be at least 20 characters"),
   tags: z.string().min(1, "Add at least one tag"),

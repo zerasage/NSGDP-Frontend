@@ -14,7 +14,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HelpTip } from "@/components/ui/help-tip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Autocomplete } from "@/components/ui/autocomplete";
 import {
   DashboardPage,
   DashboardPageContent,
@@ -34,11 +33,10 @@ import { useDraftAutoSave } from "@/lib/hooks/useDraftAutoSave";
 import {
   uploadStep1Schema,
   uploadStep2Schema,
-  uploadStep4Schema,
   uploadStep5Schema,
 } from "@/lib/schemas/auth";
 import {
-  LICENSE_OPTIONS,
+  DEFAULT_DATASET_LICENSE,
   UPDATE_FREQUENCY_OPTIONS,
 } from "@/lib/constants/dataset-metadata";
 import type { DatasetVisibility } from "@/lib/api/datasets";
@@ -94,7 +92,6 @@ export default function EditDatasetPage({
   const [temporalCoverageEnd, setTemporalCoverageEnd] = useState("");
   const [diseaseIndicators, setDiseaseIndicators] = useState<string[]>([]);
   const [indicatorInput, setIndicatorInput] = useState("");
-  const [license, setLicense] = useState("");
   const [methodology, setMethodology] = useState("");
   const [limitations, setLimitations] = useState("");
   const [visibility, setVisibility] = useState<DatasetVisibility>("public");
@@ -120,7 +117,6 @@ export default function EditDatasetPage({
       setTemporalCoverageStart(dataset.temporal_coverage_start?.slice(0, 10) || "");
       setTemporalCoverageEnd(dataset.temporal_coverage_end?.slice(0, 10) || "");
       setDiseaseIndicators(dataset.disease_indicators || []);
-      setLicense(dataset.license || "");
       setMethodology(dataset.methodology || "");
       setLimitations(dataset.limitations || "");
       setResponsibleDept(dataset.responsible_dept || "");
@@ -208,20 +204,6 @@ export default function EditDatasetPage({
     return true;
   };
 
-  const validateStep4 = () => {
-    const result = uploadStep4Schema.safeParse({ license });
-    if (!result.success) {
-      const errors: Record<string, string> = {};
-      result.error.issues.forEach((i) => {
-        errors[i.path[0] as string] = i.message;
-      });
-      setStepErrors(errors);
-      return false;
-    }
-    setStepErrors({});
-    return true;
-  };
-
   const validateStep5 = () => {
     const result = uploadStep5Schema.safeParse({ visibility });
     if (!result.success) {
@@ -237,7 +219,7 @@ export default function EditDatasetPage({
   };
 
   const handleSave = async (isDraft: boolean) => {
-    if (!validateStep1() || !validateStep2() || !validateStep3() || !validateStep4() || !validateStep5()) return;
+    if (!validateStep1() || !validateStep2() || !validateStep3() || !validateStep5()) return;
 
     setSaving(true);
 
@@ -253,7 +235,7 @@ export default function EditDatasetPage({
           temporalCoverageStart: temporalCoverageStart || undefined,
           temporalCoverageEnd: temporalCoverageEnd || undefined,
           diseaseIndicators: diseaseIndicators.length > 0 ? diseaseIndicators : undefined,
-          license: license || undefined,
+          license: DEFAULT_DATASET_LICENSE,
           methodology: methodology || undefined,
           limitations: limitations || undefined,
           responsibleDept: responsibleDept || undefined,
@@ -657,20 +639,11 @@ export default function EditDatasetPage({
               <div>
                 <FieldLabelTooltip
                   label="Data License"
-                  required
                   tooltip={UPLOAD_FIELD_TOOLTIPS.dataLicense}
                 />
-                <Autocomplete
-                  id="license"
-                  items={[...LICENSE_OPTIONS]}
-                  value={license}
-                  onValueChange={setLicense}
-                  placeholder="Select a license or type your own…"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Suggestions only — you can type a custom license.
+                <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                  {DEFAULT_DATASET_LICENSE}
                 </p>
-                <FormError message={stepErrors.license} />
               </div>
 
               <div>
@@ -707,7 +680,7 @@ export default function EditDatasetPage({
                 <Button variant="outline" className="h-11 w-full sm:w-auto" onClick={() => setCurrentStep(3)} disabled={isBusy}>
                   Back
                 </Button>
-                <Button className="h-11 w-full sm:w-auto" onClick={() => validateStep4() && setCurrentStep(5)} disabled={isBusy}>
+                <Button className="h-11 w-full sm:w-auto" onClick={() => setCurrentStep(5)} disabled={isBusy}>
                   Next: Contact & settings
                 </Button>
               </div>
